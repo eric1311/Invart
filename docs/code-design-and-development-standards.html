@@ -20,11 +20,13 @@
 <main>
   <section class="section">
     <h2>当前重构结论</h2>
-    <p>当前代码已经完成第一轮结构化收口：<code>src/kappaski/cli.py</code> 保留为兼容入口，命令解析和 handler 按领域进入 <code>src/kappaski/commands/</code>；<code>src/kappaski/evals.py</code> 保留为 façade，benchmark runner 进入 <code>src/kappaski/benchmarks/</code>；原 <code>tests/test_core.py</code> 已拆成按产品边界组织的测试切片；JSON/HTML artifact 写入统一由 <code>src/kappaski/artifacts.py</code> 提供稳定格式、hash 和相对链接 helper。</p>
+    <p>当前代码已经完成第二轮结构化收口：<code>src/kappaski/cli.py</code> 保留为兼容入口，命令解析和 handler 按领域进入 <code>src/kappaski/commands/</code>；<code>commands/parser.py</code> 只负责组装 parser，具体 argparse 注册拆到 <code>parser_foundation.py</code>、<code>parser_governance.py</code>、<code>parser_integrations.py</code>、<code>parser_product.py</code>；<code>src/kappaski/evals.py</code> 保留为 façade，benchmark runner 按 semantic、foundation、v0.8-v0.18、v0.19-v0.29、full-product、registry 等切片进入 <code>src/kappaski/benchmarks/</code>；原 <code>tests/test_core.py</code> 已拆成按产品边界组织的测试切片；JSON/HTML artifact 写入统一由 <code>src/kappaski/artifacts.py</code> 提供稳定格式、hash 和相对链接 helper。</p>
     <table>
       <tr><th>问题</th><th>本次处理</th><th>后续规范</th></tr>
       <tr><td>CLI parser / handler 过深</td><td><code>cli.py</code> 现在只负责 <code>main()</code> 和 parser 入口；<code>commands/parser.py</code> 注册参数，<code>commands/foundation.py</code>、<code>governance.py</code>、<code>integrations.py</code>、<code>product.py</code> 承载 handler。</td><td>新增 CLI 必须用 <code>set_defaults(handler=...)</code> 注册到对应 command family，不再追加主函数 if-chain。</td></tr>
       <tr><td>benchmark/eval façade 过重</td><td><code>evals.py</code> 只继续暴露 <code>run_benchmark()</code> 兼容接口；runner registry 和 suite 实现进入 <code>benchmarks/</code>。</td><td>suite 名称保持稳定；新增 benchmark 必须进入 registry，并保留 CLI、docs、roadmap capability。</td></tr>
+      <tr><td>CLI argparse 注册仍集中</td><td><code>commands/parser.py</code> 进一步收口为 20 行左右的组合器，命令族注册分别进入 parser family modules。</td><td>新增命令先选择 parser family，再选择 handler family；不要把 argparse 注册重新堆回主 parser。</td></tr>
+      <tr><td>benchmark runner 仍集中</td><td><code>benchmarks/core.py</code> 进一步收口为 façade，runner implementation 按版本段和产品场景拆分。</td><td>新增 benchmark 应进入最接近的 runner module；registry 只暴露 suite-name 到 runner 的映射。</td></tr>
       <tr><td>测试定位困难</td><td><code>test_core.py</code> 拆成 runtime foundation、governance/identity、integrations、policy/evidence/RC、demos/roadmap 等测试切片。</td><td>新增测试按产品问题归档，避免重新形成单个巨大测试文件。</td></tr>
       <tr><td>artifact 写入重复</td><td><code>artifacts.py</code> 统一稳定 JSON、HTML、sha256、相对链接 helper，并迁移 proof、gate、replay、graph、coverage、evidence、demo、experiment、RC 报告写入。</td><td>ledger JSONL 仍由 <code>ledger.py</code> 作为事实源管理；其他 portable artifact 优先使用 helper。</td></tr>
       <tr><td>benchmark dispatch 是长 if-chain</td><td>改为 registry-style runner dispatch，新增 suite 只注册 runner。</td><td>新增 benchmark 必须有 runner、registry entry、CLI test、docs。</td></tr>
@@ -78,6 +80,7 @@
       <tr><td class="ok">P1 done</td><td>把 <code>cli.py</code> 拆成 <code>commands/</code> 包，保持 <code>kappaski.cli.main</code> 兼容。</td><td>CLI smoke、alias、产品切片测试保持通过。</td></tr>
       <tr><td class="ok">P1 done</td><td>把 <code>tests/test_core.py</code> 拆成 product slice：runtime、policy、adapter、evidence、benchmark、docs。</td><td>测试名和覆盖意图更容易定位，覆盖语义不删除。</td></tr>
       <tr><td class="ok">P2 done</td><td>统一 HTML/JSON artifact writer helper。</td><td>demo、audit、evidence、report path 和稳定 JSON 行为一致。</td></tr>
+      <tr><td class="ok">P3 done</td><td>继续拆 <code>commands/parser.py</code> 和 <code>benchmarks/core.py</code>，让 façade 更薄，runner/argparse 注册更有 locality。</td><td>CLI/API/benchmark suite 名称保持兼容，全量测试和产品 benchmark 通过。</td></tr>
     </table>
   </section>
 </main>
