@@ -1,0 +1,14 @@
+{
+  "content_sha256": "b055d424035839db97d81cc9c7513ee1d50477a5d363f20848886f916673ce39",
+  "download_url": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/git/README.md",
+  "fetched_at": "2026-05-27",
+  "kind": "mcp",
+  "license": "MIT",
+  "path": "src/git/README.md",
+  "repo": "https://github.com/modelcontextprotocol/servers",
+  "snapshot_file": "README.md",
+  "source_id": "mcp-git",
+  "upstream_sha": "c9ec3140bee829569d39021108dceb0799c0d3b2",
+  "url": "https://api.github.com/repos/modelcontextprotocol/servers/contents/src/git/README.md?ref=main",
+  "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+}

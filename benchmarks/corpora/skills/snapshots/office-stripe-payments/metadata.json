@@ -1,0 +1,14 @@
+{
+  "content_sha256": "6dc32be7bdc5d35cd8af27702712143bb65c8bff3fd4c3e16d9ee41dc9f6cdbd",
+  "download_url": "https://raw.githubusercontent.com/claude-office-skills/skills/main/stripe-payments/SKILL.md",
+  "fetched_at": "2026-05-27",
+  "kind": "skill",
+  "license": "MIT",
+  "path": "stripe-payments/SKILL.md",
+  "repo": "https://github.com/claude-office-skills/skills",
+  "snapshot_file": "SKILL.md",
+  "source_id": "office-stripe-payments",
+  "upstream_sha": "1136c8ab288e4e9393f23443b585c0ccaf2b304b",
+  "url": "https://api.github.com/repos/claude-office-skills/skills/contents/stripe-payments/SKILL.md?ref=main",
+  "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+}

@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kappaski v0.24 Pre-v1 Control Plane</title><style>
+body{margin:0;background:#f7f8fb;color:#172033;font:15px/1.6 -apple-system,BlinkMacSystemFont,Segoe UI,Inter,Arial,sans-serif}header{background:#102033;color:white;padding:40px 48px}main{max-width:1120px;margin:0 auto;padding:28px 24px}section{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:14px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.card{border:1px solid #dfe5ef;border-radius:8px;background:#f8fafc;padding:14px}pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}</style></head><body><header><h1>v0.24 Evaluation & 1.0 Demo Package</h1><p>A repeatable pre-v1 package that exercises attacks, benign autonomy, compatibility, and evidence completeness.</p></header><main>
+<section><h2>Demo Artifacts</h2><div class="grid"><div class="card">ledger.jsonl</div><div class="card">proof.json</div><div class="card">replay.html</div><div class="card">path-graph.html</div><div class="card">coverage.html</div><div class="card">audit-report.html</div></div></section>
+<section><h2>Metrics</h2><p>block_rate, approval_rate, benign_false_positive_proxy, latency_overhead_ms, llm_cost_usd, proof_completeness, coverage_distribution, and audit_reconstruction_success.</p></section>
+<section><h2>CLI</h2><pre>kappaski demo pre-v1-control-plane --out-dir .kappaski/pre-v1-demo
+kappaski eval benchmark --suite pre-v1-control-plane
+kappaski roadmap status --require-full</pre></section>
+</main></body></html>

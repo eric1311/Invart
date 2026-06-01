@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>v0.40 Full SWE-Bench Validation Contract</title>
+  <style>
+    body{font-family:Inter,Arial,sans-serif;margin:0;background:#f6f8fb;color:#172033}
+    header,main{max-width:1080px;margin:0 auto;padding:32px 24px}
+    header{padding-top:44px}
+    .badge{display:inline-block;border:1px solid #6b8f71;background:#edf7ef;color:#255232;border-radius:999px;padding:4px 10px;font-size:13px}
+    .section{background:#fff;border:1px solid #dfe5ef;border-radius:10px;padding:18px;margin:16px 0}
+    table{width:100%;border-collapse:collapse;margin:12px 0}
+    th,td{border-bottom:1px solid #e5eaf2;text-align:left;padding:10px;vertical-align:top}
+    th{background:#f0f4f8}
+    code{font-family:SFMono-Regular,Consolas,monospace}
+    pre{background:#111827;color:#e5e7eb;padding:14px;border-radius:8px;overflow:auto}
+    a{color:#2457a6}
+  </style>
+</head>
+<body>
+<header>
+  <span class="badge">v0.40 implemented contract</span>
+  <h1>Full SWE-Bench Validation Contract</h1>
+  <p>v0.40 turns SWE-Bench from a Lite smoke check into an explicit full-run validation contract. It does not claim that this workspace has already completed the full upstream run; it makes such a run executable, checkable, and impossible to confuse with subset validation.</p>
+</header>
+<main>
+  <section class="section">
+    <h2>Why This Exists</h2>
+    <p>Kappaski's benchmark story needs one hard line: full SWE-Bench evidence must be produced by the official full dataset path, through the normal runner chain, with all instances accounted for. Lite fixtures, metadata replay, fake harnesses, and subset smoke checks are still useful for development, but they cannot satisfy external validation.</p>
+  </section>
+
+  <section class="section">
+    <h2>Implemented Product Behavior</h2>
+    <table>
+      <tr><th>Requirement</th><th>v0.40 behavior</th></tr>
+      <tr><td>Dataset</td><td>Defaults to <code>SWE-bench/SWE-bench</code>, <code>split=test</code>. The equivalent <code>princeton-nlp/SWE-bench</code> id is accepted.</td></tr>
+      <tr><td>Completeness</td><td>Requires all data mode: no instance subset, submitted equals total, completed equals submitted, zero error instances.</td></tr>
+      <tr><td>Known size</td><td>Defaults to 2294 expected instances for full SWE-Bench; tests can override this for local contract fixtures.</td></tr>
+      <tr><td>Artifacts</td><td>Validates modern <code>results/&lt;run_id&gt;.json</code> plus <code>results/&lt;run_id&gt;/instance_results.jsonl</code>, and the official <code>swebench==4.1.0</code> shape: <code>gold.&lt;run_id&gt;.json</code> plus <code>logs/run_evaluation/&lt;run_id&gt;/&lt;model&gt;/&lt;instance&gt;/report.json</code>.</td></tr>
+      <tr><td>Truthfulness</td><td>Subset runs and missing artifacts fail the full-validation report instead of being reported as success.</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>Official Sources</h2>
+    <p>The contract follows the public SWE-Bench framing and official harness entrypoint:</p>
+    <ul>
+      <li><a href="https://www.swebench.com/">SWE-Bench benchmark site</a></li>
+      <li><a href="https://github.com/SWE-bench/SWE-bench">SWE-Bench GitHub repository</a></li>
+      <li><a href="https://www.swebench.com/SWE-bench/guides/evaluation/">SWE-Bench evaluation guide</a></li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <h2>Run The Full Validation</h2>
+    <p>Use this command only when the official SWE-Bench package, Docker, datasets, and prediction file are ready. Do not pass <code>--allow-subset</code> for release evidence.</p>
+    <pre>PYTHONPATH=src python3 -m kappaski.cli external-validation swe-bench-full \
+  --python /path/to/swebench-python \
+  --predictions-path /path/to/predictions.jsonl \
+  --run-id kappaski_full_2026_05_31 \
+  --work-dir .kappaski/swe-bench-full \
+  --max-workers 12 \
+  --timeout 1800 \
+  --out .kappaski/swe-bench-full/full-validation.json</pre>
+  </section>
+
+  <section class="section">
+    <h2>Development Contract Test</h2>
+    <p>The local benchmark is a contract test: it checks Kappaski's parser, CLI, artifact discovery, all-data assertions, and subset rejection without pretending to be the upstream benchmark result.</p>
+    <pre>PYTHONPATH=src python3 -m kappaski.cli eval benchmark --suite v0.40-swe-bench-full-validation-contract</pre>
+  </section>
+
+  <section class="section">
+    <h2>Acceptance Boundary</h2>
+    <table>
+      <tr><th>Passes</th><th>Does Not Prove</th></tr>
+      <tr><td><code>v0.40-swe-bench-full-validation-contract</code></td><td>Only proves Kappaski can validate a full-run-shaped official report and reject subset evidence.</td></tr>
+      <tr><td><code>external-validation swe-bench-full</code> with complete artifacts</td><td>Proves full SWE-Bench external validation for the supplied prediction file and run id.</td></tr>
+      <tr><td><code>roadmap status --require-full</code></td><td>Does not imply external validation. Use <code>--require-external-validation</code> for that gate.</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

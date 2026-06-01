@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Kappaski Enterprise Unregistered Agent Coverage Roadmap</title>
+  <style>
+    :root{--bg:#f7f8fb;--panel:#fff;--ink:#172033;--muted:#607089;--line:#dfe5ef;--blue:#2563eb;--green:#0f8b5f;--amber:#a16207;--red:#c2410c;--dark:#0f172a}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,Segoe UI,Inter,Arial,sans-serif}
+    header{background:var(--dark);color:#fff;padding:44px 48px}header p{max-width:980px;color:#cbd5e1}
+    main{max-width:1120px;margin:0 auto;padding:30px 24px}.section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin:18px 0}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}th{background:#f1f5f9}
+    code,pre{font-family:SFMono-Regular,Consolas,monospace}code{background:#eef2f7;padding:2px 5px;border-radius:5px}pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:10px;overflow:auto}
+    a{color:var(--blue);text-decoration:none}.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#e0ecff;color:#1d4ed8;font-size:12px;font-weight:700}
+    .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-weight:700}.arrow{color:var(--muted);font-weight:700}.ok{color:var(--green);font-weight:700}.warn{color:var(--amber);font-weight:700}.bad{color:var(--red);font-weight:700}
+  </style>
+</head>
+<body>
+<header><span class="badge">enterprise coverage</span><h1>Unregistered Agent Discovery And Coverage Roadmap</h1><p>企业环境里不能假设所有 agent 都会主动通过 Kappaski daemon 注册。这个文档定义“已注册、已发现、已调解、已强制”的覆盖模型，以及后续 roadmap 如何尽量收口未注册 agent。</p></header>
+<main>
+  <section class="section">
+    <h2>核心判断</h2>
+    <p>Kappaski daemon 的 session registry 是最干净的事实入口，但真实企业环境一定会出现 bypass：用户直接启动 CLI agent、IDE extension 自带 agent、CI runner 中的 agent、临时脚本、MCP server 或浏览器插件。Kappaski 不能在没有 OS/EDR/MDM 权限时声称完全覆盖，但可以做三件事：发现、标记 coverage gap、把高风险入口迁移到可调解路径。</p>
+    <div class="flow"><span class="node">Registered</span><span class="arrow">→</span><span class="node">Discovered</span><span class="arrow">→</span><span class="node">Mediated</span><span class="arrow">→</span><span class="node">Enforced</span><span class="arrow">→</span><span class="node">Audited</span></div>
+  </section>
+
+  <section class="section">
+    <h2>覆盖等级</h2>
+    <table>
+      <tr><th>等级</th><th>含义</th><th>企业风险</th><th>Kappaski 行为</th></tr>
+      <tr><td class="bad"><code>unseen</code></td><td>没有任何信号。</td><td>完全盲区。</td><td>只能通过 endpoint/network/MDM/EDR 集成降低概率。</td></tr>
+      <tr><td class="warn"><code>unmanaged_detected</code></td><td>发现疑似 agent 进程、配置或网络行为，但未注册。</td><td>可审计性弱，不能证明路径完整。</td><td>生成 coverage finding，建议迁移到 managed launcher。</td></tr>
+      <tr><td><code>observed</code></td><td>能看到部分日志、hook、network 或 file signals。</td><td>可回顾但不一定可阻断。</td><td>进入 ledger，但 proof 不得声称 mediated/enforced。</td></tr>
+      <tr><td><code>mediated</code></td><td>通过 wrapper/proxy/hook 进入统一 mediation contract。</td><td>能 pause/approval/deny，但底层仍可能 fail-open。</td><td>写入 decision/outcome/approval facts。</td></tr>
+      <tr><td class="ok"><code>enforced</code></td><td>关键动作被 shim/proxy/OS/endpoint policy 强制。</td><td>高价值企业目标。</td><td>proof/gate 可以声明 enforcement 覆盖。</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>未注册 Agent 的发现信号</h2>
+    <table>
+      <tr><th>信号</th><th>可发现什么</th><th>限制</th></tr>
+      <tr><td>Process inventory</td><td><code>claude</code>、<code>codex</code>、<code>gemini</code>、<code>opencode</code>、IDE child process、node/python agent launcher。</td><td>只能看到进程名/命令行，不一定能看到内部 tool calls。</td></tr>
+      <tr><td>Agent config scan</td><td><code>.claude</code>、<code>.codex</code>、MCP config、IDE extension settings、skill directories。</td><td>静态配置不等于真实运行。</td></tr>
+      <tr><td>Shell/launcher integration</td><td>shell alias、PATH shadowing、managed launcher、CI wrapper。</td><td>用户可以绕过；企业需要 MDM/endpoint policy 辅助。</td></tr>
+      <tr><td>Network/proxy/DNS logs</td><td>模型 API、MCP server、GitHub/GitLab upload、unknown exfil endpoint。</td><td>只能证明网络行为，不能完整解释 agent intention。</td></tr>
+      <tr><td>File activity</td><td>secret file read、workspace deletion、bulk rewrite、credential store access。</td><td>无 endpoint 权限时只能在 wrapper/shim 范围内观察。</td></tr>
+      <tr><td>CI runner hooks</td><td>workflow 中启动的 agent、deploy mutation、artifact upload。</td><td>需要 CI 管理权限。</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>Roadmap 提案</h2>
+    <table>
+      <tr><th>版本</th><th>目标</th><th>测试设计</th></tr>
+      <tr><td>v0.41</td><td>Unmanaged agent inventory：扫描进程快照、repo/home agent config、MCP config、skill/plugin dirs，输出 unmanaged coverage report。</td><td>用 fixture 生成 Claude/Codex/Gemini/OpenCode/OpenClaw 风格配置，验证发现率和 false-positive proxy。</td></tr>
+      <tr><td>v0.42</td><td>Managed launcher migration：为已发现 agent 生成 wrapper/alias/CI launcher 建议，并能一键 dry-run 安装。</td><td>验证安装 preview 不破坏原命令，wrapped run 进入 mediation contract。</td></tr>
+      <tr><td>v0.43</td><td>Enterprise coverage gate：根据 profile 要求阻断或告警未注册 agent、weak coverage 和 bypass path。</td><td>构造 registered / unmanaged_detected / mediated / enforced 四类 session，验证 gate 结果和 audit 声明一致。</td></tr>
+      <tr><td>post-v0.43</td><td>Endpoint/MDM/EDR/SIEM connectors：把发现信号接入企业资产系统。</td><td>只在真实企业/实验环境中算 external validation，不进入默认本地 pass。</td></tr>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>开发原则</h2>
+    <ul>
+      <li>不要把“发现了疑似 agent”说成“控制了 agent”。</li>
+      <li>不要把网络/进程外部观察说成完整 trajectory。</li>
+      <li>所有未注册 agent finding 必须能进入 proof/audit/gate，并明确 coverage grade。</li>
+      <li>企业模式可以要求 managed launcher；个人模式只建议迁移，不默认阻断。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

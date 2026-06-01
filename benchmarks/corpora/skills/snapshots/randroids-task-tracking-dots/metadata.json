@@ -1,0 +1,14 @@
+{
+  "content_sha256": "6847714fa5adbd00b2ed9f0cc86ca8073c5617ebf0333148dd62f2746d0f368e",
+  "download_url": "https://raw.githubusercontent.com/Randroids-Dojo/skills/main/plugins/task-tracking-dots/SKILL.md",
+  "fetched_at": "2026-05-27",
+  "kind": "skill",
+  "license": "MIT",
+  "path": "plugins/task-tracking-dots/SKILL.md",
+  "repo": "https://github.com/Randroids-Dojo/skills",
+  "snapshot_file": "SKILL.md",
+  "source_id": "randroids-task-tracking-dots",
+  "upstream_sha": "c94fce450b13278c1a21691e6ed58263d29b0ee9",
+  "url": "https://api.github.com/repos/Randroids-Dojo/skills/contents/plugins/task-tracking-dots/SKILL.md?ref=main",
+  "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+}

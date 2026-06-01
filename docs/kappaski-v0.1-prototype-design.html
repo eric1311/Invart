@@ -1,0 +1,1101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kappaski V0.1 原型产品与架构设计</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #17202a;
+      --muted: #5c6978;
+      --line: #d9dee7;
+      --line-strong: #b8c1ce;
+      --blue: #2458d3;
+      --cyan: #0e7490;
+      --green: #147a4d;
+      --amber: #a35a00;
+      --red: #b42318;
+      --violet: #6b3fa0;
+      --soft-blue: #eaf0ff;
+      --soft-cyan: #e7f7fb;
+      --soft-green: #e9f7ef;
+      --soft-amber: #fff2df;
+      --soft-red: #ffeceb;
+      --soft-violet: #f2ecff;
+      --shadow: 0 10px 30px rgba(23, 32, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.62;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    header {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+    }
+    .eyebrow {
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 8px 0 12px;
+      font-size: 36px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 42px 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 8px;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+    p { margin: 8px 0 12px; }
+    small, .muted { color: var(--muted); }
+    .summary {
+      max-width: 900px;
+      color: #2e3a48;
+      font-size: 17px;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .meta div, .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .meta div {
+      background: #f9fbff;
+    }
+    .meta strong {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card h3 { margin-top: 0; }
+    .card.blue { background: var(--soft-blue); border-color: #c9d7ff; }
+    .card.cyan { background: var(--soft-cyan); border-color: #b9e7f1; }
+    .card.green { background: var(--soft-green); border-color: #bfebd2; }
+    .card.amber { background: var(--soft-amber); border-color: #ffd99b; }
+    .card.red { background: var(--soft-red); border-color: #ffc9c5; }
+    .card.violet { background: var(--soft-violet); border-color: #ddccff; }
+    ul { margin: 8px 0 12px 20px; padding: 0; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0 24px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th {
+      background: #eef2f7;
+      color: #314052;
+      font-weight: 700;
+    }
+    tr:last-child td { border-bottom: 0; }
+    code {
+      background: #eef2f7;
+      border: 1px solid #d6dde8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      margin: 12px 0 22px;
+      padding: 16px;
+      overflow-x: auto;
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid currentColor;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+    .pill.blue { color: var(--blue); background: var(--soft-blue); }
+    .pill.green { color: var(--green); background: var(--soft-green); }
+    .pill.amber { color: var(--amber); background: var(--soft-amber); }
+    .pill.red { color: var(--red); background: var(--soft-red); }
+    .pill.violet { color: var(--violet); background: var(--soft-violet); }
+    .diagram {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      margin: 14px 0 26px;
+      overflow-x: auto;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+    .flow .step {
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 12px;
+      position: relative;
+      background: #fbfcff;
+      min-height: 100px;
+    }
+    .flow .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -15px;
+      top: 38%;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 18px;
+    }
+    .step strong { display: block; margin-bottom: 6px; }
+    .stack {
+      display: grid;
+      gap: 10px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .layer {
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: #fbfcff;
+      padding: 12px 16px;
+      text-align: center;
+    }
+    .layer.core {
+      background: var(--soft-blue);
+      border-color: #b9c9ff;
+      font-weight: 700;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .wireframe {
+      background: #111827;
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 12px;
+    }
+    .wireframe .topbar {
+      height: 28px;
+      border-radius: 6px;
+      background: #263244;
+      margin-bottom: 12px;
+    }
+    .wireframe .layout {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+    }
+    .wireframe .side, .wireframe .panel, .wireframe .row {
+      border: 1px solid #3b475a;
+      background: #1f2937;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .wireframe .rows {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .bar {
+      height: 12px;
+      border-radius: 4px;
+      background: #536172;
+      margin: 7px 0;
+    }
+    .bar.short { width: 55%; }
+    .bar.mid { width: 75%; }
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 12px 0 22px;
+    }
+    .kpi .card strong {
+      display: block;
+      font-size: 26px;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .timeline {
+      position: relative;
+      padding-left: 24px;
+    }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: var(--line-strong);
+    }
+    .time-item {
+      position: relative;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+    }
+    .time-item::before {
+      content: "";
+      position: absolute;
+      left: -22px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--blue);
+      border: 2px solid var(--paper);
+    }
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f9fbff;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin: 14px 0 22px;
+    }
+    @media (max-width: 860px) {
+      .page { padding: 20px 14px 48px; }
+      header { padding: 24px; }
+      h1 { font-size: 28px; }
+      .meta, .grid, .grid.two, .grid.four, .kpi, .split, .flow {
+        grid-template-columns: 1fr;
+      }
+      .flow .step:not(:last-child)::after { display: none; }
+      .wireframe .layout { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: white; }
+      .page { max-width: none; padding: 0; }
+      header, .card, .diagram, table { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">Kappaski V0.1 Prototype Design</div>
+      <h1>AI Coding Agent 多 Agent 管理平台与运行时安全原型设计</h1>
+      <p class="summary">
+        本文是 KAP-4 的修订版原型设计交付。它综合 KAP-1 的立项 PRD、KAP-3 的三轮复盘讨论、KAP-4
+        补充三轮讨论，以及当前 <code>/Users/lcy/repos/kappaski</code> MVP 代码状态，收敛出 V0.1 的产品原型、产品架构、代码架构和 UI 设计。
+      </p>
+      <div class="meta">
+        <div><strong>版本</strong>V0.1 原型设计</div>
+        <div><strong>日期</strong>2026-05-23</div>
+        <div><strong>产品定位</strong>Capability Firewall + Replay Ledger</div>
+        <div><strong>交付形态</strong>中文 HTML 设计文档</div>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 最终结论</h2>
+      <div class="note">
+        <strong>一句话定义：</strong>Kappaski V0.1 应该是一个面向 AI Coding Agent 的多 Agent 运行时管理平台，
+        其中安全、权限、审计、审批、回放是第一等能力；它不是单纯 scanner，也不是只给某个 Agent 做插件。
+      </div>
+      <div class="grid three">
+        <div class="card blue">
+          <h3>产品主线</h3>
+          <p>从“Agent 审计工具”升级为“多 Agent runtime control plane”。用户看到的是团队运行、能力授权、审批、审计和回放。</p>
+        </div>
+        <div class="card green">
+          <h3>执行主线</h3>
+          <p>采用 wrapper/proxy/daemon 作为受管 runtime 的强制控制面；plugin/hook 只能作为 adapter 和体验增强。</p>
+        </div>
+        <div class="card amber">
+          <h3>工程主线</h3>
+          <p>下一步不要继续堆 regex，而要先落 <code>Session → Invocation → PolicyDecision → Evidence</code> 这条证据链。</p>
+        </div>
+      </div>
+
+      <h3>1.1 这次讨论收敛出的不可妥协点</h3>
+      <table>
+        <thead>
+          <tr><th>问题</th><th>最终判断</th><th>原因</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>是否走插件形式？</td>
+            <td>插件可以做入口，但不能作为安全边界。</td>
+            <td>不同 agent 的 hook/plugin 覆盖不一致，且可能被 bypass、配置绕过或无法覆盖 OS 层行为。</td>
+          </tr>
+          <tr>
+            <td>是否必须走 wrapper？</td>
+            <td>V0.1 主路径必须是 managed runtime：shell wrapper + minimal MCP proxy + local daemon。</td>
+            <td>Shell、MCP、Git、审批、capability grant、跨 agent handoff 都必须进入统一 daemon 裁决和 ledger。</td>
+          </tr>
+          <tr>
+            <td>产品是否只做安全工具？</td>
+            <td>不。安全是核心能力，但产品外显应是多 Agent 管理平台。</td>
+            <td>用户最终需要管理 goal、role、capability、approval、handoff、replay，而不只是看风险列表。</td>
+          </tr>
+          <tr>
+            <td>V0.1 最大技术风险是什么？</td>
+            <td>只做安全底座会不像多 Agent 产品；只做协作 UI 又没有可信控制边界。</td>
+            <td>V0.1 必须交付 TeamRun、Blackboard、Handoff、Approval 与 daemon enforcement 共同工作的纵向闭环。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>2. 三轮讨论综合</h2>
+      <p class="note">
+        原始交付过度依赖 KAP-3 的既有讨论，没有在 KAP-4 下完成独立收敛。本修订补充了 KAP-4 的三轮讨论：
+        第一轮独立判断、第二轮互相质疑、第三轮由 Gogo 收敛为本文结论。
+      </p>
+      <div class="timeline">
+        <div class="time-item">
+          <h3>第一轮：方向确认</h3>
+          <p>Hewitt、Hopper、Redding 均认可三段式生命周期：<code>pre-runtime</code> 做准入扫描，<code>runtime</code> 做行为控制，<code>post-runtime</code> 做审计回放。</p>
+          <p>共同质疑是：当前实现更像“规则扫描器 + 事件日志器”，还不是“执行控制平面”。</p>
+        </div>
+        <div class="time-item">
+          <h3>第二轮：对象模型和执行边界</h3>
+          <p>讨论从命名争论收敛到双层对象模型：产品层用 <code>Goal / Capability / Action / Decision / Evidence / Replay</code>，工程层用 <code>Session / Actor / Adapter / Invocation / ResourceRef / PolicyDecision / ArtifactRef</code>。</p>
+          <p>MCP proxy 很重要，但必须建立在统一 envelope 上，不能先做成孤立日志。</p>
+        </div>
+        <div class="time-item">
+          <h3>第三轮：多 Agent 管理平台视角</h3>
+          <p>最终将目标升级为“多 Agent 产品管理平台”。安全字段必须覆盖跨 agent handoff、权限漂移、污染上下文传递、审批绕过、审计日志可信度、hook/plugin 绕过后的保底控制。</p>
+          <p>Redding 强调：没有 <code>source / trust_level / taint_tags / capability_grant_id / seq / hash_chain / approval_id</code>，系统无法成为可信审计平台。</p>
+        </div>
+      </div>
+
+      <h3>2.1 分歧和裁决</h3>
+      <table>
+        <thead>
+          <tr><th>分歧</th><th>Hewitt 观点</th><th>Hopper 观点</th><th>Redding 观点</th><th>裁决</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>产品抽象</td>
+            <td>以 Goal、Capability、Policy 解释 agent 行动边界。</td>
+            <td>以 Session、Invocation、Decision 保证可实现。</td>
+            <td>必须加入 source、taint、evidence，否则不能归因。</td>
+            <td>采用双层模型：产品语义 + 工程 schema。</td>
+          </tr>
+          <tr>
+            <td>实现顺序</td>
+            <td>先做纵向最小闭环，避免过早抽象。</td>
+            <td>先 schema/policy/store，再 wrapper，再 MCP proxy。</td>
+            <td>schema 第一版就必须包含安全字段。</td>
+            <td>Slice 1 固定 schema、policy、hash store。</td>
+          </tr>
+          <tr>
+            <td>hook/plugin</td>
+            <td>是管理台入口和协作 UX。</td>
+            <td>是 adapter 输入，不是 root of trust。</td>
+            <td>不能覆盖绕过和 OS 层行为。</td>
+            <td>adapter-rich UX，daemon-enforced runtime；不再使用“plugin-first”作为架构口径。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.2 KAP-4 补充讨论的第三轮收敛</h3>
+      <table>
+        <thead>
+          <tr><th>议题</th><th>收敛结论</th><th>落到 V0.1 的要求</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wrapper / Plugin 路线</td>
+            <td>Hopper、Hewitt、Redding 一致确认：plugin/hook 不能作为安全保底；V0.1 主路径是 wrapper/proxy/daemon。</td>
+            <td>文档和原型统一改为 <code>plugin-assisted adapter, daemon-enforced control plane</code>。</td>
+          </tr>
+          <tr>
+            <td>安全 P0 范围</td>
+            <td>Redding 提出的 syscall、进程树、网络监控是正确方向，但 Hopper 的范围压缩更适合 V0.1。</td>
+            <td>V0.1 声明为 managed runtime prototype：只保证通过 Kappaski 启动的受管 session；OS 级 EDR/沙箱进入 V0.2。</td>
+          </tr>
+          <tr>
+            <td>多 Agent 产品闭环</td>
+            <td>Hewitt 的 TeamRun / Blackboard / Handoff 是产品必要骨架，但 Redding 指出它们也是 prompt injection 和权限传播通道。</td>
+            <td>Blackboard 和 Handoff 必须受 daemon 裁决；confidence、taint、grant、approval 不允许由 agent 自报。</td>
+          </tr>
+          <tr>
+            <td>最终 V0.1 形态</td>
+            <td>不是最大安全底座，也不是纯协作看板，而是最小纵向闭环。</td>
+            <td>交付 daemon + shell wrapper + minimal MCP proxy + approval/grant + hash-chain ledger + TeamRun/Blackboard/Handoff/Approval UI。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>3. 产品定位与边界</h2>
+      <div class="grid two">
+        <div class="card green">
+          <h3>应该做什么</h3>
+          <ul>
+            <li>多 Agent session / team run 管理</li>
+            <li>Agent、MCP、Skill、CI、repo 配置准入扫描</li>
+            <li>Capability grant 和 scoped permission 管理</li>
+            <li>Shell / MCP / 文件 / 网络 / Git / Issue 的运行时裁决</li>
+            <li>审批流、风险告警、阻断、隔离、脱敏</li>
+            <li>基于证据链的 replay ledger</li>
+          </ul>
+        </div>
+        <div class="card red">
+          <h3>V0.1 不应该做什么</h3>
+          <ul>
+            <li>不做泛化 AI 安全平台</li>
+            <li>不做完整 SIEM / EDR</li>
+            <li>不依赖某一个 agent 的插件生态</li>
+            <li>不先做复杂多级 RBAC</li>
+            <li>不承诺内核级 syscall 拦截、进程树冻结或完整网络 egress 防护</li>
+            <li>不把 LLM 内容审查作为唯一安全机制</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>3.1 目标用户和核心问题</h3>
+      <div class="kpi">
+        <div class="card"><strong>AppSec</strong><span>想知道 agent 是否读密钥、改 CI、调用高危 MCP。</span></div>
+        <div class="card"><strong>研发负责人</strong><span>想放开 AI agent，但需要权限边界和团队治理。</span></div>
+        <div class="card"><strong>开发者</strong><span>想继续用 Codex、Claude Code、Cursor，不想被粗暴禁止。</span></div>
+        <div class="card"><strong>平台团队</strong><span>想统一管理多 agent 后端、skill、MCP 和审计证据。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. V0.1 产品功能范围</h2>
+      <div class="flow">
+        <div class="step">
+          <strong>Pre-runtime</strong>
+          <span>扫描 agent、MCP、Skill、repo、CI、敏感路径，生成 preflight baseline。</span>
+        </div>
+        <div class="step">
+          <strong>Launch</strong>
+          <span>创建受管 TeamRun、goal、actor、capability grant，通过 wrapper/proxy/daemon 启动 agent。</span>
+        </div>
+        <div class="step">
+          <strong>Runtime</strong>
+          <span>Shell wrapper / minimal MCP proxy 产生 invocation，daemon 做 policy decision；file/network monitor 进入后续增强。</span>
+        </div>
+        <div class="step">
+          <strong>Approval</strong>
+          <span>高风险动作进入审批、阻断、隔离或脱敏，所有决策写入 event store。</span>
+        </div>
+        <div class="step">
+          <strong>Post-runtime</strong>
+          <span>生成 replay timeline、风险链路、PR Bot 摘要和审计报告。</span>
+        </div>
+      </div>
+
+      <h3>4.1 模块清单</h3>
+      <table>
+        <thead>
+          <tr><th>模块</th><th>V0.1 能力</th><th>关键输出</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Agent Inventory Scanner</td>
+            <td>识别 Codex、Claude Code、Cursor、Cline、Windsurf、Gemini CLI、OpenCode、自研 agent 的配置和启动方式。</td>
+            <td>Agent asset inventory、risk findings、preflight baseline。</td>
+          </tr>
+          <tr>
+            <td>MCP / Skill Supply Chain Scanner</td>
+            <td>扫描 MCP server command、tool description、Skill 脚本、外链下载、隐藏指令、权限变化。</td>
+            <td>MCP/Skill 风险评分、quarantine 建议。</td>
+          </tr>
+          <tr>
+            <td>Local Runtime Daemon</td>
+            <td>管理 session、policy、grant、approval、store、replay，是受管 runtime 的唯一可信裁决与写账本组件。</td>
+            <td>统一 runtime envelope 和不可变账本。</td>
+          </tr>
+          <tr>
+            <td>Execution Wrapper</td>
+            <td>拦截 shell command、cwd、env、stdout/stderr digest、exit code、高危命令。</td>
+            <td>Shell invocation、decision、evidence。</td>
+          </tr>
+          <tr>
+            <td>MCP Proxy</td>
+            <td>拦 tool list、tool call、tool result，对写类工具和外发类工具做审批或阻断。</td>
+            <td>MCP invocation、tool evidence、approval request。</td>
+          </tr>
+          <tr>
+            <td>Replay Ledger</td>
+            <td>按 source、taint、capability、decision、evidence 重建 session 因果链。</td>
+            <td>Timeline、attack chain、PR Bot comment、HTML report。</td>
+          </tr>
+          <tr>
+            <td>TeamRun / Blackboard / Handoff</td>
+            <td>把多 Agent 协作建模为事件流：claim、evidence、open question、decision、handoff contract。</td>
+            <td>Blackboard view、handoff approval、grant delegation audit。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. 产品架构</h2>
+      <div class="diagram">
+        <div class="stack">
+          <div class="layer">Agent UI / CLI / IDE / CI / 多 Agent 管理台</div>
+          <div class="layer">Native Hook / Plugin Adapter（可用则接入，只做体验、上下文和观察，不做安全保底）</div>
+          <div class="layer">Kappaski Backend Adapter Layer（Codex、Claude Code、Cursor、Cline、Windsurf、CI、自研 Agent）</div>
+          <div class="layer core">Local Runtime Daemon：Session Registry + Policy Engine + Capability Grants + Approval + Event Store + Replay Builder</div>
+          <div class="layer">Enforcement Shims：Shell Wrapper + MCP Proxy + File Monitor + Network Monitor</div>
+          <div class="layer">OS Sandbox / Container / Egress Proxy（后续增强）</div>
+        </div>
+      </div>
+
+      <h3>5.1 为什么是“统一 runtime + 多个 enforcement shim”</h3>
+      <div class="grid three">
+        <div class="card">
+          <h3>跨后端</h3>
+          <p>不同 agent 的 hook 能力差异很大。统一 daemon 可以把 Codex、Claude Code、Cursor、CI agent 和自研 agent 归一成同一种 runtime envelope。</p>
+        </div>
+        <div class="card">
+          <h3>可审计</h3>
+          <p>所有 action 都必须有 session、seq、decision、evidence、policy version 和 hash chain，才能支持事后回放和合规证明。</p>
+        </div>
+        <div class="card">
+          <h3>可演进</h3>
+          <p>V0.1 先做 daemon、shell wrapper、minimal MCP proxy 和 store，后续加入 file/network monitor、OS sandbox，不推翻核心 schema。</p>
+        </div>
+      </div>
+
+      <h3>5.2 数据流图</h3>
+      <pre>用户目标 / 外部输入 / Repo / MCP / Skill
+        |
+        v
+Preflight Scanner 生成资产清单、敏感资源、风险项、默认 CapabilityGrant
+        |
+        v
+Session 创建：Goal + Actor + Adapter + PolicyVersion + CapabilityGrant
+        |
+        v
+Invocation Draft：shell / file / network / mcp / git / issue / handoff
+        |
+        v
+Policy Engine：source × trust × taint × capability × resource × sensitivity
+        |
+        +--> allow / audit_only      -> 执行并记录 evidence
+        +--> require_approval        -> 写 approval_request，等待人类或策略审批
+        +--> deny / quarantine       -> 阻断并记录原因
+        +--> redact                  -> 脱敏后记录
+        |
+        v
+Append-only Event Store：seq + prev_hash + event_hash
+        |
+        v
+Replay Builder：timeline + risk chain + approval + residual risk</pre>
+    </section>
+
+    <section>
+      <h2>6. 核心对象模型</h2>
+      <div class="grid two">
+        <div class="card blue">
+          <h3>产品层对象</h3>
+          <ul>
+            <li><code>Goal</code>：本次人类目标或团队目标。</li>
+            <li><code>AgentRole</code>：Planner、Implementer、Reviewer、RedTeamer 等角色。</li>
+            <li><code>Capability</code>：shell、file、network、MCP write、Git push、issue update 等能力。</li>
+            <li><code>Policy</code>：对能力和资源的裁决规则。</li>
+            <li><code>Action</code>：agent 试图执行的行为。</li>
+            <li><code>Decision</code>：允许、拒绝、审批、隔离、脱敏。</li>
+            <li><code>Evidence</code>：支撑裁决的证据。</li>
+            <li><code>Replay</code>：可解释回放。</li>
+          </ul>
+        </div>
+        <div class="card cyan">
+          <h3>工程层对象</h3>
+          <ul>
+            <li><code>Session / TeamRun</code>：一次 agent run 或团队 run。</li>
+            <li><code>ActorRef</code>：user、agent、process、MCP server、adapter。</li>
+            <li><code>Adapter</code>：codex wrapper、claude hook、MCP proxy、CI adapter。</li>
+            <li><code>CapabilityGrant</code>：作用域、时效、审批来源。</li>
+            <li><code>Invocation</code>：统一动作 envelope。</li>
+            <li><code>ResourceRef</code>：file、URL、command、MCP tool、issue、artifact。</li>
+            <li><code>PolicyDecision</code>：结构化裁决。</li>
+            <li><code>ArtifactRef</code>：摘要、diff、日志、审批记录。</li>
+            <li><code>BlackboardEntry</code>：claim、evidence、open_question、decision 的事件派生视图。</li>
+            <li><code>HandoffContract</code>：delegator、delegatee、goal_delta、context_refs、grant_delta、approval_policy。</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>6.1 Mandatory Runtime Envelope</h3>
+      <table>
+        <thead>
+          <tr><th>字段</th><th>必须性</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>session_id</code>, <code>event_id</code>, <code>seq</code></td><td><span class="pill red">P0</span></td><td>支撑 session 隔离、去重、顺序回放。</td></tr>
+          <tr><td><code>prev_event_hash</code>, <code>event_hash</code></td><td><span class="pill red">P0</span></td><td>形成 hash chain，检测日志篡改。</td></tr>
+          <tr><td><code>actor_id</code>, <code>actor_type</code>, <code>adapter_id</code></td><td><span class="pill red">P0</span></td><td>回答谁、通过哪个 adapter 发起动作。</td></tr>
+          <tr><td><code>operation</code>, <code>capability_used</code>, <code>capability_grant_id</code></td><td><span class="pill red">P0</span></td><td>回答用了什么权限，是否超出 grant。</td></tr>
+          <tr><td><code>resource_refs</code>, <code>input_refs</code>, <code>output_refs</code></td><td><span class="pill red">P0</span></td><td>建立资源、上游影响和下游结果。</td></tr>
+          <tr><td><code>source</code>, <code>trust_level</code>, <code>taint_tags</code></td><td><span class="pill red">P0</span></td><td>区分用户、repo、外部网页、issue comment、MCP result、Skill instruction。</td></tr>
+          <tr><td><code>decision</code>, <code>policy_version</code>, <code>matched_rule_ids</code></td><td><span class="pill red">P0</span></td><td>解释当时为什么允许、阻断或要求审批。</td></tr>
+          <tr><td><code>approval_id</code>, <code>approval_state</code>, <code>approval_by</code>, <code>approval_expiry</code></td><td><span class="pill red">P0</span></td><td>审批流可以先简单，但 action/grant/handoff 的审批 ID 必须进入事件链。</td></tr>
+          <tr><td><code>handoff_id</code>, <code>delegator_session_id</code>, <code>delegated_context_taint</code></td><td><span class="pill red">P0</span></td><td>多 Agent handoff 必须可审计，grant delegation 只能 restrict-only。</td></tr>
+          <tr><td><code>redaction_state</code>, <code>adapter_signature</code></td><td><span class="pill amber">P1</span></td><td>证据脱敏和 adapter 身份可信度。</td></tr>
+        </tbody>
+      </table>
+
+      <h3>6.2 多 Agent 协作契约</h3>
+      <table>
+        <thead>
+          <tr><th>对象</th><th>字段</th><th>V0.1 规则</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>AgentMessage</code></td>
+            <td>from_actor、to_actor、intent、payload_ref、taint_tags、correlation_id</td>
+            <td>跨 trust domain 消息必须经过 daemon 准入，payload_ref 继承上游 taint。</td>
+          </tr>
+          <tr>
+            <td><code>BlackboardEntry</code></td>
+            <td>type、source_event_id、publisher_trust_level、taint_depth、confidence</td>
+            <td>confidence 由 daemon 根据 trust 和 taint 计算；agent 不能自报高置信度。</td>
+          </tr>
+          <tr>
+            <td><code>HandoffContract</code></td>
+            <td>delegator、delegatee、goal_delta、context_refs、grant_delta、approval_policy</td>
+            <td><code>grant_delta</code> 只能缩小权限；扩权必须走独立 capability grant 审批。</td>
+          </tr>
+          <tr>
+            <td><code>EvaluatorSynthesis</code></td>
+            <td>synthesis_event_id、input_entry_ids、weights、source_trust</td>
+            <td>V0.1 不做自动事实合成，只保留 schema 方向；避免过早信任折叠。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. 安全策略模型</h2>
+      <p>V0.1 的策略不是“命中 regex 就阻断”，而是基于矩阵裁决：</p>
+      <pre>decision = f(source, trust_level, taint_tags, capability_used, resource_refs, sensitivity, grant, policy_version)</pre>
+
+      <h3>7.1 V0.1 必须内置的硬规则</h3>
+      <table>
+        <thead>
+          <tr><th>规则</th><th>默认动作</th><th>示例</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Untrusted source + write/exec/network/push</td>
+            <td><span class="pill amber">require_approval</span></td>
+            <td>外部 issue comment 诱导 agent 创建 gist、发 Slack、执行 shell。</td>
+          </tr>
+          <tr>
+            <td>Sensitive read + outbound</td>
+            <td><span class="pill red">deny / approval</span></td>
+            <td>读取 <code>.env</code> 后访问外部网络、MCP 写工具、Git push。</td>
+          </tr>
+          <tr>
+            <td>Capability usage 超出 grant</td>
+            <td><span class="pill red">deny</span></td>
+            <td>read-only agent 试图执行 <code>git push</code> 或数据库写。</td>
+          </tr>
+          <tr>
+            <td>Unknown / unpinned MCP server</td>
+            <td><span class="pill violet">quarantine</span></td>
+            <td>MCP stdio command 未固定版本，或来源不明。</td>
+          </tr>
+          <tr>
+            <td>Tainted session handoff</td>
+            <td><span class="pill amber">require_approval</span></td>
+            <td>低权限 agent 读取外部网页后把任务交给高权限 agent。</td>
+          </tr>
+          <tr>
+            <td>Handoff grant escalation</td>
+            <td><span class="pill red">deny</span></td>
+            <td>handoff 只能传递 delegator 与 delegatee 已有 grant 的交集，不能隐式扩权。</td>
+          </tr>
+          <tr>
+            <td>Blackboard taint depth ≥ 3</td>
+            <td><span class="pill amber">require_approval</span></td>
+            <td>多跳传播的 claim 被用于写操作、外发或 Git push。</td>
+          </tr>
+          <tr>
+            <td>Approval fatigue</td>
+            <td><span class="pill red">escalate / deny</span></td>
+            <td>同一 session 多次请求同一高危 capability 审批。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>7.2 多 Agent 管理平台的六类攻击面</h3>
+      <div class="grid two">
+        <div class="card red"><h3>跨 Agent Handoff</h3><p>污染任务从低权限 agent 传给高权限 agent，需要 handoff_id、delegator、delegated_goal、taint 和 approval。</p></div>
+        <div class="card amber"><h3>权限漂移</h3><p>Skill/MCP 动态请求新能力，必须产生 capability_request，超出 grant 时审批或拒绝。</p></div>
+        <div class="card violet"><h3>污染上下文传递</h3><p>外部网页、issue、PDF、MCP result 的内容进入上下文后，后续动作继承 taint。</p></div>
+        <div class="card red"><h3>审批绕过</h3><p>审批必须由 daemon 处理，不能由 agent 进程内部自审批；审批过期自动拒绝。</p></div>
+        <div class="card blue"><h3>审计日志可信度</h3><p>event store 只接受 daemon 写入，记录 seq、prev hash、event hash 和 daemon 时间。</p></div>
+        <div class="card green"><h3>Hook/Plugin 绕过</h3><p>hook/plugin 可作为观察点，shell wrapper、MCP proxy、daemon 才是保底控制层。</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>8. 代码架构设计</h2>
+      <p>当前代码基线是 dependency-free Python CLI，已有 <code>scanner.py</code>、<code>runtime.py</code>、<code>postruntime.py</code>、<code>rules.py</code>、<code>models.py</code>。V0.1 不应重写全部代码，而应新增 daemon-ready schema 和 policy/store/replay 纵向切片。</p>
+
+      <h3>8.1 当前到目标的演进</h3>
+      <table>
+        <thead>
+          <tr><th>当前模块</th><th>当前职责</th><th>V0.1 改造方向</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>models.py</code></td>
+            <td><code>Finding</code>、<code>Asset</code>、<code>ScanReport</code>、<code>RuntimeEvent</code></td>
+            <td>保留兼容；新增 <code>events.py</code> 承载严格 runtime schema。</td>
+          </tr>
+          <tr>
+            <td><code>runtime.py</code></td>
+            <td>append event、规则分析、shell wrapper 阻断</td>
+            <td>拆出 policy decision；执行前先构造 <code>InvocationDraft</code>。</td>
+          </tr>
+          <tr>
+            <td><code>rules.py</code></td>
+            <td>regex 风险规则</td>
+            <td>作为 policy engine 的规则源之一，不再直接代表决策。</td>
+          </tr>
+          <tr>
+            <td><code>postruntime.py</code></td>
+            <td>flat JSONL session 汇总</td>
+            <td>升级为 replay builder，输出 timeline、decision、evidence、attack chain。</td>
+          </tr>
+          <tr>
+            <td><code>scanner.py</code></td>
+            <td>pre-runtime 扫描</td>
+            <td>输出 <code>preflight.json</code>，供 runtime 加载为 grant 和 baseline。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.2 建议目录结构</h3>
+      <pre>src/kappaski/
+  cli.py
+  models.py                 # 保留扫描和兼容模型
+  events.py                 # 新增：Session / Invocation / PolicyDecision / Evidence
+  policy.py                 # 新增：policy templates + decision engine
+  store.py                  # 新增：append-only JSONL + seq + hash chain
+  approvals.py              # 新增：local approval stub
+  preflight.py              # 新增：保存和加载启动前基线
+  runtime.py                # 改造：编排 invocation -> decision -> execute -> evidence
+  replay.py                 # 新增：从 store 生成 replay frames
+  chains.py                 # 后续：source/taint/attack-chain 关联
+  scanner.py
+  rules.py
+  postruntime.py
+  adapters/
+    base.py
+    codex.py
+    claude_code.py
+    cursor.py
+    cline.py
+  proxy/
+    mcp_stdio.py
+    mcp_policy.py
+  reports/
+    html.py
+    pr_comment.py</pre>
+
+      <h3>8.3 第一阶段最小代码切片</h3>
+      <div class="flow">
+        <div class="step"><strong>events.py</strong><span>定义 Session、ActorRef、ResourceRef、Invocation、PolicyDecision、ArtifactRef。</span></div>
+        <div class="step"><strong>policy.py</strong><span>输入 InvocationDraft，输出 allow/deny/require_approval/redact/quarantine。</span></div>
+        <div class="step"><strong>store.py</strong><span>daemon-side append，生成 seq、prev_hash、event_hash。</span></div>
+        <div class="step"><strong>runtime.py</strong><span>shell wrapper 改成先 decision 后执行，阻断和审批也写 event。</span></div>
+        <div class="step"><strong>replay.py</strong><span>读取 JSONL，生成 timeline、risk、decision、evidence 摘要。</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>9. UI 原型设计</h2>
+      <p>V0.1 UI 可以普通，但信息架构必须匹配多 Agent 管理平台，而不是只展示风险列表。第一版控制台建议六个一级页面：Team Runs、Blackboard、Handoffs、Agent & Capability、Approvals、Replay Ledger。</p>
+
+      <div class="split">
+        <div>
+          <h3>9.1 第一屏：Team Run Dashboard</h3>
+          <ul>
+            <li>当前 goal、target repo、policy mode、session 状态。</li>
+            <li>参与 agent 及 role：Planner、Implementer、Reviewer、RedTeamer。</li>
+            <li>每个 actor 的 capability grant 和使用情况。</li>
+            <li>待审批 action、blocked action、tainted context、sensitive read。</li>
+            <li>一键进入 replay timeline。</li>
+          </ul>
+        </div>
+        <div class="wireframe">
+          <div class="topbar"></div>
+          <div class="layout">
+            <div class="side">
+              <div class="bar"></div>
+              <div class="bar mid"></div>
+              <div class="bar short"></div>
+              <div class="bar"></div>
+            </div>
+            <div class="panel">
+              <div class="bar mid"></div>
+              <div class="grid two" style="gap:8px;">
+                <div class="row"><div class="bar"></div><div class="bar short"></div></div>
+                <div class="row"><div class="bar"></div><div class="bar short"></div></div>
+              </div>
+              <div class="rows">
+                <div class="row"><span class="pill amber">approval</span><div class="bar mid"></div></div>
+                <div class="row"><span class="pill red">blocked</span><div class="bar short"></div></div>
+                <div class="row"><span class="pill blue">replay</span><div class="bar"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>9.2 页面结构</h3>
+      <table>
+        <thead>
+          <tr><th>页面</th><th>主要内容</th><th>关键操作</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Team Runs</td>
+            <td>所有受管 session/team run，按 repo、agent、policy、风险等级过滤。</td>
+            <td>查看 replay、终止受管 session、导出报告。</td>
+          </tr>
+          <tr>
+            <td>Blackboard</td>
+            <td>claim、evidence、open question、decision 的事件派生视图，显示 source、trust、taint depth。</td>
+            <td>查看来源事件、标记争议、创建后续调查。</td>
+          </tr>
+          <tr>
+            <td>Handoffs</td>
+            <td>agent-to-agent handoff contract、context refs、grant delta、approval policy。</td>
+            <td>批准/拒绝 handoff、查看 taint 传播和 grant 交集。</td>
+          </tr>
+          <tr>
+            <td>Agent & Capability</td>
+            <td>Agent asset、role、capability grant、MCP/Skill 资产。</td>
+            <td>授予/撤销能力、隔离 MCP/Skill、修改 scope。</td>
+          </tr>
+          <tr>
+            <td>Approvals</td>
+            <td>等待审批、已批准、已拒绝、已过期的 action、grant、handoff。</td>
+            <td>批准一次、拒绝、升级；超时默认拒绝。</td>
+          </tr>
+          <tr>
+            <td>Risk Events</td>
+            <td>按规则、source、taint、capability、resource 聚合风险事件。</td>
+            <td>定位 invocation、查看 evidence、生成处置建议。</td>
+          </tr>
+          <tr>
+            <td>Replay Ledger</td>
+            <td>因果时间线：source → taint → action → decision → evidence → result。</td>
+            <td>导出 HTML/JSON、生成 PR Bot 评论。</td>
+          </tr>
+          <tr>
+            <td>Policies</td>
+            <td>Audit-only、Balanced、Strict、CI 模板及仓库/agent 覆盖规则。</td>
+            <td>切换策略、测试策略、查看命中记录。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>9.3 Replay 页面信息布局</h3>
+      <div class="diagram">
+        <div class="grid four">
+          <div class="card"><h3>Source</h3><p>user_prompt、external_web、issue_comment、mcp_result、skill_instruction。</p></div>
+          <div class="card"><h3>Action</h3><p>shell、file_read、mcp_tool_call、network_outbound、git_push、handoff。</p></div>
+          <div class="card"><h3>Decision</h3><p>allow、require_approval、deny、redact、quarantine、audit_only。</p></div>
+          <div class="card"><h3>Evidence</h3><p>digest、diff、stdout/stderr summary、approval record、tool args/result summary。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>10. 典型用户流程</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>流程 A：安全工程师首次扫描</h3>
+          <ol>
+            <li>安装 CLI。</li>
+            <li>执行 <code>kappaski pre-runtime --target /repo</code>。</li>
+            <li>生成 agent、MCP、Skill、sensitive path、CI 风险清单。</li>
+            <li>选择 policy template，生成 preflight baseline。</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>流程 B：开发者运行 Agent</h3>
+          <ol>
+            <li>执行 <code>kappaski run --agent codex --target /repo -- codex</code>。</li>
+            <li>daemon 创建 session 和 capability grant。</li>
+            <li>普通动作静默记录，高危动作审批或阻断。</li>
+            <li>结束后生成 replay report。</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>流程 C：多 Agent 协作</h3>
+          <ol>
+            <li>用户创建 team run 和 goal。</li>
+            <li>为 Planner、Implementer、Reviewer 分配不同 grant。</li>
+            <li>Blackboard 发布 claim/evidence/open question，daemon 写入 trust 和 taint。</li>
+            <li>handoff 产生 HandoffContract，grant_delta 只能 restrict-only。</li>
+            <li>tainted handoff 或 grant escalation 要求审批。</li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>流程 D：事后复盘</h3>
+          <ol>
+            <li>安全团队打开 high-risk session。</li>
+            <li>查看 source/taint/action/decision/evidence 链路。</li>
+            <li>定位敏感读、外发、MCP 写、Git push。</li>
+            <li>导出 HTML 报告或 PR Bot 摘要。</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>11. 12 周路线图</h2>
+      <table>
+        <thead>
+          <tr><th>阶段</th><th>时间</th><th>目标</th><th>交付</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Slice 1</td>
+            <td>第 1-2 周</td>
+            <td>受管 TeamRun + daemon + hash-chain store。</td>
+            <td><code>kappaski run</code> 创建 TeamRun，daemon 单写 event store，seq/hash chain。</td>
+          </tr>
+          <tr>
+            <td>Slice 2</td>
+            <td>第 3-4 周</td>
+            <td>Shell wrapper + approval/grant 闭环。</td>
+            <td>allow / deny / require_approval 三态，approval_id 和 grant_id 写入事件。</td>
+          </tr>
+          <tr>
+            <td>Slice 3</td>
+            <td>第 5-6 周</td>
+            <td>Blackboard 派生视图。</td>
+            <td>claim、evidence、open_question、decision 四类 entry，显示 trust 和 taint depth。</td>
+          </tr>
+          <tr>
+            <td>Slice 4</td>
+            <td>第 7-8 周</td>
+            <td>Minimal MCP proxy + Handoff demo。</td>
+            <td>一个写类 MCP tool 审批 demo，一个 agent-to-agent HandoffContract demo。</td>
+          </tr>
+          <tr>
+            <td>Slice 5</td>
+            <td>第 9-10 周</td>
+            <td>多 Agent 管理台原型。</td>
+            <td>Team Runs、Blackboard、Handoffs、Capability、Approvals、Replay 页面。</td>
+          </tr>
+          <tr>
+            <td>Slice 6</td>
+            <td>第 11-12 周</td>
+            <td>PR Bot 和 demo 场景。</td>
+            <td><code>.env</code> 阻断、<code>curl | bash</code> 审批、MCP 写工具审批、tainted handoff 审批、AI PR 审计评论。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>12. 成功指标</h2>
+      <div class="kpi">
+        <div class="card green"><strong>10 分钟</strong><span>完成首次 repo/agent/MCP/Skill preflight。</span></div>
+        <div class="card blue"><strong>1 条链路</strong><span>完整展示 source → action → decision → evidence → result。</span></div>
+        <div class="card amber"><strong>3 个后端</strong><span>Codex、Claude Code、Cursor 通过 wrapper adapter 接入。</span></div>
+        <div class="card red"><strong>4 个 demo</strong><span>.env 阻断、curl|bash 审批、MCP 写工具审批、tainted handoff 审批。</span></div>
+      </div>
+
+      <h3>12.1 V0.1 验收标准</h3>
+      <ul>
+        <li>每个 session 有稳定 <code>session_id</code>、<code>goal</code>、<code>policy_version</code>、<code>capability_grant</code>。</li>
+        <li>每个 runtime action 都落成 <code>Invocation + PolicyDecision + Evidence</code>。</li>
+        <li>Event store 有 <code>seq</code> 和 <code>prev_event_hash</code>。</li>
+        <li>至少支持 shell wrapper 的 allow / deny / require_approval 三态裁决。</li>
+        <li>至少支持一个 MCP 写类工具通过 proxy 进入 daemon 裁决。</li>
+        <li>至少支持一个 HandoffContract demo，grant delegation 只能 restrict-only。</li>
+        <li>Blackboard entry 显示 source、publisher trust、taint depth，读取和使用受 policy 裁决。</li>
+        <li>Replay report 能解释一次高危动作的来源、原因、裁决和结果。</li>
+        <li>插件或 UI 只作为入口，不能绕过 daemon 的 policy/store/replay。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>13. 最终建议</h2>
+      <div class="note">
+        Kappaski V0.1 的正确路线是：以多 Agent 管理平台为产品外观，以 local runtime daemon 为技术内核，
+        以 wrapper/proxy 为执行控制底线，以 append-only replay ledger 为安全证据基础。
+      </div>
+      <p>
+        下一步开发不要围绕“到底是 plugin 还是 wrapper”继续争论。产品上要做 adapter-rich 的多 Agent 管理体验，让用户在 UI 中管理团队、角色、授权、审批、Blackboard、Handoff 和回放；
+        架构上必须 daemon-first，让所有 hook、plugin、wrapper、proxy 都只是 adapter 或 enforcement shim；安全上必须 evidence-first，让每个动作都有来源、权限、裁决和证据。
+      </p>
+      <p>
+        如果这条主线成立，Kappaski 就不是一个“限制 agent 的工具”，而是让企业能安全放开 AI Coding Agent 的运行时基础设施。
+      </p>
+    </section>
+  </main>
+</body>
+</html>

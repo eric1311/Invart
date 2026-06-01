@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-05-27",
+  "schema_version": "kappaski.corpus.sources.v0.4",
+  "sources": [
+    {
+      "content_sha256": "19223639e8c178f39fed113b07bcf1d6577ba3313301e146aef8555309fc3a43",
+      "download_url": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/filesystem/README.md",
+      "fetched_at": "2026-05-27",
+      "kind": "mcp",
+      "license": "MIT",
+      "path": "src/filesystem/README.md",
+      "repo": "https://github.com/modelcontextprotocol/servers",
+      "snapshot_file": "README.md",
+      "source_id": "mcp-filesystem",
+      "upstream_sha": "c099da1e8cfa5921dc6d4481574b57a919cc9802",
+      "url": "https://api.github.com/repos/modelcontextprotocol/servers/contents/src/filesystem/README.md?ref=main",
+      "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+    },
+    {
+      "content_sha256": "b055d424035839db97d81cc9c7513ee1d50477a5d363f20848886f916673ce39",
+      "download_url": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/git/README.md",
+      "fetched_at": "2026-05-27",
+      "kind": "mcp",
+      "license": "MIT",
+      "path": "src/git/README.md",
+      "repo": "https://github.com/modelcontextprotocol/servers",
+      "snapshot_file": "README.md",
+      "source_id": "mcp-git",
+      "upstream_sha": "c9ec3140bee829569d39021108dceb0799c0d3b2",
+      "url": "https://api.github.com/repos/modelcontextprotocol/servers/contents/src/git/README.md?ref=main",
+      "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+    },
+    {
+      "content_sha256": "a58fffee5cc4a4cfd5de10acb2b5d4a9c0e027cbb95870e110411c8cbd53cfe4",
+      "download_url": "https://raw.githubusercontent.com/claude-office-skills/skills/main/slack-workflows/SKILL.md",
+      "fetched_at": "2026-05-27",
+      "kind": "skill",
+      "license": "MIT",
+      "path": "slack-workflows/SKILL.md",
+      "repo": "https://github.com/claude-office-skills/skills",
+      "snapshot_file": "SKILL.md",
+      "source_id": "office-slack-workflows",
+      "upstream_sha": "a69ca524d8d3935668f2556ad3747b43eb262d14",
+      "url": "https://api.github.com/repos/claude-office-skills/skills/contents/slack-workflows/SKILL.md?ref=main",
+      "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+    },
+    {
+      "content_sha256": "6dc32be7bdc5d35cd8af27702712143bb65c8bff3fd4c3e16d9ee41dc9f6cdbd",
+      "download_url": "https://raw.githubusercontent.com/claude-office-skills/skills/main/stripe-payments/SKILL.md",
+      "fetched_at": "2026-05-27",
+      "kind": "skill",
+      "license": "MIT",
+      "path": "stripe-payments/SKILL.md",
+      "repo": "https://github.com/claude-office-skills/skills",
+      "snapshot_file": "SKILL.md",
+      "source_id": "office-stripe-payments",
+      "upstream_sha": "1136c8ab288e4e9393f23443b585c0ccaf2b304b",
+      "url": "https://api.github.com/repos/claude-office-skills/skills/contents/stripe-payments/SKILL.md?ref=main",
+      "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+    },
+    {
+      "content_sha256": "6847714fa5adbd00b2ed9f0cc86ca8073c5617ebf0333148dd62f2746d0f368e",
+      "download_url": "https://raw.githubusercontent.com/Randroids-Dojo/skills/main/plugins/task-tracking-dots/SKILL.md",
+      "fetched_at": "2026-05-27",
+      "kind": "skill",
+      "license": "MIT",
+      "path": "plugins/task-tracking-dots/SKILL.md",
+      "repo": "https://github.com/Randroids-Dojo/skills",
+      "snapshot_file": "SKILL.md",
+      "source_id": "randroids-task-tracking-dots",
+      "upstream_sha": "c94fce450b13278c1a21691e6ed58263d29b0ee9",
+      "url": "https://api.github.com/repos/Randroids-Dojo/skills/contents/plugins/task-tracking-dots/SKILL.md?ref=main",
+      "why_included": "real public agent skill/tool corpus seed for v0.4 capability surface validation"
+    }
+  ]
+}

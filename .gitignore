@@ -1,0 +1,11 @@
+.kappaski/
+.pytest_cache/
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
+*.egg-info/
+.DS_Store
+logs/
+rust/**/target/
