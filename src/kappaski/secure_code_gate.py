@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .evidence_bundle import export_evidence_bundle
 from .models import RuntimeEvent, utc_now
 from .postruntime import export_proof_report
@@ -66,13 +67,13 @@ def evaluate_secure_code_patch(case: dict[str, Any], *, out_dir: Path | None = N
         "recorded_at": utc_now(),
     }
     gate_path = root / "secure-code-gate.json"
-    gate_path.write_text(json.dumps(gate_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(gate_path, gate_payload)
     close_session(ledger)
     proof_path = root / "proof.json"
     export_proof_report(ledger, proof_path)
     evidence = export_evidence_bundle(ledger, root / "evidence", profile={"name": "secure-code-gate", "mode": "managed"})
     report_html = root / "secure-code-gate.html"
-    report_html.write_text(_secure_code_html(gate_payload), encoding="utf-8")
+    write_html_artifact(report_html, _secure_code_html(gate_payload))
     return {
         **gate_payload,
         "artifacts": {

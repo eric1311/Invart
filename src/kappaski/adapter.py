@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import os
@@ -9,6 +8,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
 
+from .artifacts import sha256_file, write_html_artifact, write_json_artifact
 from .coverage import export_coverage_html_report
 from .daemon import RuntimeAuthority
 from .gate import verify_gate
@@ -315,7 +315,7 @@ def inspect_adapter_package(package_path: Path) -> dict[str, Any]:
         if not path.exists():
             failures.append({"artifact": name, "reason": "missing"})
             continue
-        if _sha256_file(path) != item.get("sha256"):
+        if sha256_file(path) != item.get("sha256"):
             failures.append({"artifact": name, "reason": "hash_mismatch"})
     return {
         "schema_version": "kappaski.adapter_package_inspect.v0.25",
@@ -345,16 +345,16 @@ def _write_adapter_audit_json(path: Path, adapter_kind: str, proof: dict[str, An
         "summary": proof.get("summary", {}),
         "generated_at": utc_now(),
     }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(path, payload)
     return {"path": str(path), "audit": payload}
 
 
 def _write_adapter_audit_html(path: Path, audit_json: dict[str, Any]) -> dict[str, Any]:
     audit = audit_json["audit"]
     body = json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True)
-    path.write_text(
+    write_html_artifact(
+        path,
         f"""<!doctype html><html><head><meta charset="utf-8"><title>Adapter Runtime Audit</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f8fafc;color:#172033}}main{{max-width:1080px;margin:0 auto;padding:32px 24px}}section{{background:white;border:1px solid #d9e2ef;border-radius:8px;padding:16px;margin:14px 0}}pre{{background:#111827;color:#e5e7eb;padding:14px;border-radius:8px;overflow:auto}}</style></head><body><main><h1>Adapter Runtime Audit</h1><section><h2>Accountability</h2><pre>{html.escape(json.dumps(audit.get("accountability", {}), ensure_ascii=False, indent=2))}</pre></section><section><h2>Mediation</h2><pre>{html.escape(json.dumps(audit.get("mediation", {}), ensure_ascii=False, indent=2))}</pre></section><section><h2>Coverage</h2><pre>{html.escape(json.dumps(audit.get("coverage", {}), ensure_ascii=False, indent=2))}</pre></section><section><h2>Raw Audit</h2><details><summary>Show JSON</summary><pre>{html.escape(body)}</pre></details></section></main></body></html>""",
-        encoding="utf-8",
     )
     return {"path": str(path)}
 
@@ -365,16 +365,12 @@ def _write_adapter_package(package_path: Path, *, adapter: dict[str, Any], artif
         "adapter": adapter,
         "created_at": utc_now(),
         "artifacts": {
-            name: {"path": str(path), "sha256": _sha256_file(path), "bytes": path.stat().st_size}
+            name: {"path": str(path), "sha256": sha256_file(path), "bytes": path.stat().st_size}
             for name, path in sorted(artifacts.items())
         },
     }
-    package_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(package_path, manifest)
     return package_path
-
-
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 __all__ = ["AdapterRunResult", "inspect_adapter_package", "run_adapter_command", "run_adapter_runtime"]

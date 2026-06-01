@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .artifacts import stable_json_hash, write_html_artifact, write_json_artifact
 from .benchmark_registry import optional_heavy_validation_status
 from .evidence_bundle import export_evidence_bundle
 from .identity import bind_agent_identity, create_capability_grant, credential_inventory, declare_principal, record_identity_binding
@@ -171,7 +172,7 @@ def run_experiment_suite(suite: str, *, out_dir: Path | None = None) -> dict[str
         "optional_heavy_validation": optional_heavy_validation_status() if suite == "swebench-friction-control-plane" else None,
     }
     run_path = root / "run.json"
-    run_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(run_path, report)
     report["artifacts"] = {"run_json": str(run_path)}
     export_experiment_report(report, root / "report.html")
     report["artifacts"]["report_html"] = str(root / "report.html")
@@ -189,21 +190,15 @@ def run_experiment_case(case: ExperimentCase, out_dir: Path) -> dict[str, Any]:
     record_identity_binding(ledger, session_id=session.session_id, principal=principal, agent_identity=agent, credentials=credentials, grants=[grant])
 
     if case.supply_chain:
-        (out_dir / "pre-runtime-scan.json").write_text(
-            json.dumps(
-                {
-                    "status": "pass",
-                    "case_id": case.case_id,
-                    "detected_skill_origin": case.skill_origin,
-                    "capability_grant_id": grant.grant_id,
-                    "findings": [{"category": "prompt-injection", "source": case.skill_origin}],
-                },
-                ensure_ascii=False,
-                indent=2,
-                sort_keys=True,
-            )
-            + "\n",
-            encoding="utf-8",
+        write_json_artifact(
+            out_dir / "pre-runtime-scan.json",
+            {
+                "status": "pass",
+                "case_id": case.case_id,
+                "detected_skill_origin": case.skill_origin,
+                "capability_grant_id": grant.grant_id,
+                "findings": [{"category": "prompt-injection", "source": case.skill_origin}],
+            },
         )
 
     trace_results: list[dict[str, Any]] = []
@@ -270,7 +265,7 @@ def run_experiment_case(case: ExperimentCase, out_dir: Path) -> dict[str, Any]:
             "evidence_manifest": str(evidence["manifest_path"]),
         },
     }
-    (out_dir / "case-result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(out_dir / "case-result.json", result)
     return result
 
 
@@ -287,8 +282,7 @@ def export_experiment_report(run: dict[str, Any], output_path: Path) -> dict[str
         if isinstance(case, dict)
     )
     document = f"""<!doctype html><html><head><meta charset="utf-8"><title>Kappaski Experiment Report</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}main{{max-width:1180px;margin:0 auto;padding:34px 24px}}table{{width:100%;border-collapse:collapse;background:white;border:1px solid #dfe5ef}}td,th{{border-bottom:1px solid #dfe5ef;padding:9px;text-align:left;vertical-align:top}}th{{background:#f1f5f9}}pre{{background:#111827;color:#e5e7eb;padding:14px;border-radius:8px;overflow:auto}}</style></head><body><main><h1>Kappaski Experiment Report</h1><p>ExperimentCase to ledger/proof/evidence control-plane results.</p><pre>{_esc(json.dumps(run.get('metrics', {}), ensure_ascii=False, indent=2, sort_keys=True))}</pre><table><tr><th>Case</th><th>Source</th><th>Passed</th><th>Expected</th><th>Why</th></tr>{rows}</table></main></body></html>"""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(document, encoding="utf-8")
+    write_html_artifact(output_path, document)
     return {"schema_version": "kappaski.experiment_report_html.v0.30", "status": "pass", "output": str(output_path)}
 
 
@@ -314,7 +308,7 @@ def run_paper_suite(out_dir: Path) -> dict[str, Any]:
         "optional_heavy_validation": optional_heavy_validation_status(),
     }
     metrics_json = out_dir / "paper-metrics.json"
-    metrics_json.write_text(json.dumps(metrics, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(metrics_json, metrics)
     report_html = out_dir / "paper-report.html"
     export_experiment_report(
         {
@@ -327,14 +321,13 @@ def run_paper_suite(out_dir: Path) -> dict[str, Any]:
         },
         report_html,
     )
-    digest = hashlib.sha256(json.dumps(metrics, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     return {
         "schema_version": "kappaski.paper_suite.v0.39",
         "status": "pass" if all(result.get("status") == "pass" for result in results.values()) else "fail",
         "summary": {"bundles": list(suite_map.keys()), "suites": list(suite_map.values())},
         "results": results,
         "optional_heavy_validation": metrics["optional_heavy_validation"],
-        "reproducibility_hash": "sha256:" + digest,
+        "reproducibility_hash": stable_json_hash(metrics),
         "artifacts": {"metrics_json": str(metrics_json), "report_html": str(report_html)},
     }
 
@@ -401,7 +394,7 @@ def _swebench_friction_cases() -> list[ExperimentCase]:
 
 def _case(case_id: str, suite: str, title: str, source: str, trust: str, capability: str, resource: str, sink: str, expected: ExpectedControlOutcome, agent_trace: list[dict[str, Any]], **kwargs: Any) -> ExperimentCase:
     seed_payload = {"case_id": case_id, "suite": suite, "title": title, "trace": agent_trace}
-    seed_hash = "sha256:" + hashlib.sha256(json.dumps(seed_payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    seed_hash = stable_json_hash(seed_payload)
     return ExperimentCase(
         case_id=case_id,
         suite=suite,
@@ -511,7 +504,7 @@ def _paper_metrics(result: dict[str, Any]) -> dict[str, Any]:
 def _fixture_version_map(results: dict[str, Any]) -> dict[str, str]:
     mapping = {}
     for bundle, result in results.items():
-        mapping[bundle] = "sha256:" + hashlib.sha256(json.dumps(result.get("summary", {}), ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+        mapping[bundle] = stable_json_hash(result.get("summary", {}))
     return mapping
 
 

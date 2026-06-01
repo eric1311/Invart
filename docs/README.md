@@ -40,6 +40,7 @@ Read these first. They represent the current agreed direction.
 
 7. [`code-design-and-development-standards.html`](code-design-and-development-standards.html)
    - Code design, maintainability rules, module boundaries, TDD completion definition, and refactor route.
+   - Current engineering structure: `cli.py` and `evals.py` are compatibility façades; command handlers live in `src/kappaski/commands/`, benchmark runners in `src/kappaski/benchmarks/`, portable artifact writing in `src/kappaski/artifacts.py`, and product tests are split by runtime/governance/integration/policy/demo boundaries.
 
 8. [`enterprise-unregistered-agent-coverage-roadmap.html`](enterprise-unregistered-agent-coverage-roadmap.html)
    - Enterprise discovery and coverage model for agents that bypass daemon registration.
@@ -132,6 +133,7 @@ These are important, but less canonical than the product spine.
 - v0.40 is `implemented` for the full SWE-Bench validation contract; it does not claim the full upstream run has already completed.
 - `kappaski roadmap status --require-full` is expected to pass.
 - `kappaski roadmap status --require-external-validation` is expected to fail until optional external benchmark runs are executed and recorded.
+- The current codebase has completed the P1/P2 refactor tracked in `code-design-and-development-standards.html`: CLI split, benchmark façade split, `test_core.py` product-slice split, and unified JSON/HTML artifact writer helper.
 
 - [`v0.6-real-workflow-demo.html`](v0.6-real-workflow-demo.html): reference adapter wrapper and CI artifact flow.
 

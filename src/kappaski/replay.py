@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact
 from .gate import verify_gate
 from .postruntime import export_proof_report
 from .models import utc_now
@@ -15,8 +16,7 @@ def export_replay_html(ledger_path: Path, output_path: Path, *, gate_mode: str =
     gate = verify_gate(ledger_path=ledger_path, mode=gate_mode)
     case = _load_case(case_path)
     html_doc = _render(proof, gate, case, include_raw=include_raw)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html_doc, encoding="utf-8")
+    write_html_artifact(output_path, html_doc)
     return {
         "replay": str(output_path),
         "ledger": str(ledger_path),

@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .evidence_bundle import export_evidence_bundle
 from .experiment_cases import run_experiment_case, cases_for_suite
 from .ledger import verify_ledger
@@ -33,7 +34,7 @@ def run_audit_tamper_assurance(*, out_dir: Path | None = None) -> dict[str, Any]
         tampered.write_text("\n".join(lines) + "\n", encoding="utf-8")
     tamper_result = verify_ledger(tampered)
     audit_html = root / "audit-tamper-assurance.html"
-    audit_html.write_text(_audit_html(answers, tamper_result), encoding="utf-8")
+    write_html_artifact(audit_html, _audit_html(answers, tamper_result))
     report = {
         "schema_version": "kappaski.audit_experiments.v0.38",
         "suite": "audit-tamper-assurance",
@@ -57,7 +58,7 @@ def run_audit_tamper_assurance(*, out_dir: Path | None = None) -> dict[str, Any]
             "audit_html": str(audit_html),
         },
     }
-    (root / "audit-tamper-assurance.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(root / "audit-tamper-assurance.json", report)
     return report
 
 

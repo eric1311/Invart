@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from .artifacts import relative_href, write_html_artifact, write_json_artifact
 from .audit_demo import run_enterprise_audit_live_adapter_demo
 from .pre_v1 import run_pre_v1_control_plane_demo
 
@@ -142,8 +143,8 @@ def run_real_world_risk_demo(out_dir: Path) -> dict[str, Any]:
             "pre_v1_demo": pre_v1,
         },
     }
-    catalog_path.write_text(json.dumps(catalog, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    html_path.write_text(_render_real_world_demo_html(report), encoding="utf-8")
+    write_json_artifact(catalog_path, catalog)
+    write_html_artifact(html_path, _render_real_world_demo_html(report))
     return report
 
 
@@ -154,12 +155,12 @@ def _render_real_world_demo_html(report: dict[str, Any]) -> str:
     base_dir = Path(report["artifacts"]["html"]).parent
     live_dir = Path(live["audit_report"]).parent
     pre_v1_artifacts = pre_v1["artifacts"]
-    live_audit = _relative_href(base_dir, live_dir / "audit-report.html")
-    live_replay = _relative_href(base_dir, live_dir / "replay.html")
-    pre_v1_audit = _relative_href(base_dir, Path(pre_v1_artifacts["audit_report"]))
-    pre_v1_replay = _relative_href(base_dir, Path(pre_v1_artifacts["replay"]))
-    pre_v1_graph = _relative_href(base_dir, Path(pre_v1_artifacts["path_graph"]))
-    pre_v1_coverage = _relative_href(base_dir, Path(pre_v1_artifacts["coverage_report"]))
+    live_audit = relative_href(base_dir, live_dir / "audit-report.html")
+    live_replay = relative_href(base_dir, live_dir / "replay.html")
+    pre_v1_audit = relative_href(base_dir, Path(pre_v1_artifacts["audit_report"]))
+    pre_v1_replay = relative_href(base_dir, Path(pre_v1_artifacts["replay"]))
+    pre_v1_graph = relative_href(base_dir, Path(pre_v1_artifacts["path_graph"]))
+    pre_v1_coverage = relative_href(base_dir, Path(pre_v1_artifacts["coverage_report"]))
     return f"""<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -185,14 +186,6 @@ PYTHONPATH=src python3 -m kappaski.cli eval benchmark --suite real-world-agent-r
 </body>
 </html>
 """
-
-
-def _relative_href(base_dir: Path, path: Path) -> str:
-    try:
-        value = path.relative_to(base_dir)
-    except ValueError:
-        value = path
-    return html.escape(str(value))
 
 
 def _source_card(source: dict[str, Any]) -> str:

@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .ledger import load_ledger_entries, verify_ledger
 from .models import Finding, ProofReport, finding_from_dict, summarize_findings, utc_now
 from .identity import accountability_from_ledger
@@ -76,8 +77,7 @@ def export_proof_report(ledger_path: Path, output_path: Path | None = None) -> d
     report["accountability"] = accountability_from_ledger(ledger_path)
     report["path_graph"] = _path_graph_summary(ledger_path)
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, report)
     return report
 
 

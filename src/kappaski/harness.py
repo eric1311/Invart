@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .daemon import RuntimeAuthority
 from .models import RuntimeEvent
 from .runtime import record_action
@@ -607,6 +608,5 @@ def _load_first_case(case_path: Path) -> dict[str, Any]:
 
 def _write_report(report: dict[str, Any], output_path: Path | None) -> dict[str, Any]:
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, report)
     return report

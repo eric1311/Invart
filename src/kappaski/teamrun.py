@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .ledger import append_ledger_entry, load_ledger_entries, verify_ledger
 from .models import LedgerEntry, utc_now
 
@@ -118,8 +119,7 @@ def export_teamrun_proof(ledger_path: Path, output_path: Path | None = None) -> 
         "facts": facts,
     }
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(proof, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, proof)
     return proof
 
 
@@ -159,8 +159,7 @@ def export_teamrun_aggregate(ledger_paths: list[Path], output_path: Path | None 
         "facts": aggregate_facts,
     }
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(aggregate, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, aggregate)
     return aggregate
 
 
@@ -195,8 +194,7 @@ def export_teamrun_timeline_html(ledger_paths: list[Path], output_path: Path) ->
     )
     document = f"""<!doctype html><html><head><meta charset="utf-8"><title>TeamRun Timeline</title><style>
 body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f7f4;color:#1f2933}}.wrap{{max-width:1100px;margin:0 auto;padding:40px 24px}}table{{width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd8cc}}td,th{{border-bottom:1px solid #e6e0d4;padding:10px;text-align:left;vertical-align:top}}code{{background:#17202a;color:#eef4f8;padding:2px 5px;border-radius:4px}}</style></head><body><main class="wrap"><h1>TeamRun Timeline</h1><p>Multi-ledger TeamRun, handoff, blackboard, identity, and grant facts.</p><table><tr><th>Time</th><th>Type</th><th>Actor</th><th>Summary</th><th>Ledger</th></tr>{html_rows}</table></main></body></html>"""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(document, encoding="utf-8")
+    write_html_artifact(output_path, document)
     return {
         "schema_version": "kappaski.teamrun_timeline.v0.12",
         "status": "pass",

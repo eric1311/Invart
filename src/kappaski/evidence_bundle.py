@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import sha256_file, stable_json_hash, write_html_artifact, write_json_artifact
 from .coverage import export_coverage_html_report
 from .gate import verify_gate
 from .path_graph import export_execution_graph_html, export_execution_graph_json
@@ -31,8 +32,8 @@ def export_evidence_bundle(ledger_path: Path, out_dir: Path, *, profile: dict[st
     audit_json_path = out_dir / "audit.json"
     audit_html_path = out_dir / "audit.html"
     audit = _audit_payload(proof, path_policy, gate, profile)
-    audit_json_path.write_text(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    audit_html_path.write_text(_audit_html(audit), encoding="utf-8")
+    write_json_artifact(audit_json_path, audit)
+    write_html_artifact(audit_html_path, _audit_html(audit))
 
     artifact_paths = {
         "ledger": ledger_path,
@@ -60,12 +61,12 @@ def export_evidence_bundle(ledger_path: Path, out_dir: Path, *, profile: dict[st
             "otel_preview": {"span_name": "kappaski.agent_runtime", "attributes": ["session_id", "principal", "coverage", "policy_effect"]},
         },
         "artifacts": {
-            name: {"path": str(path), "sha256": _sha256_file(path), "bytes": path.stat().st_size}
+            name: {"path": str(path), "sha256": sha256_file(path), "bytes": path.stat().st_size}
             for name, path in sorted(artifact_paths.items())
         },
     }
     manifest_path = out_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(manifest_path, manifest)
     return {
         "schema_version": EVIDENCE_BUNDLE_SCHEMA_VERSION,
         "status": "pass",
@@ -81,7 +82,7 @@ def verify_evidence_bundle(manifest_path: Path) -> dict[str, Any]:
     for name, item in manifest.get("artifacts", {}).items():
         path = Path(str(item.get("path", "")))
         exists = path.exists()
-        actual = _sha256_file(path) if exists else None
+        actual = sha256_file(path) if exists else None
         expected = item.get("sha256")
         results.append(
             {
@@ -147,11 +148,7 @@ def _policy_decision_summary(proof: dict[str, Any]) -> dict[str, int]:
 
 
 def _hash_object(payload: dict[str, Any]) -> str:
-    return "sha256:" + hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
-
-
-def _sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return stable_json_hash(payload)
 
 
 __all__ = ["export_evidence_bundle", "verify_evidence_bundle"]

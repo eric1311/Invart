@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .models import RuntimeEvent, utc_now
 from .runtime import record_action, start_session
 
@@ -67,7 +68,7 @@ def run_reviewer_selectivity_experiment(*, out_dir: Path | None = None) -> dict[
             "cost_savings_proxy": modes["always_on"]["token_cost_usd"] - modes["selective"]["token_cost_usd"],
         },
     }
-    (root / "reviewer-selectivity.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(root / "reviewer-selectivity.json", report)
     return report
 
 

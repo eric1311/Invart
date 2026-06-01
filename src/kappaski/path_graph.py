@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .ledger import load_ledger_entries
 from .models import utc_now
 
@@ -160,8 +161,7 @@ def query_execution_graph(graph: dict[str, Any], *, target_id: str, direction: s
 
 def export_execution_graph_json(ledger_path: Path, output_path: Path) -> dict[str, Any]:
     graph = build_execution_graph(ledger_path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(graph, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(output_path, graph)
     return {"status": "pass", "output": str(output_path), "summary": graph["summary"]}
 
 
@@ -176,8 +176,7 @@ def export_execution_graph_html(ledger_path: Path, output_path: Path) -> dict[st
         for edge in graph["edges"]
     )
     doc = f"""<!doctype html><html><head><meta charset='utf-8'><title>Execution Path Graph</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}main{{max-width:1180px;margin:0 auto;padding:32px 24px}}table{{width:100%;border-collapse:collapse;background:white;border:1px solid #dfe5ef;margin:16px 0}}td,th{{border-bottom:1px solid #dfe5ef;padding:8px;text-align:left}}th{{background:#f1f5f9}}pre{{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}}</style></head><body><main><h1>Execution Path Graph</h1><p>Ledger-derived Agent-BOM-like graph. The ledger remains the source of truth.</p><pre>{esc(json.dumps(graph['summary'], ensure_ascii=False, indent=2))}</pre><h2>Nodes</h2><table><tr><th>ID</th><th>Kind</th><th>Label</th></tr>{rows}</table><h2>Edges</h2><table><tr><th>Source</th><th>Kind</th><th>Target</th></tr>{edge_rows}</table></main></body></html>"""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(doc, encoding="utf-8")
+    write_html_artifact(output_path, doc)
     return {"status": "pass", "output": str(output_path), "summary": graph["summary"]}
 
 

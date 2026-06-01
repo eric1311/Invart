@@ -20,9 +20,13 @@
 <main>
   <section class="section">
     <h2>当前重构结论</h2>
-    <p>当前代码已经具备完整本地产品闭环，但增长压力集中在三个地方：<code>src/kappaski/cli.py</code> 聚合了过多命令解析和 handler，<code>src/kappaski/evals.py</code> 聚合了过多 benchmark dispatch，<code>tests/test_core.py</code> 聚合了过多版本测试。短期不能为了“漂亮切片”大规模搬动已有稳定功能，应该先做低风险的结构化收口。</p>
+    <p>当前代码已经完成第一轮结构化收口：<code>src/kappaski/cli.py</code> 保留为兼容入口，命令解析和 handler 按领域进入 <code>src/kappaski/commands/</code>；<code>src/kappaski/evals.py</code> 保留为 façade，benchmark runner 进入 <code>src/kappaski/benchmarks/</code>；原 <code>tests/test_core.py</code> 已拆成按产品边界组织的测试切片；JSON/HTML artifact 写入统一由 <code>src/kappaski/artifacts.py</code> 提供稳定格式、hash 和相对链接 helper。</p>
     <table>
       <tr><th>问题</th><th>本次处理</th><th>后续规范</th></tr>
+      <tr><td>CLI parser / handler 过深</td><td><code>cli.py</code> 现在只负责 <code>main()</code> 和 parser 入口；<code>commands/parser.py</code> 注册参数，<code>commands/foundation.py</code>、<code>governance.py</code>、<code>integrations.py</code>、<code>product.py</code> 承载 handler。</td><td>新增 CLI 必须用 <code>set_defaults(handler=...)</code> 注册到对应 command family，不再追加主函数 if-chain。</td></tr>
+      <tr><td>benchmark/eval façade 过重</td><td><code>evals.py</code> 只继续暴露 <code>run_benchmark()</code> 兼容接口；runner registry 和 suite 实现进入 <code>benchmarks/</code>。</td><td>suite 名称保持稳定；新增 benchmark 必须进入 registry，并保留 CLI、docs、roadmap capability。</td></tr>
+      <tr><td>测试定位困难</td><td><code>test_core.py</code> 拆成 runtime foundation、governance/identity、integrations、policy/evidence/RC、demos/roadmap 等测试切片。</td><td>新增测试按产品问题归档，避免重新形成单个巨大测试文件。</td></tr>
+      <tr><td>artifact 写入重复</td><td><code>artifacts.py</code> 统一稳定 JSON、HTML、sha256、相对链接 helper，并迁移 proof、gate、replay、graph、coverage、evidence、demo、experiment、RC 报告写入。</td><td>ledger JSONL 仍由 <code>ledger.py</code> 作为事实源管理；其他 portable artifact 优先使用 helper。</td></tr>
       <tr><td>benchmark dispatch 是长 if-chain</td><td>改为 registry-style runner dispatch，新增 suite 只注册 runner。</td><td>新增 benchmark 必须有 runner、registry entry、CLI test、docs。</td></tr>
       <tr><td>真实 demo 数据散落在文档叙述中</td><td>新增 <code>real_world_cases.py</code>，把公开来源、claim boundary、before/during/after 映射结构化。</td><td>所有真实世界 claim 必须进入可导出的 JSON，而不是只写在 HTML 里。</td></tr>
       <tr><td>文档和代码容易脱节</td><td>新 demo 同时提供 CLI、benchmark、HTML 入口和测试。</td><td>版本完成必须同步更新 docs index、user guide/briefing 或 roadmap。</td></tr>
@@ -71,9 +75,9 @@
       <tr><th>优先级</th><th>任务</th><th>验收</th></tr>
       <tr><td class="ok">P0</td><td>新增真实世界风险案例模块和 demo benchmark。</td><td><code>eval benchmark --suite real-world-agent-risk-demo</code> 通过。</td></tr>
       <tr><td class="ok">P0</td><td>benchmark dispatch 注册表化。</td><td>新增 suite 不再追加长 if-chain。</td></tr>
-      <tr><td class="warn">P1</td><td>把 <code>cli.py</code> 拆成 <code>commands/</code> 包，保持 <code>kappaski.cli.main</code> 兼容。</td><td>所有 CLI 测试不变；每个 command family 单独测试。</td></tr>
-      <tr><td class="warn">P1</td><td>把 <code>tests/test_core.py</code> 拆成 product slice：runtime、policy、adapter、evidence、benchmark、docs。</td><td>测试名和覆盖意图更容易定位。</td></tr>
-      <tr><td>P2</td><td>统一 HTML/JSON artifact writer helper。</td><td>demo、audit、evidence、report path 行为一致。</td></tr>
+      <tr><td class="ok">P1 done</td><td>把 <code>cli.py</code> 拆成 <code>commands/</code> 包，保持 <code>kappaski.cli.main</code> 兼容。</td><td>CLI smoke、alias、产品切片测试保持通过。</td></tr>
+      <tr><td class="ok">P1 done</td><td>把 <code>tests/test_core.py</code> 拆成 product slice：runtime、policy、adapter、evidence、benchmark、docs。</td><td>测试名和覆盖意图更容易定位，覆盖语义不删除。</td></tr>
+      <tr><td class="ok">P2 done</td><td>统一 HTML/JSON artifact writer helper。</td><td>demo、audit、evidence、report path 和稳定 JSON 行为一致。</td></tr>
     </table>
   </section>
 </main>

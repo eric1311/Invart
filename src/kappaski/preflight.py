@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .scanner import scan_pre_runtime
 
 
@@ -27,8 +28,7 @@ def save_preflight(target: Path, output_path: Path | None = None, include_home: 
         "hash": preflight_hash,
         "report": report,
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(envelope, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(output_path, envelope)
     return envelope
 
 

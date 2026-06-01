@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .ledger import append_ledger_entry
 from .models import LedgerEntry, utc_now
 from .gate import verify_gate
@@ -71,8 +72,8 @@ def run_enterprise_audit_demo(out_dir: Path) -> dict[str, Any]:
     gate = verify_gate(ledger_path=ledger, proof_path=proof_path, mode="managed")
     replay = export_replay_html(ledger, replay_path, gate_mode="managed", include_raw=True)
     audit = build_enterprise_audit_report(proof, gate, replay, ledger, proof_path, replay_path)
-    audit_json_path.write_text(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-    audit_html_path.write_text(render_enterprise_audit_html(audit, proof), encoding="utf-8")
+    write_json_artifact(audit_json_path, audit)
+    write_html_artifact(audit_html_path, render_enterprise_audit_html(audit, proof))
     return {
         "schema_version": "kappaski.enterprise_audit_demo.v0.14",
         "ledger": str(ledger),
@@ -117,8 +118,8 @@ def run_enterprise_audit_live_adapter_demo(out_dir: Path) -> dict[str, Any]:
     audit["demo_mode"] = "live_adapter_enforced"
     audit["adapter"] = adapter
     audit["summary"]["blocked_before_execution"] = blocked_marker.exists() is False and adapter.get("status") == "blocked"
-    audit_json_path.write_text(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
-    audit_html_path.write_text(render_enterprise_audit_html(audit, proof), encoding="utf-8")
+    write_json_artifact(audit_json_path, audit)
+    write_html_artifact(audit_html_path, render_enterprise_audit_html(audit, proof))
     return {
         "schema_version": "kappaski.enterprise_audit_demo.v0.14",
         "mode": "live_adapter_enforced",

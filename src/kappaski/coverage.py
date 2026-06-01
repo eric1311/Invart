@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact
+
 COVERAGE_GRADES = ("none", "declared", "observed", "mediated", "enforced")
 
 
@@ -120,8 +122,7 @@ def export_coverage_html_report(proof_path: Path, output_path: Path) -> dict[str
     grade_headers = "".join(f"<th>{html.escape(grade)}</th>" for grade in COVERAGE_GRADES)
     document = f"""<!doctype html><html><head><meta charset="utf-8"><title>Coverage Matrix</title><style>
 body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f7f4;color:#1f2933}}.wrap{{max-width:1100px;margin:0 auto;padding:40px 24px}}table{{width:100%;border-collapse:collapse;background:#fff;border:1px solid #ddd8cc;margin:16px 0}}td,th{{border-bottom:1px solid #e6e0d4;padding:10px;text-align:left}}code{{background:#17202a;color:#eef4f8;padding:2px 5px;border-radius:4px}}</style></head><body><main class="wrap"><h1>Coverage Matrix</h1><p>Proof-derived visibility, observation, enforcement, and audit coverage.</p><table><tr><th>Dimension</th>{grade_headers}</tr>{''.join(rows)}</table><h2>Events</h2><table><tr><th>Invocation</th><th>runtime_observation</th><th>runtime_enforcement</th><th>Observed By</th><th>Enforced By</th></tr>{event_rows}</table></main></body></html>"""
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(document, encoding="utf-8")
+    write_html_artifact(output_path, document)
     return {
         "schema_version": "kappaski.coverage_html.v0.18",
         "status": "pass",

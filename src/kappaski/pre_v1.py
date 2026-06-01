@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .coverage import export_coverage_html_report
 from .gate import verify_gate
 from .identity import bind_agent_identity, create_capability_grant, credential_inventory, declare_principal, record_identity_binding
@@ -47,7 +48,7 @@ def run_pre_v1_control_plane_demo(out_dir: Path) -> dict[str, Any]:
     coverage = export_coverage_html_report(proof_path, out_dir / "coverage.html")
     gate = verify_gate(proof_path=proof_path, ledger_path=ledger, mode="ci", coverage_requirements={"runtime_enforcement": "enforced"})
     audit_report = out_dir / "audit-report.html"
-    audit_report.write_text(_audit_html(proof, path_policy, gate), encoding="utf-8")
+    write_html_artifact(audit_report, _audit_html(proof, path_policy, gate))
     latency_ms = round((time.perf_counter() - started) * 1000, 3)
     metrics = _metrics(proof, path_policy, gate, latency_ms)
     result = {
@@ -67,7 +68,7 @@ def run_pre_v1_control_plane_demo(out_dir: Path) -> dict[str, Any]:
         "path_policy": path_policy,
         "metrics": metrics,
     }
-    (out_dir / "pre-v1-demo.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(out_dir / "pre-v1-demo.json", result)
     return result
 
 

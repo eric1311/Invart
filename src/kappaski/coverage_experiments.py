@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .coverage import default_coverage_for_layer
 from .models import utc_now
 
@@ -59,7 +60,7 @@ def run_coverage_truthfulness_matrix(*, out_dir: Path | None = None) -> dict[str
             "bypass_detection": 1.0,
         },
     }
-    (root / "coverage-truthfulness-matrix.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_json_artifact(root / "coverage-truthfulness-matrix.json", report)
     return report
 
 

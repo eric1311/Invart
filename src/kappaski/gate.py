@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .postruntime import export_proof_report, verify_proof_report
 from .ledger import load_ledger_entries
 from .models import utc_now
@@ -135,8 +136,7 @@ def verify_gate(
         findings=findings,
     ).to_dict()
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, report)
     return report
 
 

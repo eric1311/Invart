@@ -10,6 +10,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
     tomllib = None
 
+from .artifacts import write_json_artifact
 from .models import RuntimeEvent
 from .path_policy import check_path_policy
 from .runtime import record_action, start_session
@@ -200,8 +201,7 @@ def _count_effects(rules: list[dict[str, Any]]) -> dict[str, int]:
 
 def _write_optional(path: Path | None, payload: dict[str, Any]) -> None:
     if path:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(path, payload)
 
 
 def _parse_toml_with_rule_arrays(text: str) -> dict[str, Any]:

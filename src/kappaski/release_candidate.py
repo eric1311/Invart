@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_html_artifact, write_json_artifact
 from .evidence_bundle import export_evidence_bundle, verify_evidence_bundle
 from .pre_v1 import run_pre_v1_control_plane_demo
 from .roadmap import verify_roadmap_coverage
@@ -121,8 +122,8 @@ def verify_release_candidate(
     report_json = out_dir / "release-candidate-report.json"
     report_html = out_dir / "release-candidate-report.html"
     report["artifacts"] = {"report_json": str(report_json), "report_html": str(report_html)}
-    report_json.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    report_html.write_text(_rc_html(report), encoding="utf-8")
+    write_json_artifact(report_json, report)
+    write_html_artifact(report_html, _rc_html(report))
     return report
 
 

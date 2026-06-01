@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .artifacts import write_json_artifact
 from .ledger import load_ledger_entries
 from .rules import analyze_command
 
@@ -58,8 +59,7 @@ def check_path_policy(ledger_path: Path, *, profile: dict[str, Any] | None = Non
         "profile": profile or {"policy_language": "kappaski-native", "future_compatibility": ["Rego", "Cedar"]},
     }
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_json_artifact(output_path, report)
     return report
 
 
