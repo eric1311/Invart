@@ -17,6 +17,12 @@ Invart is not a plugin-only wrapper. Plugin and hook integration can improve cov
 | L4 Mediation Plane | Unified decision and outcome contract across surfaces. | control/mediation.py, control/approval.py, control/gate.py |
 | L5 Evidence Plane | Proof, replay, graph, audit, coverage, evidence bundle, release gate. | assurance/postruntime.py, assurance/replay.py, assurance/path_graph.py, assurance/evidence_bundle.py |
 
+## Demo Verification
+
+The [runtime effect demo](runtime-effect-demo.md) is the concrete verification surface for this model. It renders a stage × layer matrix in the final demo entrypoint and an action timeline in each container risk case audit page. The timeline connects agent intent/action, Invart observation, policy or mediation decision, outcome, and the artifact that proves the step.
+
+Coverage terms remain strict: observed, mediated, and enforced are not interchangeable. Unmanaged direct execution is shown as a coverage gap unless it enters a managed launcher, wrapper, hook, broker, or shim.
+
 ## Source Layout
 
 ```bash

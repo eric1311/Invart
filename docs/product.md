@@ -20,6 +20,8 @@ invart demo real-world-risk-cases \
 
 Outputs a safe risk demo with ledger, proof, replay, audit, and evidence artifacts.
 
+For the clearest model walkthrough, open the [runtime effect demo](runtime-effect-demo.md). It maps each demo run across before-runtime, during-runtime, after-runtime and the L1-L5 control layers.
+
 ## Three Stages
 
 | Stage | Question | Invart Output |
@@ -63,3 +65,7 @@ Whether managed launchers, wrappers, hooks, and benchmark harnesses can run with
 ### Developers
 
 Low-risk commands continue automatically, while high-risk steps receive precise context instead of vague warnings.
+
+## How To Verify The Model In A Demo
+
+Run `invart demo pre-1.0-final --out-dir .invart/pre-1-demo-check`, then open `pre-1.0-final-demo.html`. The Runtime Effect Matrix shows the three lifecycle stages across L1-L5, and each container risk case audit page shows an action timeline from agent intent through Invart observation, policy or mediation decision, outcome, and artifact.

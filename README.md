@@ -44,6 +44,7 @@ For a first pass, the most useful public-facing surfaces are:
 | --- | --- |
 | [`docs/product.md`](docs/product.md) | One-page product overview for the before / during / after control loop. |
 | [`docs/quickstart.md`](docs/quickstart.md) | Minimal local session that writes a ledger and verifies proof. |
+| [`docs/runtime-effect-demo.md`](docs/runtime-effect-demo.md) | Shows the demo's before / during / after stages and L1-L5 control effects. |
 | [`docs/evaluation.md`](docs/evaluation.md) | Explains what the built-in benchmarks measure and what they do not claim. |
 | [`examples/`](examples/) | Small runnable examples before running the larger demos. |
 
@@ -152,6 +153,7 @@ Open the local docs:
 - [API and SDK](docs/api-sdk.md)
 - [Architecture](docs/architecture.md)
 - [Examples](docs/examples.md)
+- [Runtime effect demo](docs/runtime-effect-demo.md)
 - [Evaluation](docs/evaluation.md)
 - [Open-source boundary](docs/open-source-boundary.md)
 - [Brand assets](assets/brand/README.md)

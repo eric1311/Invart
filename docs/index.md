@@ -23,6 +23,10 @@ Install locally, create a managed session, record one action, export proof, and 
 
 Runnable examples for local sessions, policy profiles, risk demos, and containerized flows.
 
+### [Runtime Effect Demo](runtime-effect-demo.md)
+
+Read the demo matrix and action timeline that map before / during / after runtime to L1-L5.
+
 ## Understand
 
 ### [Core Concepts](concepts.md)

@@ -29,6 +29,14 @@ def run_pre_1_0_final_demo(out_dir: Path, *, external_evidence_manifest: Path | 
     pre_v1_demo = run_pre_v1_control_plane_demo(out_dir / "pre-v1-demo")
     external = _external_status(external_evidence_manifest)
     entrypoint = out_dir / "pre-1.0-final-demo.html"
+    runtime_effect_matrix = _runtime_effect_matrix(
+        entrypoint=entrypoint,
+        vendor_matrix=matrix_path,
+        unmanaged_inventory=unmanaged_path,
+        risk_demo=risk_demo,
+        pre_v1_demo=pre_v1_demo,
+        external=external,
+    )
     report = {
         "schema_version": SCHEMA_VERSION,
         "status": "pass",
@@ -40,6 +48,7 @@ def run_pre_1_0_final_demo(out_dir: Path, *, external_evidence_manifest: Path | 
             "pre_v1_demo": pre_v1_demo,
             "external_evidence": external,
         },
+        "runtime_effect_matrix": runtime_effect_matrix,
         "summary": {
             "vendor_agents": matrix["summary"]["agents"],
             "unmanaged_findings": unmanaged["summary"]["findings"],
@@ -49,6 +58,46 @@ def run_pre_1_0_final_demo(out_dir: Path, *, external_evidence_manifest: Path | 
     }
     write_html_artifact(entrypoint, _render_final_demo_html(report))
     return report
+
+
+def _runtime_effect_matrix(
+    *,
+    entrypoint: Path,
+    vendor_matrix: Path,
+    unmanaged_inventory: Path,
+    risk_demo: dict[str, Any],
+    pre_v1_demo: dict[str, Any],
+    external: dict[str, Any],
+) -> list[dict[str, Any]]:
+    pre_v1_artifacts = pre_v1_demo["artifacts"]
+    risk_entry = Path(risk_demo["artifacts"]["html"])
+    rows = [
+        ("before-runtime", "L1", "Execution Surface", "Agent config, skills, MCP, wrappers, launchers, and unmanaged surfaces are discovered.", vendor_matrix),
+        ("before-runtime", "L2", "Runtime Fact Model", "Session identity, principal, credential boundary, and grants are prepared as ledger facts.", pre_v1_artifacts["ledger"]),
+        ("before-runtime", "L3", "Decision Plane", "Policy profile and deterministic critical boundaries are visible before action.", pre_v1_artifacts["path_policy"]),
+        ("before-runtime", "L4", "Mediation Plane", "Managed launch path distinguishes covered and weakly covered surfaces before execution.", unmanaged_inventory),
+        ("before-runtime", "L5", "Evidence Plane", "The demo entrypoint records the claim boundary and artifact map.", entrypoint),
+        ("during-runtime", "L1", "Execution Surface", "Agent-like file, network, shell, content, and skill/tool actions enter observed surfaces.", risk_entry),
+        ("during-runtime", "L2", "Runtime Fact Model", "Invocations record resource, taint, identity, coverage, and outcome facts.", pre_v1_artifacts["proof"]),
+        ("during-runtime", "L3", "Decision Plane", "Path-aware policy reconstructs risky chains such as secret read to network sink.", pre_v1_artifacts["path_policy"]),
+        ("during-runtime", "L4", "Mediation Plane", "Actions are allowed, audited, paused, denied, or enforced without conflating coverage levels.", pre_v1_artifacts["replay"]),
+        ("during-runtime", "L5", "Evidence Plane", "Coverage and replay show observed / mediated / enforced as separate claims.", pre_v1_artifacts["coverage_report"]),
+        ("after-runtime", "L1", "Execution Surface", "Surface inventory remains available for coverage gap review.", vendor_matrix),
+        ("after-runtime", "L2", "Runtime Fact Model", "The ledger remains the fact source for all reconstructed actions.", pre_v1_artifacts["ledger"]),
+        ("after-runtime", "L3", "Decision Plane", "Path graph explains why a decision was allowed, paused, or blocked.", pre_v1_artifacts["path_graph"]),
+        ("after-runtime", "L4", "Mediation Plane", "Gate output shows approval and enforcement gaps without overstating control.", pre_v1_artifacts["proof"]),
+        ("after-runtime", "L5", "Evidence Plane", f"Audit and optional external evidence status are reviewable; external status is {external.get('status')}.", pre_v1_artifacts["audit_report"]),
+    ]
+    return [
+        {
+            "stage": stage,
+            "layer": layer,
+            "layer_name": layer_name,
+            "effect": effect,
+            "artifact": str(artifact),
+        }
+        for stage, layer, layer_name, effect, artifact in rows
+    ]
 
 
 def _write_demo_surfaces(root: Path) -> None:
@@ -89,6 +138,7 @@ def _render_final_demo_html(report: dict[str, Any]) -> str:
     pre_v1_replay = relative_href(base, Path(pre_v1_artifacts["replay"]))
     pre_v1_graph = relative_href(base, Path(pre_v1_artifacts["path_graph"]))
     actions = _action_rows(pre_v1_artifacts)
+    effect_matrix = _effect_matrix_rows(report["runtime_effect_matrix"], base)
     external = report["artifacts"]["external_evidence"]
     return f"""<!doctype html>
 <html lang="en">
@@ -113,12 +163,36 @@ def _render_final_demo_html(report: dict[str, Any]) -> str:
     <li><a href="{risk_entry}">real-world risk demo</a></li>
     <li><a href="{pre_v1_audit}">audit report</a> · <a href="{pre_v1_replay}">replay</a> · <a href="{pre_v1_graph}">path graph</a></li>
   </ul></section>
+  <section><h2>Runtime Effect Matrix</h2><p>Before runtime, during runtime, and after runtime are shown against the five control layers. Coverage labels are truthful: observed / mediated / enforced are separate claims.</p><table><tr><th>Layer</th><th>Before runtime</th><th>During runtime</th><th>After runtime</th></tr>{effect_matrix}</table></section>
   <section><h2>Invart actions</h2><table><tr><th>Action</th><th>Evidence</th><th>Meaning</th></tr>{actions}</table></section>
   <section><h2>External validation</h2><p>Status: <code>{html.escape(str(external.get("status")))}</code></p><p>{html.escape(str(external.get("claim_boundary") or external.get("evidence_level") or ""))}</p></section>
   <section><h2>Claim boundary</h2><p>{html.escape(report["claim_boundary"])}</p></section>
 </main>
 </body>
 </html>"""
+
+
+def _effect_matrix_rows(matrix: list[dict[str, Any]], base: Path) -> str:
+    by_layer: dict[str, dict[str, dict[str, Any]]] = {}
+    for item in matrix:
+        by_layer.setdefault(item["layer"], {})[item["stage"]] = item
+    labels = {
+        "L1": "L1 Execution Surface",
+        "L2": "L2 Runtime Fact Model",
+        "L3": "L3 Decision Plane",
+        "L4": "L4 Mediation Plane",
+        "L5": "L5 Evidence Plane",
+    }
+    stages = ["before-runtime", "during-runtime", "after-runtime"]
+    rows = []
+    for layer in ["L1", "L2", "L3", "L4", "L5"]:
+        cells = []
+        for stage in stages:
+            item = by_layer[layer][stage]
+            href = relative_href(base, Path(item["artifact"]))
+            cells.append(f"<td>{html.escape(item['effect'])}<br><a href=\"{href}\">{html.escape(Path(item['artifact']).name)}</a></td>")
+        rows.append(f"<tr><th>{labels[layer]}</th>{''.join(cells)}</tr>")
+    return "".join(rows)
 
 
 def _action_rows(pre_v1_artifacts: dict[str, Any]) -> str:
