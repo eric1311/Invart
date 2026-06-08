@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${KAPPASKI_TEST_IMAGE:-kappaski/container-test:py311}"
-BASE_IMAGE="${KAPPASKI_TEST_BASE_IMAGE:-python:3.11-slim}"
-FALLBACK_BASE_IMAGE="${KAPPASKI_TEST_FALLBACK_BASE_IMAGE:-swebench/sweb.eval.x86_64.django_1776_django-11001:latest}"
+IMAGE="${INVART_TEST_IMAGE:-invart/container-test:py311}"
+BASE_IMAGE="${INVART_TEST_BASE_IMAGE:-python:3.11-slim}"
+FALLBACK_BASE_IMAGE="${INVART_TEST_FALLBACK_BASE_IMAGE:-swebench/sweb.eval.x86_64.django_1776_django-11001:latest}"
 MODE="${1:-local}"
 if [[ $# -gt 0 ]]; then
   shift
@@ -23,7 +23,7 @@ fi
 run_args=(
   --rm
   --user "$(id -u):$(id -g)"
-  -e HOME=/tmp/kappaski-home
+  -e HOME=/tmp/invart-home
   -e PYTHONPATH=src
   -v "$ROOT:/workspace"
   -w /workspace
@@ -37,14 +37,14 @@ case "$MODE" in
   local)
     docker run "${run_args[@]}" "$IMAGE" bash -lc '
       set -euo pipefail
-      mkdir -p "$HOME" .kappaski/container-test
+      mkdir -p "$HOME" .invart/container-test
       python -m pytest -q
-      python -m kappaski.cli eval benchmark --suite v0.40-swe-bench-full-validation-contract > .kappaski/container-test/v0.40-swe-bench-contract.json
-      python -m kappaski.cli eval benchmark --suite full-product-readiness > .kappaski/container-test/full-product-readiness.json
-      python -m kappaski.cli roadmap status --require-full > .kappaski/container-test/roadmap-full.json
-      python -m kappaski.cli release-candidate verify --out-dir .kappaski/container-test/rc --skip-pytest > .kappaski/container-test/rc.json
+      python -m invart.cli eval benchmark --suite v0.40-swe-bench-full-validation-contract > .invart/container-test/v0.40-swe-bench-contract.json
+      python -m invart.cli eval benchmark --suite full-product-readiness > .invart/container-test/full-product-readiness.json
+      python -m invart.cli roadmap status --require-full > .invart/container-test/roadmap-full.json
+      python -m invart.cli release-candidate verify --out-dir .invart/container-test/rc --skip-pytest > .invart/container-test/rc.json
       set +e
-      python -m kappaski.cli roadmap status --require-external-validation > .kappaski/container-test/roadmap-external-validation.json
+      python -m invart.cli roadmap status --require-external-validation > .invart/container-test/roadmap-external-validation.json
       external_status=$?
       set -e
       if [[ "$external_status" -eq 0 ]]; then
@@ -56,19 +56,19 @@ case "$MODE" in
     ;;
   swe-bench-full)
     predictions_path="${1:-gold}"
-    run_id="${2:-kappaski_full_$(date -u +%Y%m%d_%H%M%S)}"
-    out_dir="${3:-.kappaski/swe-bench-full}"
+    run_id="${2:-invart_full_$(date -u +%Y%m%d_%H%M%S)}"
+    out_dir="${3:-.invart/swe-bench-full}"
     docker run "${run_args[@]}" "$IMAGE" bash -lc '
       set -euo pipefail
       mkdir -p "$HOME" "'"$out_dir"'"
-      python -m kappaski.cli external-validation swe-bench-full \
+      python -m invart.cli external-validation swe-bench-full \
         --python python \
         --predictions-path "'"$predictions_path"'" \
         --run-id "'"$run_id"'" \
         --work-dir "'"$out_dir"'" \
-        --max-workers "${KAPPASKI_SWEBENCH_MAX_WORKERS:-4}" \
-        --timeout "${KAPPASKI_SWEBENCH_TIMEOUT:-1800}" \
-        --cache-level "${KAPPASKI_SWEBENCH_CACHE_LEVEL:-env}" \
+        --max-workers "${INVART_SWEBENCH_MAX_WORKERS:-4}" \
+        --timeout "${INVART_SWEBENCH_TIMEOUT:-1800}" \
+        --cache-level "${INVART_SWEBENCH_CACHE_LEVEL:-env}" \
         --out "'"$out_dir"'/full-validation.json"
     '
     ;;

@@ -1,0 +1,799 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+
+@dataclass(frozen=True)
+class RoadmapCapability:
+    version: str
+    capability_id: str
+    title: str
+    target: str
+    status: str
+    implementation: list[str] = field(default_factory=list)
+    tests: list[str] = field(default_factory=list)
+    docs: list[str] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+    product_boundaries: list[str] = field(default_factory=list)
+    claim_scope: str = "local_product"
+    evidence_level: str = "local_runtime"
+    external_validation: str = "not_applicable"
+    next_step: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        original_docs = list(payload.get("docs", []))
+        payload["docs"] = public_docs_for_capability(original_docs)
+        payload["internal_docs"] = internal_docs_for_capability(original_docs)
+        payload["truthfulness"] = truthfulness_for_capability(payload)
+        return payload
+
+
+def public_docs_for_capability(docs: list[str]) -> list[str]:
+    existing_public_docs = [doc for doc in docs if Path(doc).exists()]
+    if existing_public_docs:
+        return existing_public_docs
+    return ["docs/html/release-history.html"]
+
+
+def internal_docs_for_capability(docs: list[str]) -> list[str]:
+    internal_docs: list[str] = []
+    for doc in docs:
+        internal_doc = Path("internal/history") / doc
+        internal_docs.append(str(internal_doc) if internal_doc.exists() else doc)
+    return internal_docs
+
+
+CAPABILITIES: tuple[RoadmapCapability, ...] = (
+    RoadmapCapability(
+        version="v0.1",
+        capability_id="closed_loop_proof_foundation",
+        title="Local closed-loop proof foundation",
+        target="Persist preflight, runtime invocations, taint, decisions, approvals, outcomes, ledger verification, and proof export for a local managed session.",
+        status="implemented",
+        implementation=["src/invart/core/models.py", "src/invart/control/runtime.py", "src/invart/core/ledger.py", "src/invart/assurance/postruntime.py", "src/invart/cli.py"],
+        tests=["test_proof_export_contains_v01_fields", "test_cli_preflight_session_close_and_combined_verify", "test_invocation_contains_closed_loop_required_fields"],
+        docs=["docs/invart-v0.1-prototype-design.html", "docs/proof-workflow-v0.1.md"],
+        product_boundaries=["Local proof foundation only; no daemon, multi-agent governance, or native enforcement yet."],
+        claim_scope="local_foundation",
+        evidence_level="unit_cli_local_runtime",
+    ),
+    RoadmapCapability(
+        version="v0.2",
+        capability_id="semantic_decision_engine",
+        title="Semantic decision engine",
+        target="Merge deterministic rules and reviewer findings into policy decisions while preserving non-downgradable critical rules.",
+        status="implemented",
+        implementation=["src/invart/control/review.py", "src/invart/control/policy.py", "src/invart/control/runtime.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v02_deterministic_critical_cannot_be_downgraded", "test_v02_llm_reviewer_uses_provider_json_and_redacted_input", "v0.2-semantic"],
+        docs=["docs/v0.2-semantic-decision-engine.html"],
+        product_boundaries=["OpenAI-compatible live reviewer is optional; deterministic reviewer coverage is local and testable."],
+        claim_scope="local_product",
+        evidence_level="unit_cli_local_runtime",
+        external_validation="not_run_optional",
+    ),
+    RoadmapCapability(
+        version="v0.3",
+        capability_id="runtime_authority_daemon",
+        title="Runtime authority and session registry",
+        target="Provide a local authority for session lifecycle, mediated ledger writes, approvals, and outcomes.",
+        status="implemented",
+        implementation=["src/invart/control/daemon.py", "src/invart/cli.py"],
+        tests=["test_v03_authority_registers_sessions_and_records_events", "test_v03_cli_daemon_session_flow"],
+        docs=["docs/v0.3-runtime-authority-daemon.html"],
+        product_boundaries=["Local registry/authority only; not a hosted multi-tenant service."],
+        claim_scope="local_product",
+        evidence_level="unit_cli_local_runtime",
+    ),
+    RoadmapCapability(
+        version="v0.4",
+        capability_id="real_corpus_capability_surface",
+        title="Pinned public corpus capability surface",
+        target="Scan pinned public Skill/MCP/tool snapshots and convert discovered capabilities into grant and proof facts.",
+        status="implemented",
+        implementation=["src/invart/surfaces/corpus.py", "src/invart/surfaces/scanner.py", "src/invart/cli.py"],
+        tests=["test_v04_real_corpus_scan_uses_pinned_snapshots", "test_v04_real_skill_surface_benchmark_passes", "v0.4-real-skill-surface"],
+        docs=["docs/v0.4-adapter-capability-surface.html"],
+        product_boundaries=["Uses pinned public snapshots in benchmarks/corpora; not a live registry crawler."],
+        claim_scope="local_product",
+        evidence_level="pinned_public_snapshot",
+    ),
+    RoadmapCapability(
+        version="v0.5",
+        capability_id="proof_gate",
+        title="Proof gate",
+        target="Consume proof and ledger artifacts as CI/release gates with managed and audit modes.",
+        status="implemented",
+        implementation=["src/invart/control/gate.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v05_gate_clean_ci_passes", "test_v05_gate_missing_approval_fails_managed", "v0.5-proof-gate"],
+        docs=["docs/v0.5-proof-gate.html"],
+        product_boundaries=["Gate consumes local proof/ledger artifacts; no hosted policy distribution yet."],
+        claim_scope="local_product",
+        evidence_level="unit_cli_local_runtime",
+    ),
+    RoadmapCapability(
+        version="v0.6",
+        capability_id="reference_adapter_workflow",
+        title="Reference adapter workflow",
+        target="Run commands through a reference adapter wrapper and export ledger, proof, replay, and gate artifacts.",
+        status="implemented",
+        implementation=["src/invart/surfaces/adapter.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v06_adapter_run_exports_artifacts_and_gate_report", "test_v06_adapter_workflow_benchmark", "v0.6-adapter-workflow"],
+        docs=["docs/v0.6-real-workflow-demo.html"],
+        product_boundaries=["Reference wrapper workflow only; live vendor adapters are hardened in later versions."],
+        claim_scope="local_product",
+        evidence_level="unit_cli_local_runtime",
+    ),
+    RoadmapCapability(
+        version="v0.7",
+        capability_id="approval_replay",
+        title="Approval inbox and runtime replay",
+        target="List, resolve, and replay approval decisions with folded raw evidence and pinned real-case context.",
+        status="implemented",
+        implementation=["src/invart/control/approval.py", "src/invart/assurance/replay.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v07_approval_list_and_approve_all_closes_gate", "test_v07_replay_export_includes_real_case_and_raw_fold", "v0.7-approval-replay"],
+        docs=["docs/v0.7-approval-replay.html"],
+        product_boundaries=["Uses pinned SWE-Bench Lite metadata for replay context; full benchmark execution remains optional."],
+        claim_scope="local_product",
+        evidence_level="pinned_public_metadata",
+        external_validation="not_run_optional",
+    ),
+    RoadmapCapability(
+        version="v0.8",
+        capability_id="llm_reviewer_provider",
+        title="OpenAI-compatible LLM reviewer",
+        target="Use an OpenAI-compatible provider to classify semantic risk, allow deny recommendations, and preserve proof/audit explanations.",
+        status="implemented",
+        implementation=["src/invart/control/review.py", "src/invart/control/evidence.py", "src/invart/control/policy.py"],
+        tests=["test_v08_llm_reviewer_can_deny_and_raw_content_is_summarized", "v0.8-llm-reviewer"],
+        docs=["docs/v0.8-llm-reviewer.html"],
+        product_boundaries=["Live provider smoke is optional because CI must stay offline/deterministic.", "The included reviewer-quality corpus is deterministic and intentionally small; larger public corpora remain an evaluation expansion."],
+        evidence_level="unit_cli_local_runtime",
+        external_validation="not_run_optional",
+        next_step="Expand reviewer-quality corpora and run optional live provider smoke when credentials are explicitly available.",
+    ),
+    RoadmapCapability(
+        version="v0.9",
+        capability_id="swe_bench_lite_harness",
+        title="SWE-Bench Lite harness compatibility",
+        target="Run real SWE-Bench Lite harness workflows under Invart without breaking exit code, artifacts, or grading result while preserving safety evidence.",
+        status="implemented",
+        implementation=["src/invart/evaluation/harness.py", "src/invart/cli.py"],
+        tests=["test_v09_harness_compatibility_accepts_metadata_drift", "test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies", "test_v09_swe_bench_lite_runner_compares_supplied_artifacts", "test_v09_official_swe_bench_lite_command_reports_real_harness_shape", "test_v09_cli_official_swe_bench_lite_command_override", "v0.9-harness-compatibility"],
+        docs=["docs/v0.9-harness-compatibility.html"],
+        product_boundaries=["SWE-Bench Lite runner supports baseline/wrapped command-pair execution, artifact comparison, managed pause/approval/resume, and an official `swebench.harness.run_evaluation` command wrapper.", "Full official SWE-Bench Docker/dataset execution remains an optional heavy validation path."],
+        evidence_level="command_pair_harness_with_optional_official_wrapper",
+        external_validation="not_run_optional",
+        next_step="Run broader optional official SWE-Bench Lite validation when Docker, dataset access, and harness dependencies are available.",
+    ),
+    RoadmapCapability(
+        version="v0.10",
+        capability_id="claude_code_adapter",
+        title="Claude Code adapter hardening",
+        target="Harden Claude Code as the first real adapter, including env capture, child-process supervision, and hook/wrapper coordination.",
+        status="implemented",
+        implementation=["src/invart/surfaces/adapter_profiles.py", "src/invart/surfaces/claude_adapter.py", "src/invart/surfaces/scanner.py", "src/invart/cli.py"],
+        tests=["test_v10_claude_code_adapter_profile_redacts_env", "test_v10_claude_code_adapter_ingests_hook_events_and_runs_child", "test_full_claude_adapter_environment_check_reports_real_binary", "v0.10-claude-adapter-profile"],
+        docs=["docs/v0.10-claude-adapter-profile.html"],
+        product_boundaries=["Local wrapper/hook JSONL bridge exists, real-binary environment checks are implemented, and process-group supervision captures PID/PGID control metadata.", "Vendor-stable Claude Code hook behavior can still change outside Invart's release cycle."],
+        evidence_level="unit_cli_local_runtime",
+        external_validation="not_run_optional",
+        next_step="Keep live Claude Code hook conformance checks updated as vendor behavior changes.",
+    ),
+    RoadmapCapability(
+        version="v0.11",
+        capability_id="policy_profiles",
+        title="Policy profiles and enterprise override semantics",
+        target="Resolve team/repo/session profiles with session > repo > team precedence and enforce enterprise override policy.",
+        status="implemented",
+        implementation=["src/invart/governance/profiles.py", "src/invart/cli.py", "src/invart/control/gate.py"],
+        tests=["test_v11_profile_resolution_precedence", "test_v11_profile_files_thread_into_runtime_replay_and_enforce", "test_v11_break_glass_override_is_ledger_backed", "test_v11_gate_profile_can_require_closed_session", "v0.11-policy-profiles"],
+        docs=["docs/v0.11-policy-profiles.html"],
+        product_boundaries=["Profile files thread through runtime, gate, replay, enforcement, and daemon policy decisions, including local approval restrictions.", "Profile distribution bundles and break-glass review are ledger-backed local workflows, not a hosted enterprise admin service."],
+        next_step="Add hosted profile distribution and identity-backed administrator roles when the service tier exists.",
+    ),
+    RoadmapCapability(
+        version="v0.12",
+        capability_id="teamrun_handoff",
+        title="Multi-user TeamRun and Handoff",
+        target="Persist multi-user TeamRun, declared agent identity, HandoffContract, and taint inheritance into the control-plane ledger.",
+        status="implemented",
+        implementation=["src/invart/governance/teamrun.py", "src/invart/cli.py"],
+        tests=["test_v12_teamrun_identity_and_handoff_taint_modes", "test_v12_teamrun_records_are_ledger_first_class_facts", "test_v12_restrict_only_grant_delegation", "test_v12_teamrun_proof_exports_cross_session_facts", "v0.12-teamrun-handoff"],
+        docs=["docs/v0.12-teamrun-handoff.html"],
+        product_boundaries=["TeamRun, AgentIdentity, BlackboardEntry, HandoffContract, restrict-only GrantDelegation, multi-ledger aggregation, and HTML timeline export are ledger-backed local workflows.", "Causality inference remains evidence-driven and does not invent facts beyond ledger records."],
+        next_step="Improve cross-session causality visualization without weakening ledger-first evidence rules.",
+    ),
+    RoadmapCapability(
+        version="v0.13",
+        capability_id="native_enforcement",
+        title="Rust/native enforcement shim",
+        target="Use Rust native enforcement shims for file-write, env/secrets, and network egress controls, with enterprise profile customization.",
+        status="implemented",
+        implementation=["src/invart/surfaces/enforcement.py", "src/invart/cli.py", "rust/invart-shim/Cargo.toml", "rust/invart-shim/src/main.rs"],
+        tests=["test_v13_enforcement_order_and_file_guard", "test_v13_rust_file_write_shim_source_and_cli_spec_exist", "test_v13_rust_shim_build_check_skips_without_cargo", "test_v13_rust_shim_decision_blocks_bulk_delete", "test_v13_rust_shim_uses_deterministic_fallback_for_incompatible_binary", "test_v13_intercepted_file_write_blocks_before_execution_and_records_outcome", "test_v13_intercepted_file_write_allows_safe_command_and_records_outcome", "test_v13_cli_run_file_write_intercepts_command", "v0.13-enforcement-guards", "manual cargo-check validation in this workspace"],
+        docs=["docs/v0.13-enforcement-guards.html"],
+        product_boundaries=["Rust file-write shim source, cargo check/build, shim-decision, wrapper-level file-write interception, env/secrets guard, network-egress guard, and deterministic Python fallback for unavailable/incompatible native shim binaries are implemented and validated.", "This is not kernel/OS-level interception yet; commands must enter through Invart wrappers to be blocked before execution."],
+        next_step="Move from wrapper-level enforcement toward kernel/OS-level controls where platform permissions allow it.",
+    ),
+    RoadmapCapability(
+        version="v0.14",
+        capability_id="enterprise_audit_demo",
+        title="Enterprise audit demo package",
+        target="Package a security-team-facing demo around secret leak and unsafe deletion workflows, with replay/audit reports and profile-controlled raw content.",
+        status="implemented",
+        implementation=["src/invart/assurance/audit_demo.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v14_enterprise_audit_demo_exports_security_artifacts", "test_v14_live_adapter_enterprise_audit_demo_blocks_command", "test_v14_enterprise_audit_demo_cli_benchmark_and_roadmap", "v0.14-enterprise-audit-demo"],
+        docs=["docs/v0.14-enterprise-audit-demo.html"],
+        product_boundaries=["The demo has scripted and live-adapter-enforced modes: Claude adapter hook events plus Rust file-write enforcement generate ledger/proof/replay/audit artifacts.", "Security signoff is ledger-backed; organization-specific hosted report templates remain future service work."],
+        next_step="Add hosted enterprise report template controls and identity-backed signoff roles.",
+    ),
+    RoadmapCapability(
+        version="v0.15",
+        capability_id="native_integration_inventory",
+        title="Native integration inventory",
+        target="Inventory agent-native hooks, plugins, extensions, rules, MCP, sandbox, command, and config surfaces across mainstream agents.",
+        status="implemented",
+        implementation=["src/invart/surfaces/native.py", "src/invart/cli.py"],
+        tests=["test_v15_native_inventory_detects_repo_local_agent_surfaces", "test_v15_native_inventory_global_config_is_opt_in", "test_v15_native_install_preview_does_not_write", "test_v15_native_install_confirm_writes_backup_on_existing_file", "test_v15_native_cli_inventory_and_install", "v0.15-native-integration-inventory"],
+        docs=["docs/v0.15-native-integration-inventory.html"],
+        product_boundaries=["Inventory and conformance are file/config based, deterministic, hashed, and parse-validated; they do not require vendor runtime APIs.", "OpenClaw and Hermes remain discovery-only until stable public extension guarantees are confirmed."],
+        evidence_level="fixture_compatible_local_inventory",
+        next_step="Add registry/package provenance checks as each agent ecosystem exposes stable package metadata.",
+    ),
+    RoadmapCapability(
+        version="v0.16",
+        capability_id="hook_plugin_bridge",
+        title="Native hook/plugin event bridge",
+        target="Normalize native hook/plugin events into Invart Invocation records and render blocking responses for supported agents.",
+        status="implemented",
+        implementation=["src/invart/surfaces/native_bridge.py", "src/invart/cli.py"],
+        tests=["test_v16_claude_pretool_event_normalizes_to_invocation", "test_v16_codex_event_response_can_block", "test_v16_bridge_cli_can_block_native_shell_event", "v0.16-hook-plugin-bridge"],
+        docs=["docs/v0.16-hook-plugin-bridge.html"],
+        product_boundaries=["Bridge payloads are deterministic fixture-compatible and response-shape fuzzing covers Claude Code, Codex, OpenCode, and generic contracts.", "Live vendor hook behavior can still change outside Invart's release cycle."],
+        evidence_level="fixture_compatible_bridge",
+        external_validation="not_run_optional",
+        next_step="Run live hook conformance checks against installed vendor binaries in release qualification.",
+    ),
+    RoadmapCapability(
+        version="v0.17",
+        capability_id="transparent_mcp_broker",
+        title="Transparent MCP broker",
+        target="Provide transparent-first MCP JSON-RPC message brokering with folded raw evidence and tool-call summaries.",
+        status="implemented",
+        implementation=["src/invart/surfaces/mcp_broker.py", "src/invart/cli.py"],
+        tests=["test_v17_mcp_broker_summarizes_tool_call_without_raw_content_loss", "test_v17_transparent_mcp_broker_step_preserves_message", "test_v17_mcp_broker_cli_step_is_transparent", "v0.17-mcp-broker"],
+        docs=["docs/v0.17-mcp-broker.html"],
+        product_boundaries=["Transparent broker-step and line-oriented JSONL stdio broker transcript capture are implemented.", "Full managed MCP server/client subprocess coordination remains future hardening."],
+        next_step="Add resident MCP subprocess supervision and optional managed approvals around brokered tool calls.",
+    ),
+    RoadmapCapability(
+        version="v0.18",
+        capability_id="coverage_aware_runtime",
+        title="Coverage-aware runtime proof, replay, and gate",
+        target="Make runtime proof and gate reports explicit about observed-by, enforced-by, coverage grade, and degraded control position.",
+        status="implemented",
+        implementation=["src/invart/assurance/coverage.py", "src/invart/control/runtime.py", "src/invart/assurance/postruntime.py", "src/invart/control/gate.py", "src/invart/governance/profiles.py"],
+        tests=["test_v18_coverage_grade_order_and_layer_defaults", "test_v18_coverage_merge_keeps_strongest_dimension", "test_v18_coverage_requirement_comparison", "test_v18_runtime_event_coverage_is_exported_to_proof", "test_v18_gate_profile_fails_when_required_coverage_is_missing", "test_v18_gate_cli_reads_coverage_requirement_from_profile", "v0.18-coverage-aware-runtime"],
+        docs=["docs/v0.18-coverage-aware-runtime.html"],
+        product_boundaries=["Coverage-aware proof, replay labels, gate checks, and coverage matrix HTML are proof-derived facts.", "Coverage reporting does not claim enforcement where only observation occurred."],
+        next_step="Add richer interactive coverage visualization after daemon/service UI work starts.",
+    ),
+    RoadmapCapability(
+        version="v0.19",
+        capability_id="identity_principal_binding",
+        title="Identity and principal binding",
+        target="Bind principal, agent identity, credential boundary, session, and capability grants as accountable ledger facts.",
+        status="implemented",
+        implementation=["src/invart/governance/identity.py", "src/invart/control/daemon.py", "src/invart/assurance/postruntime.py"],
+        tests=["test_v019_identity_binding_is_proof_backed_and_daemon_rejects_mismatch", "v0.19-identity-principal-binding"],
+        docs=["docs/v0.19-identity-principal-binding.html"],
+        product_boundaries=["Uses local signed-ish declaration first; enterprise IdP/SAML/SCIM adapters are future service-tier work."],
+        next_step="Add IdP-backed principal resolution after local control-plane semantics stabilize.",
+    ),
+    RoadmapCapability(
+        version="v0.20",
+        capability_id="ledger_execution_graph",
+        title="Ledger-derived execution path graph",
+        target="Derive an Agent-BOM-like execution path graph from the ledger for upstream/downstream audit queries.",
+        status="implemented",
+        implementation=["src/invart/assurance/path_graph.py", "src/invart/assurance/postruntime.py", "src/invart/cli.py"],
+        tests=["test_v020_execution_graph_traces_secret_to_network_path", "v0.20-path-graph"],
+        docs=["docs/v0.20-ledger-execution-graph.html"],
+        product_boundaries=["The graph is a deterministic derived view; the ledger remains the fact source and no graph database is required before 1.0."],
+        next_step="Expand graph queries for richer enterprise root-cause templates.",
+    ),
+    RoadmapCapability(
+        version="v0.21",
+        capability_id="path_aware_policy",
+        title="Path-aware policy",
+        target="Evaluate deterministic policies over execution paths, taint, trust, source, resource, and sink facts.",
+        status="implemented",
+        implementation=["src/invart/control/path_policy.py", "src/invart/control/policy.py", "src/invart/cli.py"],
+        tests=["test_v021_path_aware_policy_blocks_tainted_secret_egress_but_allows_benign", "v0.21-path-aware-policy"],
+        docs=["docs/v0.21-path-aware-policy.html"],
+        product_boundaries=["Uses Invart-native profile predicates now; Rego/Cedar compatibility remains future work."],
+        next_step="Add broader policy corpus and profile-to-policy migration tooling.",
+    ),
+    RoadmapCapability(
+        version="v0.22",
+        capability_id="unified_mediation_contract",
+        title="Unified mediation contract",
+        target="Normalize wrapper, native hook, MCP, shim, and daemon mediation into one request/decision/outcome contract.",
+        status="implemented",
+        implementation=["src/invart/control/mediation.py", "src/invart/assurance/coverage.py", "src/invart/cli.py"],
+        tests=["test_v022_unified_mediation_contract_records_pause_resume_and_fail_open_coverage", "v0.22-unified-mediation"],
+        docs=["docs/v0.22-unified-mediation.html"],
+        product_boundaries=["Advisory/audit-only operation remains allowed by profile, but proof and gate must reflect weaker coverage rather than claiming enforcement."],
+        next_step="Route more adapter wrappers through the mediation contract by default.",
+    ),
+    RoadmapCapability(
+        version="v0.23",
+        capability_id="enterprise_policy_governance",
+        title="Enterprise policy governance",
+        target="Treat policy profiles as governed enterprise objects with registry, pinning, verification, raw-content controls, and break-glass review readiness.",
+        status="implemented",
+        implementation=["src/invart/governance/profiles.py", "src/invart/assurance/replay.py", "src/invart/cli.py"],
+        tests=["test_v023_profile_registry_pinning_and_raw_content_policy", "v0.23-enterprise-policy-governance"],
+        docs=["docs/v0.23-enterprise-policy-governance.html"],
+        product_boundaries=["Full hosted signoff workflow is deferred; v0.23 produces review-ready governance facts locally."],
+        next_step="Add hosted registry roles and profile distribution service after 1.0 local GA.",
+    ),
+    RoadmapCapability(
+        version="v0.24",
+        capability_id="pre_v1_control_plane_eval_demo",
+        title="Pre-v1 evaluation and demo package",
+        target="Run a repeatable attack/benign/compatibility/evidence benchmark and enterprise demo across pre-runtime, runtime, and post-runtime stages.",
+        status="implemented",
+        implementation=["src/invart/evaluation/pre_v1.py", "src/invart/evaluation/evals.py", "src/invart/cli.py"],
+        tests=["test_v024_pre_v1_control_plane_demo_and_benchmark_close_product_loop", "pre-v1-control-plane"],
+        docs=["docs/v0.24-pre-v1-control-plane.html"],
+        product_boundaries=["CI uses local pinned fixtures; full public benchmark execution remains optional and skips cleanly when heavy dependencies are unavailable."],
+        evidence_level="pinned_fixture_product_demo",
+        external_validation="not_run_optional",
+        next_step="Use v0.24 as the 1.0 gate and discuss hosted enterprise scope after local proof is stable.",
+    ),
+    RoadmapCapability(
+        version="v0.25",
+        capability_id="adapter_runtime_integration",
+        title="Adapter runtime integration hardening",
+        target="Run Claude Code style and generic adapters through session registry, identity binding, mediation, proof, replay, graph, coverage, audit, and package artifacts.",
+        status="implemented",
+        implementation=["src/invart/surfaces/adapter.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v025_adapter_runtime_package_closes_product_loop", "v0.25-adapter-runtime-integration"],
+        docs=["docs/v0.25-adapter-runtime-integration.html"],
+        product_boundaries=["The runtime package is local-first and wrapper-driven; it does not claim kernel-level capture or hosted adapter fleet management."],
+        next_step="Run live vendor adapter conformance during release qualification when real binaries are available.",
+    ),
+    RoadmapCapability(
+        version="v0.26",
+        capability_id="policy_as_code_v1",
+        title="Policy-as-code v1",
+        target="Validate and execute Invart-native TOML policy profiles with path predicates and deterministic critical rules that LLM review cannot downgrade.",
+        status="implemented",
+        implementation=["src/invart/control/policy_as_code.py", "src/invart/control/path_policy.py", "src/invart/cli.py"],
+        tests=["test_v026_policy_as_code_validates_and_applies_path_rules", "v0.26-policy-as-code"],
+        docs=["docs/v0.26-policy-as-code.html"],
+        product_boundaries=["TOML is the first policy language; Rego/Cedar remain compatibility plans rather than current backends."],
+        next_step="Add migration helpers if enterprise users need to map existing policy catalogs into Invart-native profiles.",
+    ),
+    RoadmapCapability(
+        version="v0.27",
+        capability_id="enterprise_evidence_export",
+        title="Enterprise evidence export",
+        target="Export verifiable evidence bundles containing ledger, proof, replay, path graph, coverage, policy, audit JSON, audit HTML, hashes, and control mappings.",
+        status="implemented",
+        implementation=["src/invart/assurance/evidence_bundle.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v027_enterprise_evidence_bundle_exports_and_verifies", "v0.27-enterprise-evidence-export"],
+        docs=["docs/v0.27-enterprise-evidence-export.html"],
+        product_boundaries=["SIEM and OTel fields are preview mappings; there is no external exporter integration yet."],
+        next_step="Add organization-specific evidence schemas and SIEM/OTel exporters after local bundle semantics stabilize.",
+    ),
+    RoadmapCapability(
+        version="v0.28",
+        capability_id="benchmark_harness_expansion",
+        title="Benchmark harness expansion",
+        target="Register product-level benchmark suites across attack, benign, compatibility, and evidence cases with deterministic CI fixtures and optional heavy validation skips.",
+        status="implemented",
+        implementation=["src/invart/evaluation/benchmark_registry.py", "src/invart/evaluation/evals.py", "src/invart/cli.py"],
+        tests=["test_v028_benchmark_harness_registry_expands_product_metrics", "v0.28-harness-expansion"],
+        docs=["docs/v0.28-benchmark-harness-expansion.html"],
+        product_boundaries=["Default CI remains local and deterministic; full public benchmark execution is optional and reports skipped when dependencies are missing."],
+        evidence_level="benchmark_registry_with_pinned_fixtures",
+        external_validation="not_run_optional",
+        next_step="Broaden public benchmark mapping after choosing exact external suites for non-coding-agent workflows.",
+    ),
+    RoadmapCapability(
+        version="v0.29",
+        capability_id="release_candidate_gate",
+        title="1.0 release candidate gate",
+        target="Run a local RC readiness gate over tests, docs, roadmap, benchmarks, demo artifacts, evidence bundle integrity, and HTML/JSON reports.",
+        status="implemented",
+        implementation=["src/invart/evaluation/release_candidate.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v029_release_candidate_gate_requires_complete_product_artifacts", "v0.29-release-candidate-gate"],
+        docs=["docs/v0.29-release-candidate-gate.html"],
+        product_boundaries=["This is local 1.0 RC readiness, not hosted enterprise GA or kernel-level enforcement readiness."],
+        next_step="Use the RC gate as the final local pre-1.0 acceptance surface before discussing hosted deployment scope.",
+    ),
+    RoadmapCapability(
+        version="v0.30",
+        capability_id="experiment_case_runner",
+        title="Experiment case model and runner",
+        target="Represent benchmark-derived LLM agent traces as ExperimentCase objects and run them through ledger, proof, replay, path graph, evidence, and metrics.",
+        status="implemented",
+        implementation=["src/invart/evaluation/experiment_cases.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v030_experiment_runner_produces_agent_like_artifacts", "v0.30-control-plane-experiment-runner"],
+        docs=["docs/v0.30-experiment-case-runner.html"],
+        product_boundaries=["Default fixtures are local and deterministic; external live benchmark execution remains optional."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="simulated_agent_trace",
+        external_validation="not_run_optional",
+        next_step="Add more pinned public benchmark seeds without changing the ExperimentCase contract.",
+    ),
+    RoadmapCapability(
+        version="v0.31",
+        capability_id="external_ipi_control_plane",
+        title="AgentDojo and AgentDyn IPI experiments",
+        target="Map indirect prompt-injection benchmark cases into source, trust, taint, tool, resource, sink, decision, and proof requirements.",
+        status="implemented",
+        implementation=["src/invart/surfaces/corpus_adapters/agentdojo.py", "src/invart/surfaces/corpus_adapters/agentdyn.py", "src/invart/evaluation/experiment_cases.py"],
+        tests=["test_v031_agentdojo_agentdyn_adapters_drive_indirect_prompt_injection_cases", "v0.31-external-ipi-control-plane"],
+        docs=["docs/v0.31-external-ipi-control-plane.html"],
+        product_boundaries=["Uses pinned local benchmark-shaped cases by default; live corpus download is not required for CI."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="benchmark_shaped_fixture",
+        external_validation="not_run_optional",
+        next_step="Replace or extend pinned fixtures with exact upstream corpus snapshots when selected.",
+    ),
+    RoadmapCapability(
+        version="v0.32",
+        capability_id="authority_dataflow_boundary",
+        title="AgentSecBench authority and data-flow experiments",
+        target="Measure whether visible data is kept separate from authority to mutate resources.",
+        status="implemented",
+        implementation=["src/invart/surfaces/corpus_adapters/agentsecbench.py", "src/invart/evaluation/experiment_cases.py"],
+        tests=["test_v032_agentsecbench_authority_dataflow_boundary", "v0.32-authority-dataflow-boundary"],
+        docs=["docs/v0.32-authority-dataflow-boundary.html"],
+        product_boundaries=["Authority games are represented as deterministic local cases; formal upstream game runner integration remains optional."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="benchmark_shaped_fixture",
+        external_validation="not_run_optional",
+        next_step="Deepen grant/resource mismatch cases across multi-agent handoff.",
+    ),
+    RoadmapCapability(
+        version="v0.33",
+        capability_id="swebench_friction_track",
+        title="SWE-bench friction control-plane track",
+        target="Measure benign coding workflow autonomy, approval noise, artifact compatibility, and optional heavy benchmark skip behavior.",
+        status="implemented",
+        implementation=["src/invart/evaluation/experiment_cases.py", "src/invart/evaluation/harness.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v033_swebench_friction_track_is_benign_agent_workflow", "v0.33-swebench-friction-control-plane"],
+        docs=["docs/v0.33-swebench-friction-track.html"],
+        product_boundaries=["Default path uses pinned SWE-bench-like traces; official SWE-bench Docker/dataset execution remains optional heavy validation."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="simulated_agent_trace",
+        external_validation="not_run_optional",
+        next_step="Run official SWE-bench Lite smoke when dependencies and compute budget are explicitly available.",
+    ),
+    RoadmapCapability(
+        version="v0.34",
+        capability_id="skill_supply_chain_track",
+        title="SKILL-INJECT supply-chain experiment track",
+        target="Connect pre-runtime skill detection, runtime skill-originated actions, capability grants, and audit reconstruction.",
+        status="implemented",
+        implementation=["src/invart/surfaces/corpus_adapters/skill_inject.py", "src/invart/evaluation/experiment_cases.py", "src/invart/surfaces/scanner.py"],
+        tests=["test_v034_skill_inject_supply_chain_track_connects_preflight_runtime_audit", "v0.34-skill-supply-chain-control-plane"],
+        docs=["docs/v0.34-skill-supply-chain-track.html"],
+        product_boundaries=["Pinned skill cases model SKILL-INJECT semantics; upstream corpus mirroring is future hardening."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="benchmark_shaped_fixture",
+        external_validation="not_run_optional",
+        next_step="Add package provenance and version pinning for real skill registries.",
+    ),
+    RoadmapCapability(
+        version="v0.35",
+        capability_id="secure_coding_gate",
+        title="Secure coding gate",
+        target="Gate functionally passing but insecure agent-generated patches using security oracle evidence and proof artifacts.",
+        status="implemented",
+        implementation=["src/invart/assurance/secure_code_gate.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v035_secure_code_gate_catches_functional_but_insecure_patch", "v0.35-secure-coding-gate"],
+        docs=["docs/v0.35-secure-coding-gate.html"],
+        product_boundaries=["Local fixtures model SusVibes/Agent Security League findings; no external static analyzer is required in default CI."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="benchmark_shaped_fixture",
+        external_validation="not_run_optional",
+        next_step="Attach real analyzer outputs when selected security benchmark runners are available.",
+    ),
+    RoadmapCapability(
+        version="v0.36",
+        capability_id="coverage_truthfulness_matrix",
+        title="Coverage and enforcement truthfulness matrix",
+        target="Verify observed, mediated, enforced, fail-open, and bypass coverage claims are not confused.",
+        status="implemented",
+        implementation=["src/invart/evaluation/coverage_experiments.py", "src/invart/assurance/coverage.py"],
+        tests=["test_v036_coverage_truthfulness_matrix_separates_observed_mediated_enforced", "v0.36-coverage-truthfulness-matrix"],
+        docs=["docs/v0.36-coverage-truthfulness-matrix.html"],
+        product_boundaries=["The matrix verifies Invart's own coverage claims; it is not a kernel-level enforcement claim."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="local_truthfulness_matrix",
+        next_step="Add platform-specific enforcement coverage checks when native shims deepen.",
+    ),
+    RoadmapCapability(
+        version="v0.37",
+        capability_id="llm_reviewer_selectivity",
+        title="LLM reviewer selectivity and cost",
+        target="Compare reviewer-off, deterministic-only, selective, always-on, and async-audit modes for cost, latency, recall, and redaction safety.",
+        status="implemented",
+        implementation=["src/invart/evaluation/reviewer_experiments.py", "src/invart/control/review.py"],
+        tests=["test_v037_llm_reviewer_selectivity_measures_cost_without_downgrading_critical", "v0.37-llm-reviewer-selectivity"],
+        docs=["docs/v0.37-llm-reviewer-selectivity.html"],
+        product_boundaries=["Default experiment is deterministic local simulated-agent trace evaluation; live provider evaluation remains opt-in."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="simulated_agent_trace",
+        external_validation="not_run_optional",
+        next_step="Run larger reviewer-quality corpora with explicit model/provider configuration.",
+    ),
+    RoadmapCapability(
+        version="v0.38",
+        capability_id="audit_tamper_assurance",
+        title="Audit reconstruction and tamper assurance",
+        target="Answer audit questions from proof/ledger/evidence facts and detect tampered or incomplete artifacts.",
+        status="implemented",
+        implementation=["src/invart/evaluation/audit_experiments.py", "src/invart/core/ledger.py", "src/invart/assurance/evidence_bundle.py"],
+        tests=["test_v038_audit_tamper_assurance_answers_questions_and_detects_tamper", "v0.38-audit-tamper-assurance"],
+        docs=["docs/v0.38-audit-tamper-assurance.html"],
+        product_boundaries=["Tamper fixtures cover local ledger/proof artifacts; external SIEM retention is future work."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="local_tamper_fixture",
+        next_step="Add auditor question templates for enterprise security-team report workflows.",
+    ),
+    RoadmapCapability(
+        version="v0.39",
+        capability_id="paper_ready_experiment_suite",
+        title="Paper-ready experiment suite",
+        target="Generate one reproducible local paper/demo bundle across E0-E6 with metrics, hashes, HTML report, and optional-heavy dependency status.",
+        status="implemented",
+        implementation=["src/invart/evaluation/experiment_cases.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v039_paper_suite_generates_reproducible_bundle", "v0.39-paper-ready-experiment-suite"],
+        docs=["docs/v0.39-paper-ready-experiment-suite.html", "docs/paper-experiment-protocol.html"],
+        product_boundaries=["The paper suite is local reproducibility infrastructure; external live benchmark runs remain optional and explicitly reported."],
+        claim_scope="local_experiment_substrate",
+        evidence_level="simulated_agent_trace",
+        external_validation="not_run_optional",
+        next_step="Use the suite as the basis for public technical report tables.",
+    ),
+    RoadmapCapability(
+        version="v0.40",
+        capability_id="swe_bench_full_validation_contract",
+        title="Full SWE-Bench validation contract",
+        target="Provide a strict full SWE-Bench report contract that uses the runner shape, validates all-instance completion, and records report artifacts.",
+        status="implemented",
+        implementation=["src/invart/evaluation/harness.py", "src/invart/cli.py", "src/invart/evaluation/evals.py"],
+        tests=["test_v040_full_swe_bench_validation_uses_official_all_data_contract", "test_v040_full_swe_bench_validation_rejects_subset_or_incomplete_data", "test_v040_cli_external_validation_swe_bench_full", "v0.40-swe-bench-full-validation-contract"],
+        docs=["docs/v0.40-swe-bench-full-validation-contract.html"],
+        product_boundaries=[
+            "This version implements and tests the full-chain contract locally; it is not evidence that the full upstream SWE-Bench run has already completed in this workspace.",
+            "The full validation command defaults to SWE-bench/SWE-bench, split=test, all instances required, and 2294 expected instances; the equivalent princeton-nlp/SWE-bench dataset id is accepted, and subset smoke runs are rejected as full validation evidence.",
+        ],
+        claim_scope="official_runner_contract",
+        evidence_level="contract_test",
+        external_validation="not_run_optional",
+        next_step="Run the official full SWE-Bench evaluation through `external-validation swe-bench-full` and attach the resulting report bundle as external validation evidence.",
+    ),
+    RoadmapCapability(
+        version="v0.41",
+        capability_id="unmanaged_agent_inventory",
+        title="Unmanaged agent inventory and vendor capability matrix",
+        target="Detect unmanaged agent surfaces and render a vendor capability matrix that separates discovered, mediated, vendor-owned, and enforced coverage states.",
+        status="implemented",
+        implementation=["src/invart/surfaces/native.py", "src/invart/cli.py"],
+        tests=["test_v041_native_matrix_and_unmanaged_inventory_report_truthful_coverage", "v0.41-unmanaged-agent-inventory"],
+        docs=["docs/v0.41-unmanaged-agent-inventory.html"],
+        product_boundaries=[
+            "Inventory is deterministic and filesystem/config based; it does not claim process-level interception for unregistered agents.",
+            "Vendor-owned safety features are recorded as vendor-owned coverage, not Invart enforcement.",
+        ],
+        claim_scope="local_product",
+        evidence_level="local_runtime_inventory",
+        next_step="Add host-level discovery feeds for enterprise fleets without changing the coverage truthfulness model.",
+    ),
+    RoadmapCapability(
+        version="v0.42",
+        capability_id="managed_launcher_migration",
+        title="Managed launcher migration",
+        target="Preview, install, and verify managed agent launchers that route real agent startup through Invart identity binding and mediation.",
+        status="implemented",
+        implementation=["src/invart/surfaces/launcher.py", "src/invart/cli.py"],
+        tests=["test_v042_launcher_migration_preview_confirm_and_coverage_gate", "v0.42-managed-launcher-migration"],
+        docs=["docs/v0.42-managed-launcher-migration.html"],
+        product_boundaries=[
+            "Launchers are local shell entrypoints and require adoption by the user or enterprise environment.",
+            "Unregistered direct vendor binary execution remains discoverable but not fully controlled until covered by a managed path or stronger platform hook.",
+        ],
+        claim_scope="local_product",
+        evidence_level="local_runtime_fixture",
+        next_step="Add migration helpers for shell profiles, devcontainer images, and CI runners.",
+    ),
+    RoadmapCapability(
+        version="v0.43",
+        capability_id="enterprise_coverage_gate",
+        title="Enterprise coverage gate",
+        target="Fail enterprise readiness when runtime mediation or coverage evidence is missing, while allowing advisory/audit-only profiles to stay truthful.",
+        status="implemented",
+        implementation=["src/invart/assurance/coverage.py", "src/invart/cli.py"],
+        tests=["test_v042_launcher_migration_preview_confirm_and_coverage_gate", "v0.43-enterprise-coverage-gate"],
+        docs=["docs/v0.43-enterprise-coverage-gate.html"],
+        product_boundaries=[
+            "Coverage gates evaluate Invart evidence and profile requirements; they do not upgrade advisory observation into enforcement.",
+            "Audit/advisory modes can warn instead of fail but proof and RC reports retain weak coverage labels.",
+        ],
+        claim_scope="local_product",
+        evidence_level="local_truthfulness_matrix",
+        next_step="Expose coverage policies as reusable enterprise profile templates.",
+    ),
+    RoadmapCapability(
+        version="v0.44",
+        capability_id="external_evidence_and_swebench_attachment",
+        title="External evidence and full SWE-Bench attachment",
+        target="Import public risk corpus snapshots and attach full SWE-Bench artifact manifests so heavy validation evidence can be verified without weakening the local ledger fact model.",
+        status="implemented",
+        implementation=["src/invart/evaluation/external_evidence.py", "src/invart/cli.py"],
+        tests=[
+            "test_v044_external_evidence_registry_imports_and_verifies_real_snapshot",
+            "test_v044_swe_bench_full_evidence_manifest_verifies_complete_artifacts",
+            "v0.44-external-evidence-and-swebench",
+        ],
+        docs=["docs/v0.44-external-evidence-and-swebench.html"],
+        product_boundaries=[
+            "The default benchmark uses local pinned fixtures to verify manifest semantics.",
+            "A full SWE-Bench run is only claimed when a complete attached manifest verifies; local contract tests alone are not reported as completed heavy validation.",
+        ],
+        claim_scope="evidence_contract",
+        evidence_level="contract_test",
+        external_validation="not_run_optional",
+        next_step="Attach the first complete full SWE-Bench run manifest after running the containerized harness end to end.",
+    ),
+    RoadmapCapability(
+        version="v0.45",
+        capability_id="final_demo_and_rc_gate",
+        title="Pre-1.0 final demo and RC gate",
+        target="Assemble a single pre-1.0 demo entrypoint and a final RC gate that distinguishes local readiness, pending evidence, and final readiness.",
+        status="implemented",
+        implementation=["src/invart/evaluation/pre_1_0.py", "src/invart/evaluation/release_candidate.py", "src/invart/cli.py"],
+        tests=[
+            "test_v045_pre_1_0_final_demo_links_control_plane_evidence",
+            "test_v045_final_release_candidate_distinguishes_external_pending_and_attached",
+            "v0.45-final-demo-and-rc-gate",
+        ],
+        docs=["docs/v0.45-final-demo-and-rc-gate.html"],
+        product_boundaries=[
+            "The final demo is a local product package and report hub; it does not include hosted UI or enterprise admin service.",
+            "The RC gate reports external_pending unless a valid evidence manifest is attached.",
+        ],
+        claim_scope="local_product",
+        evidence_level="local_runtime_with_attachable_evidence",
+        next_step="Use v0.45 as the pre-1.0 cut point before packaging distribution and release notes.",
+    ),
+)
+
+
+FUTURE_CAPABILITIES: tuple[RoadmapCapability, ...] = (
+    RoadmapCapability(
+        version="post-v0.45",
+        capability_id="idp_and_hosted_enterprise",
+        title="Hosted enterprise identity and administration",
+        target="IdP/SCIM, hosted admin console, full signoff workflow, graph database, Rego/Cedar backend, kernel-level enforcement, and SIEM/OTel export.",
+        status="planned",
+        product_boundaries=["Recorded for roadmap continuity only; not part of v0.45 implementation readiness."],
+    ),
+)
+
+
+STATUS_ORDER = {"implemented": 0, "milestone_complete": 1, "local_slice": 2, "foundation_complete": 2, "partial": 3, "planned": 4}
+EXTERNAL_VALIDATION_OK = {"not_applicable", "passed"}
+
+
+def truthfulness_for_capability(capability: dict[str, Any]) -> dict[str, Any]:
+    evidence_level = str(capability.get("evidence_level", "local_runtime"))
+    external_validation = str(capability.get("external_validation", "not_applicable"))
+    boundaries = " ".join(str(item).lower() for item in capability.get("product_boundaries", []))
+    target = str(capability.get("target", "")).lower()
+    fixture_like = any(token in evidence_level for token in ("fixture", "simulated", "pinned", "benchmark_shaped"))
+    boundary_discloses_fixture = any(token in boundaries for token in ("fixture", "simulated", "pinned", "optional", "local", "not ", "no "))
+    target_claims_external_run = any(token in target for token in ("official", "live benchmark", "external validation", "upstream corpus"))
+    overclaims_external_validation = external_validation not in EXTERNAL_VALIDATION_OK and target_claims_external_run
+    overclaims_fixture_completeness = fixture_like and not boundary_discloses_fixture
+    return {
+        "fixture_or_simulated": fixture_like,
+        "boundary_discloses_fixture_or_local_scope": boundary_discloses_fixture or not fixture_like,
+        "overclaims_external_validation": overclaims_external_validation,
+        "overclaims_fixture_completeness": overclaims_fixture_completeness,
+        "claim_integrity": not overclaims_external_validation and not overclaims_fixture_completeness,
+    }
+
+
+def version_key(version: str) -> tuple[int, int]:
+    if not version.startswith("v"):
+        return (999, 999)
+    major_minor = version[1:].split(".", 1)
+    try:
+        major = int(major_minor[0])
+        minor = int(major_minor[1]) if len(major_minor) > 1 else 0
+    except ValueError:
+        return (999, 999)
+    return (major, minor)
+
+
+def roadmap_capabilities() -> list[dict[str, Any]]:
+    return [capability.to_dict() for capability in CAPABILITIES]
+
+
+def summarize_roadmap_coverage() -> dict[str, Any]:
+    by_status: dict[str, int] = {}
+    by_version: dict[str, dict[str, int]] = {}
+    by_claim_scope: dict[str, int] = {}
+    by_evidence_level: dict[str, int] = {}
+    by_external_validation: dict[str, int] = {}
+    for capability in CAPABILITIES:
+        by_status[capability.status] = by_status.get(capability.status, 0) + 1
+        version_bucket = by_version.setdefault(capability.version, {})
+        version_bucket[capability.status] = version_bucket.get(capability.status, 0) + 1
+        by_claim_scope[capability.claim_scope] = by_claim_scope.get(capability.claim_scope, 0) + 1
+        by_evidence_level[capability.evidence_level] = by_evidence_level.get(capability.evidence_level, 0) + 1
+        by_external_validation[capability.external_validation] = by_external_validation.get(capability.external_validation, 0) + 1
+    external_validation_ready = all(capability.external_validation in EXTERNAL_VALIDATION_OK for capability in CAPABILITIES)
+    return {
+        "schema_version": "invart.roadmap_coverage.full_product.v0.45",
+        "total_capabilities": len(CAPABILITIES),
+        "by_status": by_status,
+        "by_version": by_version,
+        "by_claim_scope": by_claim_scope,
+        "by_evidence_level": by_evidence_level,
+        "by_external_validation": by_external_validation,
+        "full_product_ready": all(capability.status == "implemented" for capability in CAPABILITIES),
+        "external_validation_ready": external_validation_ready,
+        "milestone_complete_through_v0_12": all(
+            capability.status in {"implemented", "milestone_complete"}
+            for capability in CAPABILITIES
+            if version_key(capability.version) <= version_key("v0.12")
+        ),
+        "local_slice_ready_through_v0_13": all(
+            capability.status in {"implemented", "milestone_complete", "local_slice", "foundation_complete", "partial"}
+            for capability in CAPABILITIES
+            if version_key(capability.version) <= version_key("v0.13")
+        ),
+    }
+
+
+def verify_roadmap_coverage(*, require_full: bool = False, require_external_validation: bool = False) -> dict[str, Any]:
+    capabilities = roadmap_capabilities()
+    missing_docs = [item for item in capabilities if item["status"] != "planned" and not item["docs"]]
+    missing_tests = [item for item in capabilities if item["status"] != "planned" and not item["tests"]]
+    partial_or_planned = [item for item in capabilities if item["status"] in {"partial", "planned"}]
+    not_fully_implemented = [item for item in capabilities if item["status"] != "implemented"]
+    external_validation_gaps = [item for item in capabilities if item["external_validation"] not in EXTERNAL_VALIDATION_OK]
+    claim_integrity_findings = [item for item in capabilities if not item["truthfulness"]["claim_integrity"]]
+    passed = not missing_docs and not missing_tests
+    if require_full and not_fully_implemented:
+        passed = False
+    if require_external_validation and external_validation_gaps:
+        passed = False
+    if claim_integrity_findings:
+        passed = False
+    return {
+        "passed": passed,
+        "require_full": require_full,
+        "require_external_validation": require_external_validation,
+        "summary": summarize_roadmap_coverage(),
+        "missing_docs": missing_docs,
+        "missing_tests": missing_tests,
+        "partial_or_planned": partial_or_planned,
+        "not_fully_implemented": not_fully_implemented,
+        "external_validation_gaps": external_validation_gaps,
+        "claim_integrity_findings": claim_integrity_findings,
+        "capabilities": capabilities,
+        "future_planned": [capability.to_dict() for capability in FUTURE_CAPABILITIES],
+    }

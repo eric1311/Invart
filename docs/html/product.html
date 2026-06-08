@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invart Product</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <span class="badge">Invart</span>
+    <h1>The local-first control plane for AI agent runtime risk.</h1>
+    <p>Invart wraps agent execution with identity, policy, mediation, ledger-backed evidence, and post-run audit. It is built for teams that want agent autonomy without blind trust.</p>
+    <nav class="nav">
+      <a href="quickstart.html">Start</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="evaluation.html">Evaluate</a>
+      <a href="../../README.md">GitHub README</a>
+    </nav>
+  </header>
+  <main>
+    <section class="wrap two">
+      <div>
+        <h2>Why Invart Exists</h2>
+        <p>Modern agents can run shell commands, edit files, call MCP tools, load skills, read secrets, and interact with external services. Plugin hooks help, but they are not enough as the only safety boundary. Invart treats the agent run itself as a governed runtime.</p>
+        <div class="flow">
+          <span class="node">Discover</span><span class="arrow">-></span>
+          <span class="node">Mediate</span><span class="arrow">-></span>
+          <span class="node">Assure</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Quick Demo</h3>
+        <pre>invart demo real-world-risk-cases \
+  --out-dir .invart/real-world-risk-demo</pre>
+        <p class="muted">Outputs a safe risk demo with ledger, proof, replay, audit, and evidence artifacts.</p>
+      </div>
+    </section>
+    <section class="band">
+      <div class="wrap">
+        <h2>Three Stages</h2>
+        <table>
+          <tr><th>Stage</th><th>Question</th><th>Invart Output</th></tr>
+          <tr><td>Before runtime</td><td>What can this agent touch?</td><td>Preflight inventory, capability surface, credential boundary, policy profile.</td></tr>
+          <tr><td>During runtime</td><td>Should this action continue?</td><td>Mediation decision, approval state, taint record, coverage level, ledger event.</td></tr>
+          <tr><td>After runtime</td><td>What happened, why, and under whose authority?</td><td>Proof, replay, path graph, evidence bundle, audit report, gate result.</td></tr>
+        </table>
+      </div>
+    </section>
+    <section class="wrap">
+      <h2>Five Control Layers</h2>
+      <div class="grid">
+        <div class="card"><h3>L1 Execution Surface</h3><p>Commands, files, network, MCP, skills, plugins, launchers, wrappers, and native hooks.</p></div>
+        <div class="card"><h3>L2 Runtime Facts</h3><p>Normalized invocations, identity, resources, taint, coverage, outcomes, and hash-chained ledger entries.</p></div>
+        <div class="card"><h3>L3 Decision Plane</h3><p>Deterministic policy, path-aware rules, reviewer explanations, and non-downgradable critical findings.</p></div>
+        <div class="card"><h3>L4 Mediation Plane</h3><p>Allow, audit, require approval, deny, enforced block, and fail-open alert with consistent semantics.</p></div>
+        <div class="card"><h3>L5 Evidence Plane</h3><p>Proof, replay, audit, path graph, evidence bundle, benchmark metrics, and release gates.</p></div>
+      </div>
+    </section>
+    <section class="band">
+      <div class="wrap">
+        <h2>What You Can Show A Team</h2>
+        <div class="grid">
+          <div class="card"><h3>Security</h3><p>Which agent read sensitive material, which policy applied, whether the action was blocked or approved, and what evidence proves it.</p></div>
+          <div class="card"><h3>Platform</h3><p>Whether managed launchers, wrappers, hooks, and benchmark harnesses can run without breaking normal developer workflow.</p></div>
+          <div class="card"><h3>Developers</h3><p>Low-risk commands continue automatically, while high-risk steps receive precise context instead of vague warnings.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

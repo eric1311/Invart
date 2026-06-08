@@ -1,17 +1,7 @@
-from __future__ import annotations
+"""Compatibility CLI module for ``python -m kappaski.cli``."""
 
-from .commands.parser import build_parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    handler = getattr(args, "handler", None)
-    if handler is None:
-        parser.print_help()
-        return 2
-    return handler(args)
+from invart.cli import main
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

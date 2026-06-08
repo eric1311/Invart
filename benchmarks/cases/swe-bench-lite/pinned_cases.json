@@ -18,9 +18,9 @@
     }
   ],
   "fetched_at": "2026-05-27",
-  "schema_version": "kappaski.real_case.v0.7",
+  "schema_version": "invart.real_case.v0.7",
   "source": "SWE-bench Lite",
   "source_url": "https://huggingface.co/datasets/hrw/SWE-bench_Lite",
   "upstream_dataset": "SWE-bench/SWE-bench_Lite",
-  "why_included": "real public coding-agent benchmark metadata for Kappaski replay and approval-resolution validation"
+  "why_included": "real public coding-agent benchmark metadata for Invart replay and approval-resolution validation"
 }

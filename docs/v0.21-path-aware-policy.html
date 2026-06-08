@@ -1,7 +1,0 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kappaski v0.21 Path-Aware Policy</title><style>
-body{margin:0;background:#f7f8fb;color:#172033;font:15px/1.6 -apple-system,BlinkMacSystemFont,Segoe UI,Inter,Arial,sans-serif}header{background:#102033;color:white;padding:40px 48px}main{max-width:1120px;margin:0 auto;padding:28px 24px}section{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:14px 0}.rule{border-left:4px solid #2563eb;background:#f8fafc;padding:10px 12px;margin:8px 0}pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}</style></head><body><header><h1>v0.21 Path-Aware Policy</h1><p>Deterministic policy over source, trust, taint, grant, resource, sink, and coverage facts.</p></header><main>
-<section><h2>Default Rules</h2><div class="rule">secret read -&gt; external network egress: deny</div><div class="rule">secret-tainted path -&gt; CI/deploy mutation: require approval</div><div class="rule">external instruction -&gt; destructive shell: deny</div><p>Deterministic critical policy cannot be downgraded by LLM review.</p></section>
-<section><h2>CLI</h2><pre>kappaski policy check-path --ledger ledger.jsonl --out path-policy.json
-kappaski eval benchmark --suite v0.21-path-aware-policy</pre></section>
-<section><h2>Metrics</h2><p>The benchmark reports block rate, approval rate, and a benign false-positive proxy so safety and autonomy are measured together.</p></section>
-</main></body></html>

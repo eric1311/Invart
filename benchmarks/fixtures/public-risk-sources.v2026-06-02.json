@@ -1,0 +1,268 @@
+{
+  "schema_version": "invart.public_risk_sources.v2026_06_02",
+  "catalog_id": "public-risk-sources.v2026-06-02",
+  "generated_at": "2026-06-02",
+  "claim_boundary": "Pinned public-source seeds mapped into Invart local demos; original incidents are not replayed.",
+  "sources": [
+    {
+      "source_id": "clawhub_public_skill_registry_surface",
+      "title": "ClawHub exposes a public skill and plugin registry surface",
+      "url": "https://github.com/openclaw/clawhub",
+      "source_type": "official_registry_repository",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Public agent skill registries create a supply-chain surface where SKILL.md instructions, supporting files, plugins, moderation state, and install flows need pre-runtime inspection.",
+      "short_excerpt": "the public skill registry for OpenClaw",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 6,
+      "invart_surfaces": ["pre-runtime scan", "skill supply-chain policy", "capability grant", "audit report"],
+      "before_signal": "Scan SKILL.md, supporting files, package metadata, publisher identity, version, and moderation status before the agent run.",
+      "during_signal": "Record skill-originated tool calls, capability grant use, file reads, shell commands, and network egress.",
+      "after_signal": "Audit explains which skill or plugin source contributed to a decision, approval, deny, or weak coverage finding.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "skill_registry", "signal": "public registry listing", "expected_control": "inventory"},
+        {"stage": "pre", "surface": "skill_manifest", "signal": "SKILL.md plus supporting files", "expected_control": "scan"},
+        {"stage": "during", "surface": "tool_invocation", "resource": "skill declared capability", "expected_decision": "audit"},
+        {"stage": "after", "artifact": "audit_report", "question": "which skill introduced this capability?"}
+      ],
+      "claim_boundary": "Public registry seed only; original third-party packages are not replayed."
+    },
+    {
+      "source_id": "clawhub_moderation_hold_boundary",
+      "title": "ClawHub moderation states imply install-time trust boundaries",
+      "url": "https://docs.openclaw.ai/clawhub/moderation",
+      "source_type": "official_docs",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Moderation holds, hidden listings, quarantine, and revoked listings are supply-chain signals that should be captured before an agent can use a skill or plugin.",
+      "short_excerpt": "Moderation holds are meant to protect users",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 7,
+      "invart_surfaces": ["pre-runtime scan", "profile governance", "coverage-aware gate"],
+      "before_signal": "Import registry moderation state and map held, hidden, quarantined, or revoked listings to profile-controlled risk levels.",
+      "during_signal": "If the agent attempts to use a held or hidden listing, require approval or deny according to enterprise policy.",
+      "after_signal": "Proof shows whether the listing state was observed, mediated, and enforced before use.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "registry_moderation", "signal": "held or hidden listing", "expected_control": "risk_classification"},
+        {"stage": "during", "surface": "skill_use", "resource": "moderated listing", "expected_decision": "require_approval"},
+        {"stage": "after", "artifact": "proof", "question": "was registry moderation respected?"}
+      ],
+      "claim_boundary": "Registry moderation seed only; Invart does not claim the original listing was installed or replayed."
+    },
+    {
+      "source_id": "skillsieve_clawhub_empirical_risk",
+      "title": "SkillSieve reports large-scale empirical risk in ClawHub skills",
+      "url": "https://arxiv.org/abs/2604.06550",
+      "source_type": "research_paper",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Large registries of natural-language agent skills can hide prompt injection, social engineering, and obfuscated payloads that simple regex scanners miss.",
+      "short_excerpt": "49,592 real ClawHub skills",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 4,
+      "invart_surfaces": ["skill supply-chain policy", "LLM reviewer", "benchmark"],
+      "before_signal": "Use layered scanning: metadata, regex, semantic review, and profile-specific escalation for suspicious skill content.",
+      "during_signal": "Tie skill-originated actions to the scanned skill identity and capability grant.",
+      "after_signal": "Report which layer produced the risk signal and whether LLM review upgraded but did not downgrade deterministic critical findings.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "skill_corpus", "signal": "large registry snapshot", "expected_control": "layered_scan"},
+        {"stage": "during", "surface": "semantic_review", "resource": "natural-language tool instruction", "expected_decision": "risk_upgrade"},
+        {"stage": "after", "artifact": "benchmark_report", "question": "did the scan preserve recall without overclaiming enforcement?"}
+      ],
+      "claim_boundary": "Research seed only; the paper corpus is not bundled or replayed by the default demo."
+    },
+    {
+      "source_id": "safedep_claude_code_hook_backdoor_packages",
+      "title": "Malicious npm packages can backdoor Claude Code sessions through hooks",
+      "url": "https://safedep.io/malicious-npm-packages-claude-code-hooks/",
+      "source_type": "security_research_report",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Package installs can place Claude Code hook files that execute on future sessions, surviving beyond the initial package installation moment.",
+      "short_excerpt": "SessionStart fires every time the project opens",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 7,
+      "invart_surfaces": ["pre-runtime scan", "native hook bridge", "session registry", "audit report"],
+      "before_signal": "Scan node_modules, lockfiles, .claude settings, hook binaries, hashes, and unexpected SessionStart entries.",
+      "during_signal": "Normalize hook-originated events into mediation records and block or pause high-risk shell/network behavior.",
+      "after_signal": "Audit reconstructs package install source, hook persistence, session start trigger, and outcome.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "package_install", "signal": ".claude/settings hook in dependency", "expected_control": "supply_chain_scan"},
+        {"stage": "during", "surface": "native_hook", "resource": "SessionStart", "expected_decision": "require_approval"},
+        {"stage": "during", "surface": "network", "sink": "external_network", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "replay", "question": "which package introduced the hook?"}
+      ],
+      "claim_boundary": "Public report seed only; Invart default demo does not install or replay the malicious packages."
+    },
+    {
+      "source_id": "malware_slop_claude_workspace_exfiltration",
+      "title": "Malware-Slop npm package targeted Claude AI workspace files",
+      "url": "https://securitypointbreak.com/2026/05/27/malicious-npm-package-claude-ai-files/",
+      "source_type": "security_research_report",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "AI workspaces and developer directories become exfiltration targets when package scripts can recursively read files and upload them through GitHub APIs.",
+      "short_excerpt": "AI workspaces are becoming part of the developer attack surface",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 10,
+      "invart_surfaces": ["dependency/tool scan", "file read mediation", "network egress mediation", "path graph"],
+      "before_signal": "Flag install scripts, suspicious package provenance, GitHub token access, and reads under AI workspace directories.",
+      "during_signal": "Taint workspace file reads and connect them to GitHub API upload attempts.",
+      "after_signal": "Path graph answers file read to token use to external upload.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "package_script", "signal": "suspicious install script", "expected_control": "deny_or_approval"},
+        {"stage": "during", "surface": "file_read", "resource": "AI workspace files", "taint": "workspace_sensitive"},
+        {"stage": "during", "surface": "network", "sink": "github_contents_api", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "path_graph", "question": "what data path reached external upload?"}
+      ],
+      "claim_boundary": "Public report seed only; local demo uses an equivalent trajectory and does not replay the original package."
+    },
+    {
+      "source_id": "claude_code_home_directory_rm_rf_issue",
+      "title": "Claude Code issue reports destructive recursive deletion and incomplete logging",
+      "url": "https://github.com/anthropics/claude-code/issues/10077",
+      "source_type": "public_github_issue",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Destructive shell commands can cause large local data loss, and incomplete command logging can prevent forensic reconstruction.",
+      "short_excerpt": "deleted all user files in my home directory",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 8,
+      "invart_surfaces": ["file-write enforcement", "ledger", "replay", "coverage report"],
+      "before_signal": "Profile requires destructive shell mediation and project-root containment.",
+      "during_signal": "Record exact command, matched rule, approval requirement, shim decision, and side-effect outcome.",
+      "after_signal": "Audit shows the command, policy reason, coverage state, and whether enforcement happened before execution.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "profile", "signal": "destructive shell requires mediation", "expected_control": "policy_gate"},
+        {"stage": "during", "surface": "shell", "resource": "filesystem", "command_pattern": "rm -rf", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "ledger", "question": "what command was attempted?"}
+      ],
+      "claim_boundary": "Public issue seed only; the local demo blocks an equivalent destructive command instead of replaying user data loss."
+    },
+    {
+      "source_id": "claude_code_secret_leak_user_report",
+      "title": "User report describes Claude Code leaking a secret during a local session",
+      "url": "https://www.reddit.com/r/ClaudeAI/comments/1s3nnf2/claude_code_leaked_one_of_my_secrets_so_i_built_a/",
+      "source_type": "public_user_report",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Agent shell or network access combined with environment secrets can create outbound leakage paths that users notice only after egress.",
+      "short_excerpt": "Claude Code leaked one of my secrets",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 7,
+      "invart_surfaces": ["credential boundary", "taint", "network mediation", "proof"],
+      "before_signal": "Record env key inventory and redact values before the run.",
+      "during_signal": "Taint the session after secret read or secret-shaped content, then pause outbound network or git push-like egress.",
+      "after_signal": "Proof answers which credential keys were in boundary and which action attempted egress.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "environment", "signal": "secret key inventory", "expected_control": "credential_boundary"},
+        {"stage": "during", "surface": "file_read", "resource": "/repo/.env", "taint": "secret"},
+        {"stage": "during", "surface": "network", "sink": "external_network", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "proof", "question": "which credential boundary was involved?"}
+      ],
+      "claim_boundary": "Public user-report seed only; the local demo models the risk class and does not replay the original session."
+    },
+    {
+      "source_id": "ai_agent_production_database_deletion_report",
+      "title": "Public report describes an AI agent deleting a production database",
+      "url": "https://www.livescience.com/technology/artificial-intelligence/i-violated-every-principle-i-was-given-ai-agent-deletes-companys-entire-database-in-9-seconds-then-confesses",
+      "source_type": "public_news_report",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Broad cloud or database credentials can turn a wrong agent action into destructive production infrastructure mutation.",
+      "short_excerpt": "deleted the company's entire production database and backups",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 8,
+      "invart_surfaces": ["credential boundary", "path-aware policy", "approval state", "enterprise audit"],
+      "before_signal": "Record cloud credential boundary and profile-required approval for production mutation.",
+      "during_signal": "Mediate cloud provider commands or API calls that mutate database, backup, CI, or deploy resources.",
+      "after_signal": "Audit shows principal, credential boundary, policy, approval state, outcome, and coverage.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "credential_boundary", "signal": "production database credential", "expected_control": "high_risk_grant"},
+        {"stage": "during", "surface": "api_call", "resource": "production_database", "expected_decision": "require_approval"},
+        {"stage": "during", "surface": "api_call", "resource": "database_backup", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "audit_report", "question": "who authorized production mutation?"}
+      ],
+      "claim_boundary": "Public report seed only; Invart does not replay or access any production infrastructure."
+    },
+    {
+      "source_id": "mcp_puppeteer_ssrf_prompt_injection_issue",
+      "title": "MCP puppeteer server issue reports SSRF and indirect prompt injection",
+      "url": "https://github.com/modelcontextprotocol/servers/issues/3662",
+      "source_type": "public_security_issue",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Browser/tool servers can bridge untrusted page content to agent tool calls, enabling SSRF, indirect prompt injection, or sandbox bypass behavior.",
+      "short_excerpt": "SSRF, Indirect Prompt Injection, and sandbox bypass",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 7,
+      "invart_surfaces": ["MCP broker", "tool-call mediation", "network egress mediation", "coverage report"],
+      "before_signal": "Inventory MCP server permissions, browser access, network reachability, and sandbox boundaries.",
+      "during_signal": "Broker tool calls, fold raw page content, taint untrusted tool results, and pause internal-network egress.",
+      "after_signal": "Coverage report shows whether MCP calls were transparent, mediated, or enforced.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "mcp_server", "signal": "browser automation capability", "expected_control": "inventory"},
+        {"stage": "during", "surface": "tool_result", "resource": "untrusted_web_content", "taint": "external_instruction"},
+        {"stage": "during", "surface": "network", "sink": "internal_network", "expected_decision": "require_approval"},
+        {"stage": "after", "artifact": "coverage_report", "question": "was the MCP path mediated?"}
+      ],
+      "claim_boundary": "Public issue seed only; local demo models the MCP risk class and does not replay or exploit the original server."
+    },
+    {
+      "source_id": "owasp_mcp_tool_poisoning",
+      "title": "OWASP MCP guidance describes tool poisoning and indirect prompt injection",
+      "url": "https://owasp.org/www-community/attacks/MCP_Tool_Poisoning",
+      "source_type": "security_taxonomy",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "MCP tool metadata and tool results can carry instructions that redirect agent behavior across a trust boundary.",
+      "short_excerpt": "indirect prompt injection attack targeting AI agents",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 7,
+      "invart_surfaces": ["MCP broker", "path-aware policy", "LLM reviewer", "audit report"],
+      "before_signal": "Scan tool descriptions, scopes, and server provenance before exposing tools to the agent.",
+      "during_signal": "Treat tool output as untrusted input and prevent it from authorizing destructive or credential-bearing actions.",
+      "after_signal": "Audit explains whether a tool result influenced a later action and which policy blocked or allowed it.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "tool_manifest", "signal": "untrusted tool description", "expected_control": "scan"},
+        {"stage": "during", "surface": "tool_result", "resource": "external_instruction", "taint": "untrusted"},
+        {"stage": "during", "surface": "shell", "resource": "destructive_command", "expected_decision": "deny"},
+        {"stage": "after", "artifact": "path_graph", "question": "did tool output influence the shell command?"}
+      ],
+      "claim_boundary": "Taxonomy seed only; local demo creates an equivalent tool-result trajectory and does not replay a live attack."
+    },
+    {
+      "source_id": "gemini_cli_sandbox_bypass_report",
+      "title": "Gemini CLI vulnerability report describes silent command execution risk",
+      "url": "https://www.itpro.com/security/a-flaw-in-googles-new-gemini-cli-tool-couldve-allowed-hackers-to-exfiltrate-data",
+      "source_type": "public_security_report",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Agent CLIs that execute commands need independent mediation, because prompt injection or sandbox bypass can trigger command execution without clear user approval.",
+      "short_excerpt": "execute it without warning or ask for approval",
+      "excerpt_kind": "quote",
+      "excerpt_word_count": 8,
+      "invart_surfaces": ["command mediation", "unmanaged agent inventory", "coverage-aware gate", "audit report"],
+      "before_signal": "Detect Gemini CLI config and sandbox mode, then mark direct unmanaged execution as a coverage gap.",
+      "during_signal": "Route command execution through managed launcher or wrapper mediation.",
+      "after_signal": "Audit distinguishes vendor sandbox state, Invart mediation, and actual enforcement coverage.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "agent_cli_config", "signal": "sandbox or approval mode", "expected_control": "coverage_inventory"},
+        {"stage": "during", "surface": "shell", "resource": "agent_generated_command", "expected_decision": "require_approval"},
+        {"stage": "after", "artifact": "coverage_report", "question": "was command execution vendor-owned or Invart-mediated?"}
+      ],
+      "claim_boundary": "Public report seed only; local demo models command mediation and does not replay or exploit Gemini CLI."
+    },
+    {
+      "source_id": "openai_codex_approval_mode_boundary",
+      "title": "OpenAI Codex documentation distinguishes approval modes and sandboxing",
+      "url": "https://developers.openai.com/codex/cli",
+      "source_type": "official_vendor_docs",
+      "accessed_at": "2026-06-02",
+      "observed_risk": "Agent approval modes and sandbox profiles are vendor-owned control states that should be inventoried but not confused with Invart enforcement.",
+      "short_excerpt": "Approval modes define when Codex asks for permission",
+      "excerpt_kind": "paraphrase_anchor",
+      "excerpt_word_count": 8,
+      "invart_surfaces": ["unmanaged agent inventory", "managed launcher", "coverage-aware gate"],
+      "before_signal": "Inventory configured approval mode, sandbox mode, network policy, and whether startup goes through Invart.",
+      "during_signal": "If direct Codex execution bypasses Invart, mark vendor-owned or unmanaged coverage rather than claiming mediation.",
+      "after_signal": "RC gate reports coverage gaps until a managed launcher, wrapper, or stronger hook path is active.",
+      "mapped_trajectory": [
+        {"stage": "pre", "surface": "agent_config", "signal": "approval and sandbox mode", "expected_control": "coverage_inventory"},
+        {"stage": "pre", "surface": "launcher", "signal": "managed launcher missing", "expected_control": "migration_recommendation"},
+        {"stage": "during", "surface": "shell", "resource": "vendor-owned command execution", "expected_decision": "audit_as_unmanaged"},
+        {"stage": "after", "artifact": "rc_report", "question": "is the session local-ready or external-pending?"}
+      ],
+      "claim_boundary": "Official documentation seed only; it describes vendor control modes and is not replayed as an incident."
+    }
+  ]
+}

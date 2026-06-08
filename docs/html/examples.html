@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Examples</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">Examples</span><h1>Small examples before full demos.</h1><p>The <code>examples/</code> directory contains short runnable or copyable examples for local evaluation.</p></header>
+  <main class="wrap">
+    <section class="grid">
+      <div class="card"><h3>Basic managed session</h3><p><code>examples/basic-managed-session.sh</code> creates a ledger and proof for one low-risk command.</p></div>
+      <div class="card"><h3>Policy profile</h3><p><code>examples/policy-profile.toml</code> shows a small TOML profile with path-aware risk rules.</p></div>
+      <div class="card"><h3>Unsafe event</h3><p><code>examples/unsafe-action-event.json</code> is a shell event you can analyze without executing it.</p></div>
+    </section>
+    <section>
+      <h2>Analyze The Unsafe Event</h2>
+      <pre>invart runtime analyze-event --event "$(cat examples/unsafe-action-event.json)"</pre>
+    </section>
+  </main>
+</body>
+</html>

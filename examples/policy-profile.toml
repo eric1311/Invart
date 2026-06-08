@@ -1,0 +1,24 @@
+schema_version = "invart.policy_as_code.v0.26"
+name = "example-managed-profile"
+mode = "managed"
+
+[[rules]]
+name = "Secret material should not flow to network egress"
+source = "secret"
+taint = "sensitive"
+sink = "network"
+effect = "deny"
+
+[[rules]]
+name = "External instruction should not trigger destructive shell"
+source = "external_instruction"
+sink = "shell"
+resource = "destructive"
+effect = "require_approval"
+
+[[rules]]
+name = "Low-risk repository inspection is allowed"
+source = "trusted_user"
+sink = "shell"
+resource = "inspection"
+effect = "allow"

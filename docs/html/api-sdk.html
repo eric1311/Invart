@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invart API and SDK</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <span class="badge">API &amp; SDK</span>
+    <h1>Integrate with Invart without guessing the boundary.</h1>
+    <p>Invart 0.9 is CLI-first. The stable integration surface is the CLI plus verifiable artifacts. Python helpers are available for local tooling, but only a small set should be treated as provisional SDK entry points before 1.0.</p>
+    <nav class="nav">
+      <a href="index.html">Docs Home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="cli-reference.html">CLI</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="examples.html">Examples</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section>
+      <h2>Public Surface</h2>
+      <table>
+        <tr><th>Surface</th><th>Status</th><th>Use it for</th><th>Boundary</th></tr>
+        <tr><td><code>invart</code> CLI</td><td>Stable pre-1.0 surface</td><td>Running sessions, exporting proof, generating replay/audit artifacts, benchmarks, and RC checks.</td><td>Prefer this for scripts, demos, CI checks, and product validation.</td></tr>
+        <tr><td>Artifact contracts</td><td>Stable exchange surface</td><td>Sharing ledgers, proofs, replay pages, path graphs, coverage reports, audit reports, and evidence bundles.</td><td>Ledger remains the fact source. Proof is a portable summary.</td></tr>
+        <tr><td>Python helpers</td><td>Provisional SDK surface</td><td>Building local tools around ledger verification, proof export, runtime event normalization, and artifact inspection.</td><td>Use named helpers below. Do not assume every module in <code>src/invart</code> is stable.</td></tr>
+        <tr><td>Hosted API</td><td>Not available in 0.9</td><td>Remote administration, hosted policy service, IdP integration, or enterprise console workflows.</td><td>Planned after the local control-plane boundary is stable.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>CLI First</h2>
+      <p>The CLI is the safest integration point for most users because it preserves Invart's mediation, ledger, proof, and release-candidate behavior without requiring Python import stability.</p>
+      <pre>invart session start --target . --agent demo-agent --goal "Inspect safely" --ledger .invart/demo/ledger.jsonl
+invart runtime shell --session demo --ledger .invart/demo/ledger.jsonl -- python -c "print('hello')"
+invart proof export --ledger .invart/demo/ledger.jsonl --out .invart/demo/proof.json
+invart proof verify --proof .invart/demo/proof.json --ledger .invart/demo/ledger.jsonl</pre>
+    </section>
+
+    <section>
+      <h2>Provisional Python SDK</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Ledger integrity</h3>
+          <pre>from pathlib import Path
+from invart.core.ledger import load_ledger_entries, verify_ledger
+
+ledger = Path(".invart/quickstart/ledger.jsonl")
+entries, warnings = load_ledger_entries(ledger)
+integrity = verify_ledger(ledger)</pre>
+        </div>
+        <div class="card">
+          <h3>Proof export and verification</h3>
+          <pre>from pathlib import Path
+from invart.assurance.postruntime import export_proof_report, verify_proof_report
+
+proof = export_proof_report(Path("ledger.jsonl"), Path("proof.json"))
+verification = verify_proof_report(Path("proof.json"), Path("ledger.jsonl"))</pre>
+        </div>
+        <div class="card">
+          <h3>Runtime event normalization</h3>
+          <pre>from invart.core.models import RuntimeEvent
+
+event = RuntimeEvent.from_dict({
+    "type": "shell",
+    "command": "python -m pytest -q",
+    "session_id": "demo",
+})
+payload = event.to_dict()</pre>
+        </div>
+      </div>
+      <p class="muted">These helpers are suitable for local adapters, experiments, and internal automation. Before 1.0, new SDK users should pin Invart and keep integration tests around these calls.</p>
+    </section>
+
+    <section>
+      <h2>Artifact Contracts</h2>
+      <table>
+        <tr><th>Artifact</th><th>Typical producer</th><th>Typical consumer</th><th>Notes</th></tr>
+        <tr><td>Ledger JSONL</td><td><code>invart session</code>, <code>invart runtime</code>, adapters</td><td>Proof, replay, gate, audit, path graph, evidence bundle</td><td>Append-only fact source with hash-chain verification.</td></tr>
+        <tr><td>Proof JSON</td><td><code>invart proof export</code></td><td><code>invart proof verify</code>, <code>invart gate verify</code>, audit reviewers</td><td>Portable summary derived from the ledger.</td></tr>
+        <tr><td>Runtime event JSON</td><td>Wrappers, hooks, adapters, demos</td><td><code>invart runtime analyze-event</code>, mediation, policy checks</td><td>Useful when integrating a new execution surface.</td></tr>
+        <tr><td>Policy profile TOML</td><td>Security or platform owner</td><td>Policy checks, gates, replay display policy</td><td>See <code>examples/policy-profile.toml</code> for a compact profile.</td></tr>
+        <tr><td>Evidence bundle</td><td><code>invart evidence export</code>, RC gate, demos</td><td><code>invart evidence verify</code>, enterprise audit review</td><td>Manifest plus hashes for proof, ledger-derived artifacts, profile, coverage, and audit material.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Compatibility Names</h2>
+      <p>New integrations should import <code>invart</code> and use the canonical subpackages such as <code>invart.core</code>, <code>invart.control</code>, and <code>invart.assurance</code>. The older flat <code>invart.ledger</code> style imports and the former <code>kappaski</code> import path remain compatibility aliases during the rename period, but new documentation and examples use the organized Invart layout.</p>
+    </section>
+
+    <section>
+      <h2>Not Yet Public API</h2>
+      <p>Internal modules that implement benchmarks, roadmap accounting, release-candidate orchestration, demos, and experimental adapters may change before 1.0. When in doubt, integrate through the CLI or artifact contracts first, then use the provisional Python helpers only where direct imports add clear value.</p>
+    </section>
+  </main>
+</body>
+</html>

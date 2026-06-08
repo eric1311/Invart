@@ -1,4 +1,6 @@
+.invart/
 .kappaski/
+.internal/
 .pytest_cache/
 __pycache__/
 *.pyc

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart CLI Reference</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">CLI</span><h1>The command groups users need first.</h1><p>Run <code>invart --help</code> for the complete parser. These are the entry points most people should start with.</p></header>
+  <main class="wrap">
+    <section class="grid">
+      <div class="card"><h3>Pre-runtime</h3><pre>invart pre-runtime --target . --save</pre></div>
+      <div class="card"><h3>Managed session</h3><pre>invart session start --target . --agent codex --goal "..."
+invart run --target . --agent codex --goal "..." -- &lt;command&gt;</pre></div>
+      <div class="card"><h3>Runtime event</h3><pre>invart runtime analyze-event --event '{"type":"shell","command":"rm -rf ."}'
+invart runtime shell --session demo --ledger .invart/demo.jsonl -- &lt;command&gt;</pre></div>
+      <div class="card"><h3>Proof and gate</h3><pre>invart proof export --ledger ledger.jsonl --out proof.json
+invart proof verify --proof proof.json --ledger ledger.jsonl
+invart gate verify --proof proof.json --ledger ledger.jsonl --mode ci</pre></div>
+      <div class="card"><h3>Replay and audit</h3><pre>invart replay export --ledger ledger.jsonl --out replay.html
+invart audit report --ledger ledger.jsonl --out-dir .invart/audit</pre></div>
+      <div class="card"><h3>Evaluation</h3><pre>invart eval list
+invart eval benchmark --suite full-product-readiness
+invart roadmap status --require-full</pre></div>
+    </section>
+  </main>
+</body>
+</html>

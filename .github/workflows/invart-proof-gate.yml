@@ -1,0 +1,35 @@
+name: Invart Proof Gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  proof-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Invart
+        run: python -m pip install -e .
+
+      - name: Verify proof and ledger
+        run: |
+          test -f .invart/proof.json
+          test -f .invart/ledger.jsonl
+          invart proof verify --proof .invart/proof.json --ledger .invart/ledger.jsonl
+          invart gate verify --proof .invart/proof.json --ledger .invart/ledger.jsonl --mode ci --out .invart/gate-report.json
+
+      - name: Upload Invart artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: invart-proof-gate
+          path: |
+            .invart/proof.json
+            .invart/ledger.jsonl
+            .invart/gate-report.json

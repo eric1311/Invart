@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Architecture</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">Architecture</span><h1>Three lifecycle stages, five control layers.</h1><p>Invart is not a plugin-only wrapper. Plugin and hook integration can improve coverage, but the durable product boundary is the runtime control plane.</p></header>
+  <main class="wrap">
+    <section>
+      <h2>Lifecycle</h2>
+      <div class="flow"><span class="node">Pre-runtime discovery</span><span class="arrow">-></span><span class="node">Runtime mediation</span><span class="arrow">-></span><span class="node">Post-runtime assurance</span></div>
+    </section>
+    <section>
+      <h2>Layer Model</h2>
+      <table>
+        <tr><th>Layer</th><th>Responsibility</th><th>Example modules</th></tr>
+        <tr><td>L1 Execution Surface</td><td>Adapters, wrappers, launchers, native hooks, MCP broker, Rust shim.</td><td><code>surfaces/adapter.py</code>, <code>surfaces/launcher.py</code>, <code>surfaces/native.py</code>, <code>surfaces/mcp_broker.py</code>, <code>surfaces/enforcement.py</code></td></tr>
+        <tr><td>L2 Runtime Fact Model</td><td>Sessions, invocations, ledger entries, identity, resources, taint, outcomes.</td><td><code>core/models.py</code>, <code>control/runtime.py</code>, <code>core/ledger.py</code>, <code>governance/identity.py</code></td></tr>
+        <tr><td>L3 Decision Plane</td><td>Rules, policy-as-code, semantic review, path policy.</td><td><code>control/rules.py</code>, <code>control/policy_as_code.py</code>, <code>control/path_policy.py</code>, <code>control/review.py</code></td></tr>
+        <tr><td>L4 Mediation Plane</td><td>Unified decision and outcome contract across surfaces.</td><td><code>control/mediation.py</code>, <code>control/approval.py</code>, <code>control/gate.py</code></td></tr>
+        <tr><td>L5 Evidence Plane</td><td>Proof, replay, graph, audit, coverage, evidence bundle, release gate.</td><td><code>assurance/postruntime.py</code>, <code>assurance/replay.py</code>, <code>assurance/path_graph.py</code>, <code>assurance/evidence_bundle.py</code></td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>Source Layout</h2>
+      <pre>src/invart/core/       fact model, ledger, stable artifact helpers
+src/invart/control/    runtime, policy, mediation, gate, review
+src/invart/governance/ identity, profile, TeamRun, grants
+src/invart/surfaces/   adapters, native hooks, MCP, scanner, enforcement
+src/invart/assurance/  proof, replay, audit, coverage, evidence bundle
+src/invart/evaluation/ benchmarks, demos, external evidence, RC gate
+src/invart/commands/   CLI parser and command handlers
+src/kappaski/          compatibility import path
+tests/                 product-slice tests
+benchmarks/            pinned fixtures and experiment cases
+rust/invart-shim/      source-level Rust enforcement shim prototype</pre>
+    </section>
+  </main>
+</body>
+</html>

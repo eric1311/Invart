@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Quickstart</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">Quickstart</span><h1>Run one managed Invart session.</h1><p>This path creates a ledger, records a runtime command, exports proof, and verifies the proof against the ledger.</p></header>
+  <main class="wrap">
+    <section>
+      <h2>Install</h2>
+      <pre>python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+invart --help</pre>
+    </section>
+    <section>
+      <h2>Run</h2>
+      <pre>mkdir -p .invart/quickstart
+
+invart session start \
+  --target . \
+  --agent demo-agent \
+  --goal "Inspect the repository without risky changes" \
+  --session-id invart_quickstart \
+  --ledger .invart/quickstart/ledger.jsonl
+
+invart runtime shell \
+  --session invart_quickstart \
+  --ledger .invart/quickstart/ledger.jsonl \
+  -- python -c "from pathlib import Path; print(len(list(Path('.').iterdir())))"
+
+invart session close --ledger .invart/quickstart/ledger.jsonl</pre>
+    </section>
+    <section>
+      <h2>Verify</h2>
+      <pre>invart proof export \
+  --ledger .invart/quickstart/ledger.jsonl \
+  --out .invart/quickstart/proof.json
+
+invart proof verify \
+  --proof .invart/quickstart/proof.json \
+  --ledger .invart/quickstart/ledger.jsonl</pre>
+      <p>The ledger is the fact source. The proof is a portable summary that can be shared with a gate, reviewer, or audit process.</p>
+    </section>
+  </main>
+</body>
+</html>

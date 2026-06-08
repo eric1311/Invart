@@ -3,16 +3,17 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "kappaski"
-version = "0.1.0"
-description = "Local-first Agent Runtime Control Plane."
+name = "invart"
+version = "0.9.0"
+description = "Local-first Agent Runtime Control Plane for safety, policy, evidence, and audit."
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{ name = "Kappaski" }]
+authors = [{ name = "Invart" }]
 dependencies = []
 
 [project.scripts]
-kappaski = "kappaski.cli:main"
+invart = "invart.cli:main"
+kappaski = "invart.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

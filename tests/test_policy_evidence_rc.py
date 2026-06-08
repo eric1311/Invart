@@ -1,65 +1,179 @@
 import json
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 
-from kappaski.artifacts import relative_href, sha256_file, stable_json_dumps, stable_json_hash, write_html_artifact, write_json_artifact
-from kappaski.cli import main
-from kappaski.ledger import load_ledger_entries, verify_ledger
-from kappaski.models import RuntimeEvent
-from kappaski.postruntime import export_proof_report, summarize_session, verify_proof_report
-from kappaski.rules import analyze_command, analyze_runtime_event
-from kappaski.preflight import save_preflight
-from kappaski.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
-from kappaski.evidence import build_redacted_evidence
-from kappaski.evals import run_benchmark
-from kappaski.daemon import RuntimeAuthority
-from kappaski.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
-from kappaski.review import LLMReviewer, StaticJSONProvider
-from kappaski.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
-from kappaski.adapter_profiles import build_adapter_profile
-from kappaski.claude_adapter import check_claude_code_environment, run_claude_code_adapter
-from kappaski.profiles import resolve_profile
-from kappaski.teamrun import create_handoff, create_teamrun, declare_agent_identity
-from kappaski.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
-from kappaski.roadmap import roadmap_capabilities, verify_roadmap_coverage
-from kappaski.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
-from kappaski.gate import verify_gate
-from kappaski.adapter import run_adapter_command
-from kappaski.approval import approve_items, list_approval_items
-from kappaski.replay import export_replay_html
-from kappaski.scanner import scan_pre_runtime
-from kappaski.coverage import (
+from invart.core.artifacts import relative_href, sha256_file, stable_json_dumps, stable_json_hash, write_html_artifact, write_json_artifact
+from invart.cli import main
+from invart.core.ledger import load_ledger_entries, verify_ledger
+from invart.core.models import RuntimeEvent
+from invart.assurance.postruntime import export_proof_report, summarize_session, verify_proof_report
+from invart.control.rules import analyze_command, analyze_runtime_event
+from invart.control.preflight import save_preflight
+from invart.control.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
+from invart.control.evidence import build_redacted_evidence
+from invart.evaluation.evals import run_benchmark
+from invart.control.daemon import RuntimeAuthority
+from invart.surfaces.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
+from invart.control.review import LLMReviewer, StaticJSONProvider
+from invart.evaluation.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
+from invart.surfaces.adapter_profiles import build_adapter_profile
+from invart.surfaces.claude_adapter import check_claude_code_environment, run_claude_code_adapter
+from invart.governance.profiles import resolve_profile
+from invart.governance.teamrun import create_handoff, create_teamrun, declare_agent_identity
+from invart.surfaces.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
+from invart.evaluation.roadmap import roadmap_capabilities, verify_roadmap_coverage
+from invart.assurance.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
+from invart.control.gate import verify_gate
+from invart.surfaces.adapter import run_adapter_command
+from invart.control.approval import approve_items, list_approval_items
+from invart.assurance.replay import export_replay_html
+from invart.surfaces.scanner import scan_pre_runtime
+from invart.assurance.coverage import (
     COVERAGE_GRADES,
     CoverageRecord,
     coverage_meets_requirement,
     default_coverage_for_layer,
     merge_coverage_records,
 )
-from kappaski.native import install_native_integration, inventory_native_integrations
-from kappaski.native_bridge import normalize_native_event, render_native_response
-from kappaski.mcp_broker import summarize_mcp_message, transparent_broker_step
-from kappaski.product_readiness import reviewer_quality_corpus, optional_provider_smoke
-from kappaski.supervision import supervise_process_group
-from kappaski.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
-from kappaski.teamrun import export_teamrun_timeline_html
-from kappaski.enforcement import run_enforced_command
-from kappaski.audit_demo import record_audit_signoff
-from kappaski.native import native_conformance_report
-from kappaski.native_bridge import bridge_conformance_matrix
-from kappaski.mcp_broker import run_stdio_broker
-from kappaski.coverage import export_coverage_html_report
-from kappaski.identity import (
+from invart.surfaces.native import install_native_integration, inventory_native_integrations
+from invart.surfaces.native_bridge import normalize_native_event, render_native_response
+from invart.surfaces.mcp_broker import summarize_mcp_message, transparent_broker_step
+from invart.evaluation.product_readiness import reviewer_quality_corpus, optional_provider_smoke
+from invart.surfaces.supervision import supervise_process_group
+from invart.governance.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
+from invart.governance.teamrun import export_teamrun_timeline_html
+from invart.surfaces.enforcement import run_enforced_command
+from invart.assurance.audit_demo import record_audit_signoff
+from invart.surfaces.native import native_conformance_report
+from invart.surfaces.native_bridge import bridge_conformance_matrix
+from invart.surfaces.mcp_broker import run_stdio_broker
+from invart.assurance.coverage import export_coverage_html_report
+from invart.governance.identity import (
     bind_agent_identity,
     create_capability_grant,
     credential_inventory,
     declare_principal,
     record_identity_binding,
 )
-from kappaski.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
-from kappaski.path_policy import check_path_policy
-from kappaski.mediation import mediate_event, replay_mediation, resolve_mediation
-from kappaski.pre_v1 import run_pre_v1_control_plane_demo
-from kappaski.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
+from invart.assurance.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
+from invart.control.path_policy import check_path_policy
+from invart.control.mediation import mediate_event, replay_mediation, resolve_mediation
+from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
+from invart.governance.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
+
+
+class _DocLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        for name, value in attrs:
+            if name == "href" and value:
+                self.hrefs.append(value)
+
+
+def _write_full_swebench_evidence_fixture(root: Path, *, run_id: str = "invart_full", total: int = 3) -> dict[str, Path]:
+    results = root / "results"
+    run_dir = results / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    completed_ids = [f"repo__pkg-{index}" for index in range(total)]
+    report = {
+        "total_instances": total,
+        "submitted_instances": total,
+        "completed_instances": total,
+        "resolved_instances": max(total - 1, 0),
+        "unresolved_instances": 1 if total else 0,
+        "error_instances": 0,
+        "completed_ids": completed_ids,
+        "resolved_ids": completed_ids[:-1],
+        "error_ids": [],
+    }
+    report_path = results / f"{run_id}.json"
+    instance_results = run_dir / "instance_results.jsonl"
+    predictions = root / "predictions.jsonl"
+    logs = root / "logs" / "run_evaluation" / run_id
+    logs.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    instance_results.write_text("\n".join(json.dumps({"instance_id": item, "resolved": item != completed_ids[-1]}) for item in completed_ids) + "\n", encoding="utf-8")
+    predictions.write_text("\n".join(json.dumps({"instance_id": item, "model_patch": "diff --git"}) for item in completed_ids) + "\n", encoding="utf-8")
+    (logs / "run.log").write_text("official runner log fixture\n", encoding="utf-8")
+    return {"report": report_path, "instance_results": instance_results, "predictions": predictions, "logs": logs}
+
+
+def test_v044_swe_bench_full_evidence_manifest_verifies_complete_artifacts(tmp_path: Path) -> None:
+    from invart.evaluation.external_evidence import attach_swe_bench_full_evidence, verify_external_evidence
+
+    fixture = _write_full_swebench_evidence_fixture(tmp_path)
+    manifest = attach_swe_bench_full_evidence(
+        report_path=fixture["report"],
+        instance_results_path=fixture["instance_results"],
+        predictions_path=fixture["predictions"],
+        logs_path=fixture["logs"],
+        out_dir=tmp_path / "evidence",
+        run_id="invart_full",
+        expected_total_instances=3,
+        invart_mode="managed",
+    )
+    assert manifest["status"] == "pass"
+    assert manifest["evidence_level"] == "external_live_run"
+    assert manifest["checks"]["all_instances_complete"] is True
+    assert manifest["checks"]["predictions_hash_present"] is True
+    assert manifest["invart_mode"] == "managed"
+    verified = verify_external_evidence(Path(manifest["manifest_path"]))
+    assert verified["status"] == "pass"
+    assert main(["external-evidence", "verify", "--manifest", manifest["manifest_path"]]) == 0
+
+    bad = attach_swe_bench_full_evidence(
+        report_path=fixture["report"],
+        instance_results_path=fixture["instance_results"],
+        predictions_path=fixture["predictions"],
+        logs_path=fixture["logs"],
+        out_dir=tmp_path / "bad-evidence",
+        run_id="invart_full",
+        expected_total_instances=4,
+        invart_mode="managed",
+    )
+    assert bad["status"] == "fail"
+    assert bad["checks"]["expected_total_instances_match"] is False
+
+
+def test_v045_final_release_candidate_distinguishes_external_pending_and_attached(tmp_path: Path) -> None:
+    from invart.evaluation.external_evidence import attach_swe_bench_full_evidence
+    from invart.evaluation.release_candidate import verify_release_candidate
+
+    pending = verify_release_candidate(tmp_path / "pending-rc", run_pytest=False, final=True)
+    assert pending["status"] == "pass"
+    assert pending["final_readiness"]["state"] == "external_pending"
+    assert pending["checks"]["external_evidence"]["status"] == "skipped"
+
+    required = verify_release_candidate(tmp_path / "required-rc", run_pytest=False, final=True, require_external_validation=True)
+    assert required["status"] == "fail"
+    assert required["final_readiness"]["state"] == "external_pending"
+
+    fixture = _write_full_swebench_evidence_fixture(tmp_path / "swe")
+    attached = attach_swe_bench_full_evidence(
+        report_path=fixture["report"],
+        instance_results_path=fixture["instance_results"],
+        predictions_path=fixture["predictions"],
+        logs_path=fixture["logs"],
+        out_dir=tmp_path / "swe-evidence",
+        run_id="invart_full",
+        expected_total_instances=3,
+        invart_mode="managed",
+    )
+    final = verify_release_candidate(
+        tmp_path / "final-rc",
+        run_pytest=False,
+        final=True,
+        require_external_validation=True,
+        external_evidence_manifest=Path(attached["manifest_path"]),
+    )
+    assert final["status"] == "pass"
+    assert final["final_readiness"]["state"] == "final_ready"
+    assert final["checks"]["external_evidence"]["status"] == "pass"
+    assert main(["release-candidate", "verify", "--out-dir", str(tmp_path / "cli-final"), "--skip-pytest", "--final", "--external-evidence", attached["manifest_path"]]) == 0
 
 def test_v02_redacted_evidence_does_not_expose_secret_values(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
@@ -173,7 +287,7 @@ def test_v040_full_swe_bench_validation_uses_official_all_data_contract(tmp_path
     fake.write_text(
         "import json, pathlib\n"
         "results = pathlib.Path('results')\n"
-        "run_dir = results / 'kappaski_full'\n"
+        "run_dir = results / 'invart_full'\n"
         "run_dir.mkdir(parents=True, exist_ok=True)\n"
         "payload = {\n"
         "  'total_instances': 3,\n"
@@ -186,17 +300,17 @@ def test_v040_full_swe_bench_validation_uses_official_all_data_contract(tmp_path
         "  'resolved_ids': ['a__a-1', 'b__b-2'],\n"
         "  'error_ids': []\n"
         "}\n"
-        "(results / 'kappaski_full.json').write_text(json.dumps(payload))\n"
+        "(results / 'invart_full.json').write_text(json.dumps(payload))\n"
         "(run_dir / 'instance_results.jsonl').write_text('\\n'.join(json.dumps({'instance_id': item, 'resolved': item != 'c__c-3'}) for item in payload['completed_ids']) + '\\n')\n",
         encoding="utf-8",
     )
     result = run_official_swe_bench_full_validation(
         command=[sys.executable, str(fake)],
         work_dir=tmp_path,
-        run_id="kappaski_full",
+        run_id="invart_full",
         expected_total_instances=3,
     )
-    assert result["schema_version"] == "kappaski.swe_bench_full_validation.v0.40"
+    assert result["schema_version"] == "invart.swe_bench_full_validation.v0.40"
     assert result["status"] == "pass"
     assert result["runner"]["dataset_name"] == "SWE-bench/SWE-bench"
     assert result["external_validation"]["all_instances_required"] is True
@@ -204,8 +318,8 @@ def test_v040_full_swe_bench_validation_uses_official_all_data_contract(tmp_path
     assert result["checks"]["submitted_equals_total"] is True
     assert result["checks"]["completed_equals_submitted"] is True
     assert result["checks"]["instance_results_complete"] is True
-    assert result["artifacts"]["official_report"].endswith("results/kappaski_full.json")
-    assert result["artifacts"]["instance_results"].endswith("results/kappaski_full/instance_results.jsonl")
+    assert result["artifacts"]["official_report"].endswith("results/invart_full.json")
+    assert result["artifacts"]["instance_results"].endswith("results/invart_full/instance_results.jsonl")
 
 
 def test_v040_full_swe_bench_validation_rejects_subset_or_incomplete_data(tmp_path: Path) -> None:
@@ -316,7 +430,7 @@ def test_v020_execution_graph_traces_secret_to_network_path(tmp_path: Path) -> N
     first, _decision, _taint = record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path="/repo/.env"), ledger)
     second, _decision2, _taint2 = record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://api.example.com/upload"), ledger)
     graph = build_execution_graph(ledger)
-    assert graph["schema_version"] == "kappaski.execution_graph.v0.20"
+    assert graph["schema_version"] == "invart.execution_graph.v0.20"
     assert any(node["kind"] == "taint" for node in graph["nodes"])
     assert any(edge["kind"] == "taints" for edge in graph["edges"])
     upstream = query_execution_graph(graph, target_id=str(second.invocation_id), direction="upstream")
@@ -347,12 +461,12 @@ def test_v021_path_aware_policy_blocks_tainted_secret_egress_but_allows_benign(t
 
 
 def test_v026_policy_as_code_validates_and_applies_path_rules(tmp_path: Path) -> None:
-    from kappaski.policy_as_code import check_policy_profile, test_policy_profile, validate_policy_profile
+    from invart.control.policy_as_code import check_policy_profile, test_policy_profile, validate_policy_profile
 
     profile = tmp_path / "policy.toml"
     profile.write_text(
         """
-schema_version = "kappaski.policy_as_code.v0.26"
+schema_version = "invart.policy_as_code.v0.26"
 name = "enterprise-path-policy"
 
 [[policy.rules]]
@@ -390,7 +504,7 @@ critical = true
     record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path="/repo/.env"), ledger)
     record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://evil.example/upload"), ledger)
     report = check_policy_profile(ledger, profile)
-    assert report["schema_version"] == "kappaski.policy_as_code_result.v0.26"
+    assert report["schema_version"] == "invart.policy_as_code_result.v0.26"
     assert report["status"] == "fail"
     assert report["summary"]["deny"] >= 1
     assert report["findings"][0]["llm_can_downgrade"] is False
@@ -411,7 +525,7 @@ critical = true
 
 
 def test_v027_enterprise_evidence_bundle_exports_and_verifies(tmp_path: Path) -> None:
-    from kappaski.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
+    from invart.assurance.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
 
     ledger = tmp_path / "ledger.jsonl"
     session = start_session(tmp_path, ledger, agent="claude-code", goal="evidence", create_preflight=False)
@@ -424,7 +538,7 @@ def test_v027_enterprise_evidence_bundle_exports_and_verifies(tmp_path: Path) ->
     close_session(ledger)
 
     bundle = export_evidence_bundle(ledger, tmp_path / "bundle", profile={"name": "enterprise", "mode": "managed"})
-    assert bundle["schema_version"] == "kappaski.evidence_bundle.v0.27"
+    assert bundle["schema_version"] == "invart.evidence_bundle.v0.27"
     assert bundle["status"] == "pass"
     assert Path(bundle["manifest_path"]).exists()
     assert Path(bundle["artifacts"]["audit_html"]).exists()
@@ -457,16 +571,78 @@ def test_artifact_writer_uses_stable_json_html_and_hash_helpers(tmp_path: Path) 
     assert relative_href(tmp_path, html_path) == "nested/artifact.html"
 
 
+def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
+    root = Path(__file__).resolve().parents[1]
+    docs_dir = root / "docs"
+    html_dir = docs_dir / "html"
+    api_doc = html_dir / "api-sdk.html"
+    api_markdown = docs_dir / "api-sdk.md"
+
+    assert api_doc.exists()
+    assert api_markdown.exists()
+    assert 'href="api-sdk.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
+    docs_readme = (docs_dir / "README.md").read_text(encoding="utf-8")
+    assert "[`api-sdk.md`](api-sdk.md)" in docs_readme
+    assert "[`html/api-sdk.html`](html/api-sdk.html)" in docs_readme
+    assert "[API and SDK](docs/api-sdk.md)" in (root / "README.md").read_text(encoding="utf-8")
+    assert "[HTML docs home](docs/html/index.html)" in (root / "README.md").read_text(encoding="utf-8")
+    assert sorted(path.name for path in docs_dir.glob("*.html")) == []
+
+    markdown_pages = [path for path in docs_dir.glob("*.md") if path.name != "README.md"]
+    missing_html = [path.name for path in markdown_pages if not (html_dir / f"{path.stem}.html").exists()]
+    assert missing_html == []
+
+    for html_path in sorted(html_dir.glob("*.html")):
+        parser = _DocLinkParser()
+        parser.feed(html_path.read_text(encoding="utf-8"))
+        parser.close()
+        for href in parser.hrefs:
+            if href.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            local = href.split("#", 1)[0]
+            if not local:
+                continue
+            assert (html_path.parent / local).resolve().exists(), f"{html_path} links to missing {href}"
+
+
+def test_api_sdk_page_documents_real_python_helpers() -> None:
+    from invart.core.ledger import load_ledger_entries as documented_load_ledger_entries
+    from invart.core.ledger import verify_ledger as documented_verify_ledger
+    from invart.core.models import RuntimeEvent as DocumentedRuntimeEvent
+    from invart.assurance.postruntime import export_proof_report as documented_export_proof_report
+    from invart.assurance.postruntime import verify_proof_report as documented_verify_proof_report
+    from invart.evaluation.release_candidate import DEFAULT_REQUIRED_DOCS
+
+    root = Path(__file__).resolve().parents[1]
+    page = (root / "docs" / "html" / "api-sdk.html").read_text(encoding="utf-8")
+    markdown_page = (root / "docs" / "api-sdk.md").read_text(encoding="utf-8")
+    assert "from invart.core.ledger import load_ledger_entries, verify_ledger" in page
+    assert "from invart.assurance.postruntime import export_proof_report, verify_proof_report" in page
+    assert "from invart.core.models import RuntimeEvent" in page
+    assert "from invart.core.ledger import load_ledger_entries, verify_ledger" in markdown_page
+    assert "Hosted API" in page
+    assert "Not available in 0.9" in page
+    assert "docs/api-sdk.md" in DEFAULT_REQUIRED_DOCS
+    assert "docs/html/api-sdk.html" in DEFAULT_REQUIRED_DOCS
+
+    assert callable(documented_load_ledger_entries)
+    assert callable(documented_verify_ledger)
+    assert callable(documented_export_proof_report)
+    assert callable(documented_verify_proof_report)
+    assert DocumentedRuntimeEvent.from_dict({"type": "shell", "command": "true"}).to_dict()["type"] == "shell"
+
+
 def test_v029_release_candidate_gate_requires_complete_product_artifacts(tmp_path: Path) -> None:
-    from kappaski.release_candidate import verify_release_candidate
+    from invart.evaluation.release_candidate import verify_release_candidate
 
     report = verify_release_candidate(tmp_path / "rc", run_pytest=False)
-    assert report["schema_version"] == "kappaski.release_candidate.v0.40"
+    assert report["schema_version"] == "invart.release_candidate.v0.45"
     assert report["status"] == "pass"
     assert Path(report["artifacts"]["report_json"]).exists()
     assert Path(report["artifacts"]["report_html"]).exists()
     assert report["checks"]["roadmap_full"]["status"] == "pass"
     assert report["checks"]["claim_integrity"]["status"] == "pass"
+    assert report["checks"]["brand_assets"]["status"] == "pass"
     assert report["checks"]["external_validation"]["status"] == "skipped"
     assert report["checks"]["external_validation"]["summary"]["gaps"] >= 1
     assert report["checks"]["benchmarks"]["status"] == "pass"
@@ -491,6 +667,6 @@ def test_v025_to_v029_benchmarks_and_roadmap_are_registered() -> None:
         assert result["passed"] is True
     report = verify_roadmap_coverage(require_full=True)
     assert report["passed"] is True
-    assert report["summary"]["schema_version"] == "kappaski.roadmap_coverage.full_product.v0.40"
+    assert report["summary"]["schema_version"] == "invart.roadmap_coverage.full_product.v0.45"
     versions = {item["version"] for item in report["capabilities"]}
     assert {"v0.25", "v0.26", "v0.27", "v0.28", "v0.29"}.issubset(versions)

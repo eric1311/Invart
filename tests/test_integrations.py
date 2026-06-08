@@ -2,63 +2,129 @@ import json
 import sys
 from pathlib import Path
 
-from kappaski.cli import main
-from kappaski.ledger import load_ledger_entries, verify_ledger
-from kappaski.models import RuntimeEvent
-from kappaski.postruntime import export_proof_report, summarize_session, verify_proof_report
-from kappaski.rules import analyze_command, analyze_runtime_event
-from kappaski.preflight import save_preflight
-from kappaski.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
-from kappaski.evidence import build_redacted_evidence
-from kappaski.evals import run_benchmark
-from kappaski.daemon import RuntimeAuthority
-from kappaski.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
-from kappaski.review import LLMReviewer, StaticJSONProvider
-from kappaski.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
-from kappaski.adapter_profiles import build_adapter_profile
-from kappaski.claude_adapter import check_claude_code_environment, run_claude_code_adapter
-from kappaski.profiles import resolve_profile
-from kappaski.teamrun import create_handoff, create_teamrun, declare_agent_identity
-from kappaski.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
-from kappaski.roadmap import roadmap_capabilities, verify_roadmap_coverage
-from kappaski.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
-from kappaski.gate import verify_gate
-from kappaski.adapter import run_adapter_command
-from kappaski.approval import approve_items, list_approval_items
-from kappaski.replay import export_replay_html
-from kappaski.scanner import scan_pre_runtime
-from kappaski.coverage import (
+from invart.cli import main
+from invart.core.ledger import load_ledger_entries, verify_ledger
+from invart.core.models import RuntimeEvent
+from invart.assurance.postruntime import export_proof_report, summarize_session, verify_proof_report
+from invart.control.rules import analyze_command, analyze_runtime_event
+from invart.control.preflight import save_preflight
+from invart.control.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
+from invart.control.evidence import build_redacted_evidence
+from invart.evaluation.evals import run_benchmark
+from invart.control.daemon import RuntimeAuthority
+from invart.surfaces.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
+from invart.control.review import LLMReviewer, StaticJSONProvider
+from invart.evaluation.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
+from invart.surfaces.adapter_profiles import build_adapter_profile
+from invart.surfaces.claude_adapter import check_claude_code_environment, run_claude_code_adapter
+from invart.governance.profiles import resolve_profile
+from invart.governance.teamrun import create_handoff, create_teamrun, declare_agent_identity
+from invart.surfaces.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
+from invart.evaluation.roadmap import roadmap_capabilities, verify_roadmap_coverage
+from invart.assurance.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
+from invart.control.gate import verify_gate
+from invart.surfaces.adapter import run_adapter_command
+from invart.control.approval import approve_items, list_approval_items
+from invart.assurance.replay import export_replay_html
+from invart.surfaces.scanner import scan_pre_runtime
+from invart.assurance.coverage import (
     COVERAGE_GRADES,
     CoverageRecord,
     coverage_meets_requirement,
     default_coverage_for_layer,
     merge_coverage_records,
 )
-from kappaski.native import install_native_integration, inventory_native_integrations
-from kappaski.native_bridge import normalize_native_event, render_native_response
-from kappaski.mcp_broker import summarize_mcp_message, transparent_broker_step
-from kappaski.product_readiness import reviewer_quality_corpus, optional_provider_smoke
-from kappaski.supervision import supervise_process_group
-from kappaski.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
-from kappaski.teamrun import export_teamrun_timeline_html
-from kappaski.enforcement import run_enforced_command
-from kappaski.audit_demo import record_audit_signoff
-from kappaski.native import native_conformance_report
-from kappaski.native_bridge import bridge_conformance_matrix
-from kappaski.mcp_broker import run_stdio_broker
-from kappaski.coverage import export_coverage_html_report
-from kappaski.identity import (
+from invart.surfaces.native import install_native_integration, inventory_native_integrations
+from invart.surfaces.native_bridge import normalize_native_event, render_native_response
+from invart.surfaces.mcp_broker import summarize_mcp_message, transparent_broker_step
+from invart.evaluation.product_readiness import reviewer_quality_corpus, optional_provider_smoke
+from invart.surfaces.supervision import supervise_process_group
+from invart.governance.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
+from invart.governance.teamrun import export_teamrun_timeline_html
+from invart.surfaces.enforcement import run_enforced_command
+from invart.assurance.audit_demo import record_audit_signoff
+from invart.surfaces.native import native_conformance_report
+from invart.surfaces.native_bridge import bridge_conformance_matrix
+from invart.surfaces.mcp_broker import run_stdio_broker
+from invart.assurance.coverage import export_coverage_html_report
+from invart.governance.identity import (
     bind_agent_identity,
     create_capability_grant,
     credential_inventory,
     declare_principal,
     record_identity_binding,
 )
-from kappaski.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
-from kappaski.path_policy import check_path_policy
-from kappaski.mediation import mediate_event, replay_mediation, resolve_mediation
-from kappaski.pre_v1 import run_pre_v1_control_plane_demo
-from kappaski.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
+from invart.assurance.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
+from invart.control.path_policy import check_path_policy
+from invart.control.mediation import mediate_event, replay_mediation, resolve_mediation
+from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
+from invart.governance.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
+
+
+def test_v041_native_matrix_and_unmanaged_inventory_report_truthful_coverage(tmp_path: Path) -> None:
+    from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inventory
+
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": []}, "mcpServers": {"fs": {}}}), encoding="utf-8")
+    (tmp_path / ".codex").mkdir()
+    (tmp_path / ".codex" / "config.toml").write_text("[mcp]\nserver = 'local'\n", encoding="utf-8")
+    (tmp_path / ".gemini").mkdir()
+    (tmp_path / ".gemini" / "settings.json").write_text(json.dumps({"sandbox": True, "mcpServers": {}}), encoding="utf-8")
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".cursor" / "mcp.json").write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
+    (tmp_path / "opencode.json").write_text(json.dumps({"plugin": ["sample"]}), encoding="utf-8")
+    (tmp_path / "hermes.json").write_text(json.dumps({"mcp": {}}), encoding="utf-8")
+
+    matrix = native_capability_matrix(tmp_path)
+    assert matrix["schema_version"] == "invart.native_capability_matrix.v0.41"
+    by_agent = {item["agent"]: item for item in matrix["agents"]}
+    assert {"claude-code", "codex", "gemini-cli", "cursor", "opencode", "hermes"}.issubset(by_agent)
+    assert by_agent["claude-code"]["surfaces"]["hooks"]["coverage_state"] in {"observed", "mediated"}
+    assert by_agent["hermes"]["surfaces"]["config"]["coverage_state"] == "vendor_owned"
+    assert by_agent["claude-code"]["surfaces"]["hooks"]["enforcement_claim"] != "enforced"
+    assert by_agent["codex"]["surfaces"]["mcp"]["source_evidence"]
+
+    unmanaged = unmanaged_agent_inventory(tmp_path)
+    assert unmanaged["schema_version"] == "invart.unmanaged_agent_inventory.v0.41"
+    assert unmanaged["summary"]["unmanaged_detected"] >= 1
+    assert any(item["coverage_fact"]["state"] == "unmanaged_detected" for item in unmanaged["findings"])
+    assert main(["native", "matrix", "--target", str(tmp_path)]) == 0
+    assert main(["native", "unmanaged", "--target", str(tmp_path)]) == 0
+
+
+def test_v042_launcher_migration_preview_confirm_and_coverage_gate(tmp_path: Path) -> None:
+    from invart.surfaces.launcher import install_managed_launcher, preview_managed_launcher, verify_managed_launcher
+    from invart.assurance.coverage import evaluate_coverage_gate
+
+    preview = preview_managed_launcher(tmp_path, agent="claude-code", launcher="shell")
+    assert preview["schema_version"] == "invart.managed_launcher.v0.42"
+    assert preview["mode"] == "preview"
+    assert preview["written"] is False
+    assert not Path(preview["target_path"]).exists()
+    assert preview["planned_writes"]
+
+    installed = install_managed_launcher(tmp_path, agent="claude-code", launcher="shell")
+    assert installed["mode"] == "confirm"
+    assert installed["written"] is True
+    assert Path(installed["target_path"]).exists()
+    verified = verify_managed_launcher(tmp_path, agent="claude-code")
+    assert verified["status"] == "pass"
+    assert verified["coverage"]["runtime_enforcement"] == "mediated"
+
+    fail_gate = evaluate_coverage_gate(
+        {"runtime_enforcement": "vendor_owned", "unmanaged_detected": True},
+        profile={"mode": "enterprise", "required_runtime_enforcement": "mediated", "allow_unmanaged": False},
+    )
+    assert fail_gate["status"] == "fail"
+    assert any(finding["check_id"] == "coverage.unmanaged_detected" for finding in fail_gate["findings"])
+    warn_gate = evaluate_coverage_gate(
+        {"runtime_enforcement": "vendor_owned", "unmanaged_detected": True},
+        profile={"mode": "audit", "required_runtime_enforcement": "mediated", "allow_unmanaged": False},
+    )
+    assert warn_gate["status"] == "warn"
+    assert main(["launcher", "preview", "--target", str(tmp_path), "--agent", "codex"]) == 0
+    assert main(["launcher", "install", "--target", str(tmp_path), "--agent", "codex"]) == 0
+    assert main(["launcher", "verify", "--target", str(tmp_path), "--agent", "codex"]) == 0
 
 def test_v04_real_corpus_scan_uses_pinned_snapshots() -> None:
     report = scan_corpus(Path("benchmarks/corpora"))
@@ -192,7 +258,7 @@ def test_v06_adapter_workflow_benchmark() -> None:
 
 def test_v09_harness_compatibility_accepts_metadata_drift() -> None:
     baseline = {"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"], "metadata": {"duration": 10}}
-    wrapped = {"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"], "metadata": {"duration": 12, "kappaski": True}}
+    wrapped = {"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"], "metadata": {"duration": 12, "invart": True}}
     report = compare_harness_runs(baseline, wrapped, case={"instance_id": "django__django-11001"})
     assert report["status"] == "pass"
     assert report["checks"]["exit_code"] is True
@@ -211,7 +277,7 @@ def test_v08_to_v13_cli_smoke(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.json"
     wrapped = tmp_path / "wrapped.json"
     baseline.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["a"]}), encoding="utf-8")
-    wrapped.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["a"], "metadata": {"kappaski": True}}), encoding="utf-8")
+    wrapped.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["a"], "metadata": {"invart": True}}), encoding="utf-8")
     profile = tmp_path / "profile.toml"
     profile.write_text('name = "session"\n[taint]\nhandoff_inheritance = "resource-reference"\n', encoding="utf-8")
     assert main(["harness", "compare", "--baseline", str(baseline), "--wrapped", str(wrapped)]) == 0
@@ -273,7 +339,7 @@ def test_v09_cli_official_swe_bench_lite_command_override(tmp_path: Path) -> Non
 
 def test_full_claude_adapter_environment_check_reports_real_binary() -> None:
     result = check_claude_code_environment(binary="python3")
-    assert result["schema_version"] == "kappaski.claude_environment.v0.10"
+    assert result["schema_version"] == "invart.claude_environment.v0.10"
     assert result["available"] is True
     assert result["binary"].endswith("python3") or result["binary"] == "python3"
     assert "adapter_profile" in result
@@ -384,7 +450,7 @@ def test_v09_swe_bench_lite_runner_compares_supplied_artifacts(tmp_path: Path) -
     wrapped = tmp_path / "wrapped.json"
     out = tmp_path / "swebench-report.json"
     baseline.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"]}), encoding="utf-8")
-    wrapped.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"], "metadata": {"kappaski": True}}), encoding="utf-8")
+    wrapped.write_text(json.dumps({"exit_code": 0, "grading_result": "passed", "artifacts": ["report.json"], "metadata": {"invart": True}}), encoding="utf-8")
     assert main([
         "harness", "swe-bench-lite",
         "--case", "benchmarks/cases/swe-bench-lite/pinned_cases.json",
@@ -406,7 +472,7 @@ def test_v13_rust_shim_decision_blocks_bulk_delete() -> None:
 
 
 def test_v13_rust_shim_uses_deterministic_fallback_for_incompatible_binary(tmp_path: Path) -> None:
-    bad_binary = tmp_path / "kappaski-shim"
+    bad_binary = tmp_path / "invart-shim"
     bad_binary.write_text("not a native executable", encoding="utf-8")
     bad_binary.chmod(0o755)
     result = rust_shim_decision({"type": "shell", "command": "rm -rf ."}, binary_path=bad_binary)
@@ -464,11 +530,11 @@ def test_v13_cli_run_file_write_intercepts_command(tmp_path: Path) -> None:
 
 
 def test_v13_rust_file_write_shim_source_and_cli_spec_exist() -> None:
-    cargo = Path("rust/kappaski-shim/Cargo.toml")
-    main_rs = Path("rust/kappaski-shim/src/main.rs")
+    cargo = Path("rust/invart-shim/Cargo.toml")
+    main_rs = Path("rust/invart-shim/src/main.rs")
     assert cargo.exists()
     assert main_rs.exists()
-    assert "kappaski-shim" in cargo.read_text(encoding="utf-8")
+    assert "invart-shim" in cargo.read_text(encoding="utf-8")
     assert "file.destructive_command" in main_rs.read_text(encoding="utf-8")
     assert main(["enforce", "shim-spec", "--domain", "file-write"]) == 0
 
@@ -506,7 +572,7 @@ def test_v15_native_inventory_detects_repo_local_agent_surfaces(tmp_path: Path) 
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "settings.json").write_text(json.dumps({"hooks": {"PreToolUse": []}}), encoding="utf-8")
     (tmp_path / ".codex").mkdir()
-    (tmp_path / ".codex" / "config.toml").write_text('[hooks]\npre_tool_use = "kappaski bridge"\n', encoding="utf-8")
+    (tmp_path / ".codex" / "config.toml").write_text('[hooks]\npre_tool_use = "invart bridge"\n', encoding="utf-8")
     (tmp_path / ".cursor").mkdir()
     (tmp_path / ".cursor" / "rules").mkdir()
     (tmp_path / ".cursor" / "rules" / "security.mdc").write_text("Never expose secrets", encoding="utf-8")
@@ -553,7 +619,7 @@ def test_v15_native_install_confirm_writes_backup_on_existing_file(tmp_path: Pat
     assert result["written"]
     assert result["backup_path"]
     payload = json.loads(settings.read_text(encoding="utf-8"))
-    assert "kappaski" in json.dumps(payload)
+    assert "invart" in json.dumps(payload)
 
 
 def test_v15_native_cli_inventory_and_install(tmp_path: Path) -> None:
@@ -644,7 +710,7 @@ def test_v15_to_v18_roadmap_entries_are_planned_or_complete() -> None:
 
 
 def test_full_v09_managed_harness_pause_resume_records_approval(tmp_path: Path) -> None:
-    from kappaski.harness import run_managed_harness_check
+    from invart.evaluation.harness import run_managed_harness_check
 
     artifact = tmp_path / "wrapped.json"
     result = run_managed_harness_check(
@@ -661,7 +727,7 @@ def test_full_v09_managed_harness_pause_resume_records_approval(tmp_path: Path) 
 
 def test_full_v10_process_supervision_captures_process_group(tmp_path: Path) -> None:
     result = supervise_process_group([sys.executable, "-c", "print('supervised')"], cwd=tmp_path)
-    assert result["schema_version"] == "kappaski.process_supervision.v0.10"
+    assert result["schema_version"] == "invart.process_supervision.v0.10"
     assert result["returncode"] == 0
     assert result["process_group"]["pid"]
     assert result["process_group"]["pgid"] is not None
@@ -692,7 +758,7 @@ def test_full_v15_native_conformance_hashes_and_validates_surfaces(tmp_path: Pat
     settings.parent.mkdir()
     settings.write_text(json.dumps({"hooks": {"PreToolUse": []}}), encoding="utf-8")
     report = native_conformance_report(tmp_path)
-    assert report["schema_version"] == "kappaski.native_conformance.v0.15"
+    assert report["schema_version"] == "invart.native_conformance.v0.15"
     assert report["status"] == "pass"
     surface = report["profiles"][0]["surfaces"]["hooks"]
     assert surface["hash"].startswith("sha256:")
@@ -701,7 +767,7 @@ def test_full_v15_native_conformance_hashes_and_validates_surfaces(tmp_path: Pat
 
 def test_full_v16_bridge_conformance_fuzzes_vendor_responses() -> None:
     matrix = bridge_conformance_matrix()
-    assert matrix["schema_version"] == "kappaski.bridge_conformance.v0.16"
+    assert matrix["schema_version"] == "invart.bridge_conformance.v0.16"
     assert matrix["status"] == "pass"
     assert matrix["summary"]["agents"] >= 3
     assert matrix["summary"]["cases"] >= 6
@@ -717,7 +783,7 @@ def test_full_v17_mcp_stdio_broker_records_transcript(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     result = run_stdio_broker(input_path=input_path, output_path=output_path, transcript_path=transcript)
-    assert result["schema_version"] == "kappaski.mcp_stdio_broker.v0.17"
+    assert result["schema_version"] == "invart.mcp_stdio_broker.v0.17"
     assert result["summary"]["messages"] == 2
     assert output_path.read_text(encoding="utf-8") == input_path.read_text(encoding="utf-8")
     assert "tool_call" in transcript.read_text(encoding="utf-8")
@@ -773,8 +839,8 @@ def test_v022_unified_mediation_contract_records_pause_resume_and_fail_open_cove
 
 
 def test_v025_adapter_runtime_package_closes_product_loop(tmp_path: Path) -> None:
-    from kappaski.adapter import inspect_adapter_package, run_adapter_runtime
-    from kappaski.mediation import replay_mediation
+    from invart.surfaces.adapter import inspect_adapter_package, run_adapter_runtime
+    from invart.control.mediation import replay_mediation
 
     result = run_adapter_runtime(
         target=tmp_path,
@@ -787,7 +853,7 @@ def test_v025_adapter_runtime_package_closes_product_loop(tmp_path: Path) -> Non
         profile={"mode": "managed", "identity": {"required": True, "allowed_agents": ["claude-code"]}},
         create_preflight=False,
     )
-    assert result["schema_version"] == "kappaski.adapter_runtime.v0.25"
+    assert result["schema_version"] == "invart.adapter_runtime.v0.25"
     assert result["status"] == "passed"
     for key in ["ledger", "proof", "replay", "path_graph", "coverage_report", "audit_report", "package"]:
         assert Path(result["artifacts"][key]).exists()
@@ -831,7 +897,7 @@ def test_v025_adapter_runtime_package_closes_product_loop(tmp_path: Path) -> Non
 
 
 def test_v028_benchmark_harness_registry_expands_product_metrics() -> None:
-    from kappaski.benchmark_registry import list_benchmark_suites
+    from invart.evaluation.benchmark_registry import list_benchmark_suites
 
     suites = list_benchmark_suites()
     assert "v0.28-harness-expansion" in {item["suite"] for item in suites["suites"]}
@@ -844,4 +910,3 @@ def test_v028_benchmark_harness_registry_expands_product_metrics() -> None:
     assert result["optional_heavy_validation"]["status"] == "skipped"
     assert main(["eval", "list"]) == 0
     assert main(["eval", "benchmark", "--suite", "v0.28-harness-expansion"]) == 0
-

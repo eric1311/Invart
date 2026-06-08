@@ -2,63 +2,63 @@ import json
 import sys
 from pathlib import Path
 
-from kappaski.cli import main
-from kappaski.ledger import load_ledger_entries, verify_ledger
-from kappaski.models import RuntimeEvent
-from kappaski.postruntime import export_proof_report, summarize_session, verify_proof_report
-from kappaski.rules import analyze_command, analyze_runtime_event
-from kappaski.preflight import save_preflight
-from kappaski.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
-from kappaski.evidence import build_redacted_evidence
-from kappaski.evals import run_benchmark
-from kappaski.daemon import RuntimeAuthority
-from kappaski.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
-from kappaski.review import LLMReviewer, StaticJSONProvider
-from kappaski.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
-from kappaski.adapter_profiles import build_adapter_profile
-from kappaski.claude_adapter import check_claude_code_environment, run_claude_code_adapter
-from kappaski.profiles import resolve_profile
-from kappaski.teamrun import create_handoff, create_teamrun, declare_agent_identity
-from kappaski.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
-from kappaski.roadmap import roadmap_capabilities, verify_roadmap_coverage
-from kappaski.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
-from kappaski.gate import verify_gate
-from kappaski.adapter import run_adapter_command
-from kappaski.approval import approve_items, list_approval_items
-from kappaski.replay import export_replay_html
-from kappaski.scanner import scan_pre_runtime
-from kappaski.coverage import (
+from invart.cli import main
+from invart.core.ledger import load_ledger_entries, verify_ledger
+from invart.core.models import RuntimeEvent
+from invart.assurance.postruntime import export_proof_report, summarize_session, verify_proof_report
+from invart.control.rules import analyze_command, analyze_runtime_event
+from invart.control.preflight import save_preflight
+from invart.control.runtime import append_event, close_session, explain_decision, inspect_invocation_review, record_action, record_approval, record_outcome, start_session
+from invart.control.evidence import build_redacted_evidence
+from invart.evaluation.evals import run_benchmark
+from invart.control.daemon import RuntimeAuthority
+from invart.surfaces.corpus import capability_events_from_corpus, run_capability_grant_benchmark, scan_corpus, run_real_surface_benchmark
+from invart.control.review import LLMReviewer, StaticJSONProvider
+from invart.evaluation.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
+from invart.surfaces.adapter_profiles import build_adapter_profile
+from invart.surfaces.claude_adapter import check_claude_code_environment, run_claude_code_adapter
+from invart.governance.profiles import resolve_profile
+from invart.governance.teamrun import create_handoff, create_teamrun, declare_agent_identity
+from invart.surfaces.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
+from invart.evaluation.roadmap import roadmap_capabilities, verify_roadmap_coverage
+from invart.assurance.audit_demo import run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
+from invart.control.gate import verify_gate
+from invart.surfaces.adapter import run_adapter_command
+from invart.control.approval import approve_items, list_approval_items
+from invart.assurance.replay import export_replay_html
+from invart.surfaces.scanner import scan_pre_runtime
+from invart.assurance.coverage import (
     COVERAGE_GRADES,
     CoverageRecord,
     coverage_meets_requirement,
     default_coverage_for_layer,
     merge_coverage_records,
 )
-from kappaski.native import install_native_integration, inventory_native_integrations
-from kappaski.native_bridge import normalize_native_event, render_native_response
-from kappaski.mcp_broker import summarize_mcp_message, transparent_broker_step
-from kappaski.product_readiness import reviewer_quality_corpus, optional_provider_smoke
-from kappaski.supervision import supervise_process_group
-from kappaski.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
-from kappaski.teamrun import export_teamrun_timeline_html
-from kappaski.enforcement import run_enforced_command
-from kappaski.audit_demo import record_audit_signoff
-from kappaski.native import native_conformance_report
-from kappaski.native_bridge import bridge_conformance_matrix
-from kappaski.mcp_broker import run_stdio_broker
-from kappaski.coverage import export_coverage_html_report
-from kappaski.identity import (
+from invart.surfaces.native import install_native_integration, inventory_native_integrations
+from invart.surfaces.native_bridge import normalize_native_event, render_native_response
+from invart.surfaces.mcp_broker import summarize_mcp_message, transparent_broker_step
+from invart.evaluation.product_readiness import reviewer_quality_corpus, optional_provider_smoke
+from invart.surfaces.supervision import supervise_process_group
+from invart.governance.profiles import create_profile_distribution_bundle, record_break_glass_override, review_break_glass_override
+from invart.governance.teamrun import export_teamrun_timeline_html
+from invart.surfaces.enforcement import run_enforced_command
+from invart.assurance.audit_demo import record_audit_signoff
+from invart.surfaces.native import native_conformance_report
+from invart.surfaces.native_bridge import bridge_conformance_matrix
+from invart.surfaces.mcp_broker import run_stdio_broker
+from invart.assurance.coverage import export_coverage_html_report
+from invart.governance.identity import (
     bind_agent_identity,
     create_capability_grant,
     credential_inventory,
     declare_principal,
     record_identity_binding,
 )
-from kappaski.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
-from kappaski.path_policy import check_path_policy
-from kappaski.mediation import mediate_event, replay_mediation, resolve_mediation
-from kappaski.pre_v1 import run_pre_v1_control_plane_demo
-from kappaski.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
+from invart.assurance.path_graph import build_execution_graph, export_execution_graph_html, query_execution_graph
+from invart.control.path_policy import check_path_policy
+from invart.control.mediation import mediate_event, replay_mediation, resolve_mediation
+from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
+from invart.governance.profiles import apply_raw_content_policy, create_profile_registry, pin_profile_bundle, verify_profile_bundle
 
 def test_v02_policy_profiles_change_noncritical_behavior(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger.jsonl"
@@ -158,7 +158,7 @@ def test_v11_profile_resolution_precedence(tmp_path: Path) -> None:
 
 def test_v12_teamrun_identity_and_handoff_taint_modes() -> None:
     teamrun = create_teamrun("security review", ["alice", "bob"])
-    assert teamrun["schema_version"] == "kappaski.teamrun.v0.12"
+    assert teamrun["schema_version"] == "invart.teamrun.v0.12"
     identity = declare_agent_identity("claude", "alice", {"agent_id": "codex"})
     assert identity["consistent"] is False
     resource_handoff = create_handoff("agent-a", "agent-b", [{"kind": "file", "value": ".env", "tainted": "true"}], taint_mode="resource-reference")
@@ -195,7 +195,7 @@ def test_full_daemon_profile_injection_controls_policy_mode_and_approval(tmp_pat
 
 
 def test_full_teamrun_aggregate_merges_multiple_ledgers(tmp_path: Path) -> None:
-    from kappaski.teamrun import export_teamrun_aggregate
+    from invart.governance.teamrun import export_teamrun_aggregate
 
     ledgers = []
     for index, user in enumerate(["alice", "bob"]):
@@ -207,7 +207,7 @@ def test_full_teamrun_aggregate_merges_multiple_ledgers(tmp_path: Path) -> None:
     out = tmp_path / "aggregate.json"
     aggregate = export_teamrun_aggregate(ledgers, out)
     assert out.exists()
-    assert aggregate["schema_version"] == "kappaski.teamrun_aggregate.v0.12"
+    assert aggregate["schema_version"] == "invart.teamrun_aggregate.v0.12"
     assert aggregate["summary"]["ledgers"] == 2
     assert aggregate["summary"]["teamruns"] == 2
     assert aggregate["summary"]["agent_identities"] == 2
@@ -325,7 +325,7 @@ def test_v12_teamrun_proof_exports_cross_session_facts(tmp_path: Path) -> None:
     assert main(["teamrun", "blackboard", "--ledger", str(ledger), "--teamrun", "proof demo", "--author", "alice", "--content", "Shared finding"]) == 0
     assert main(["teamrun", "proof", "--ledger", str(ledger), "--out", str(proof)]) == 0
     payload = json.loads(proof.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == "kappaski.teamrun_proof.v0.12"
+    assert payload["schema_version"] == "invart.teamrun_proof.v0.12"
     assert payload["summary"]["teamruns"] == 1
     assert payload["summary"]["blackboard_entries"] == 1
 
@@ -357,7 +357,7 @@ def test_v18_gate_cli_reads_coverage_requirement_from_profile(tmp_path: Path) ->
 def test_full_v11_profile_review_and_distribution_bundle(tmp_path: Path) -> None:
     profile = {"name": "enterprise", "mode": "managed", "approval": {"local_approval": False}}
     bundle = create_profile_distribution_bundle(profile, scope="team", distributed_by="admin")
-    assert bundle["schema_version"] == "kappaski.profile_distribution.v0.11"
+    assert bundle["schema_version"] == "invart.profile_distribution.v0.11"
     assert bundle["hash"].startswith("sha256:")
     ledger = tmp_path / "ledger.jsonl"
     session = start_session(tmp_path, ledger, session_id="ks_profile_review", create_preflight=False)
@@ -381,7 +381,7 @@ def test_full_v12_teamrun_timeline_html_spans_multiple_ledgers(tmp_path: Path) -
     start_session(tmp_path, ledger_b, session_id="ks_team_b", create_preflight=False)
     append_a = create_teamrun("incident", ["alice"])
     append_b = create_handoff("claude", "codex", [{"kind": "file", "value": ".env", "tainted": "true"}])
-    from kappaski.teamrun import append_teamrun_fact
+    from invart.governance.teamrun import append_teamrun_fact
 
     append_teamrun_fact(ledger_a, "teamrun", append_a)
     append_teamrun_fact(ledger_b, "handoff", append_b)
@@ -437,8 +437,8 @@ def test_v019_identity_binding_is_proof_backed_and_daemon_rejects_mismatch(tmp_p
 
 
 def test_v023_profile_registry_pinning_and_raw_content_policy(tmp_path: Path) -> None:
-    team_profile = {"schema_version": "kappaski.policy_profile.v0.23", "name": "team", "mode": "managed", "replay": {"raw_content": "hidden"}}
-    repo_profile = {"schema_version": "kappaski.policy_profile.v0.23", "name": "repo", "mode": "managed", "replay": {"raw_content": "truncated", "max_raw_content_length": 8}}
+    team_profile = {"schema_version": "invart.policy_profile.v0.23", "name": "team", "mode": "managed", "replay": {"raw_content": "hidden"}}
+    repo_profile = {"schema_version": "invart.policy_profile.v0.23", "name": "repo", "mode": "managed", "replay": {"raw_content": "truncated", "max_raw_content_length": 8}}
     registry = create_profile_registry(owner="security-team", profiles=[("team", team_profile), ("repo", repo_profile)])
     pinned = pin_profile_bundle(registry, scope="repo", profile_name="repo", distributed_by="security-lead")
     verified = verify_profile_bundle(pinned, registry)
@@ -467,8 +467,7 @@ def test_v019_to_v029_cli_and_roadmap_are_registered(tmp_path: Path) -> None:
     assert main(["eval", "benchmark", "--suite", "pre-v1-control-plane"]) == 0
     report = verify_roadmap_coverage(require_full=True)
     assert report["passed"] is True
-    assert report["summary"]["schema_version"] == "kappaski.roadmap_coverage.full_product.v0.40"
+    assert report["summary"]["schema_version"] == "invart.roadmap_coverage.full_product.v0.45"
     versions = {item["version"] for item in report["capabilities"]}
     assert {"v0.19", "v0.20", "v0.21", "v0.22", "v0.23", "v0.24", "v0.25", "v0.26", "v0.27", "v0.28", "v0.29"}.issubset(versions)
     assert report["future_planned"]
-

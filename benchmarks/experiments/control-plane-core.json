@@ -74,7 +74,7 @@
       "trust": "trusted"
     }
   ],
-  "schema_version": "kappaski.experiment_fixture.v0.40",
-  "source": "kappaski-fixture",
+  "schema_version": "invart.experiment_fixture.v0.40",
+  "source": "invart-fixture",
   "suite": "control-plane-core"
 }

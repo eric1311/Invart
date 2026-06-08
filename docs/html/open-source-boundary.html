@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Open-source Boundary</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">Boundary</span><h1>What belongs in the public repository.</h1><p>The root of this repository is now organized as the open-source Invart project. Internal planning material lives outside the public docs tree.</p></header>
+  <main class="wrap">
+    <section class="grid">
+      <div class="card"><h3>Public</h3><p>Source code, tests, pinned safe fixtures, examples, public docs, brand assets, license, contribution guide, security policy, and changelog.</p></div>
+      <div class="card"><h3>Local/internal</h3><p>Historical roadmap drafts, long design discussions, brand exploration, generated release artifacts, local ledgers, and private notes.</p></div>
+    </section>
+    <section>
+      <h2>Local-only directories</h2>
+      <pre>internal/
+.invart/
+.kappaski/
+.venv/
+build/
+dist/
+logs/
+rust/**/target/</pre>
+      <p>These paths are ignored by git so the GitHub repository can stay focused and understandable.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"type":"shell","command":"rm -rf .","source":"agent","context":{"reason":"unsafe deletion demo; analyze only, do not execute"}}

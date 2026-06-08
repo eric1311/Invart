@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Evaluation</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="hero"><span class="badge">Evaluation</span><h1>Measure control-plane behavior, not just code paths.</h1><p>Invart separates local product checks from optional heavy external benchmark evidence.</p></header>
+  <main class="wrap">
+    <section>
+      <h2>Default Local Checks</h2>
+      <pre>python -m pytest -q
+PYTHONPATH=src python -m invart.cli eval benchmark --suite full-product-readiness
+PYTHONPATH=src python -m invart.cli eval benchmark --suite real-world-agent-risk-demo
+PYTHONPATH=src python -m invart.cli roadmap status --require-full</pre>
+    </section>
+    <section>
+      <h2>Metrics</h2>
+      <table>
+        <tr><th>Metric</th><th>Why it matters</th></tr>
+        <tr><td>Critical block/approval behavior</td><td>High-risk actions should not silently pass.</td></tr>
+        <tr><td>Benign false-positive proxy</td><td>Low-risk agent work should keep moving.</td></tr>
+        <tr><td>Proof completeness</td><td>The proof should answer who, what, why, policy, approval, outcome, and coverage.</td></tr>
+        <tr><td>Coverage truthfulness</td><td>Observed, mediated, enforced, and fail-open are not the same claim.</td></tr>
+        <tr><td>Audit reconstruction</td><td>A reviewer should reconstruct the run from durable evidence.</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>External Validation Boundary</h2>
+      <p>Full SWE-Bench and other upstream benchmark runs are optional heavy validation. Invart can verify complete external evidence artifacts, but local tests do not pretend that a partial sample is a full upstream benchmark result.</p>
+    </section>
+  </main>
+</body>
+</html>

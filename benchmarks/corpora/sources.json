@@ -1,6 +1,6 @@
 {
   "generated_at": "2026-05-27",
-  "schema_version": "kappaski.corpus.sources.v0.4",
+  "schema_version": "invart.corpus.sources.v0.4",
   "sources": [
     {
       "content_sha256": "19223639e8c178f39fed113b07bcf1d6577ba3313301e146aef8555309fc3a43",
