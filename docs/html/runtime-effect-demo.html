@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invart Runtime Effect Demo</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <span class="badge">Runtime Effect Demo</span>
+    <h1>See the three stages and five layers in one run.</h1>
+    <p>Invart's demo artifacts show what was discovered before runtime, mediated during runtime, and reconstructed after runtime.</p>
+    <nav class="nav">
+      <a href="index.html">Docs Home</a>
+      <a href="product.html">Product</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="evaluation.html">Evaluation</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section>
+      <h2>Run</h2>
+      <pre>PYTHONPATH=src python -m invart.cli demo pre-1.0-final \
+  --out-dir .invart/pre-1-demo-check
+
+scripts/container-demo.sh all .invart/container-risk-demo</pre>
+    </section>
+    <section>
+      <h2>Runtime Effect Matrix</h2>
+      <table>
+        <tr><th>Layer</th><th>Before runtime</th><th>During runtime</th><th>After runtime</th></tr>
+        <tr><td>L1 Execution Surface</td><td>Inventory agent config, skills, MCP, wrappers, launchers, and unmanaged surfaces.</td><td>Observe file, network, shell, content, skill, and tool activity.</td><td>Review where coverage was strong, weak, or missing.</td></tr>
+        <tr><td>L2 Runtime Fact Model</td><td>Bind principal, agent identity, credentials, grants, and session.</td><td>Normalize invocations with resources, taint, coverage, decisions, and outcomes.</td><td>Use the ledger as the fact source.</td></tr>
+        <tr><td>L3 Decision Plane</td><td>Load deterministic policy and path-aware risk rules.</td><td>Classify secret egress, unsafe deletion, external instruction, and suspicious skill paths.</td><td>Explain why an action was allowed, paused, denied, or blocked.</td></tr>
+        <tr><td>L4 Mediation Plane</td><td>Route covered surfaces through managed launchers, wrappers, hooks, or brokers.</td><td>Apply allow, audit, require approval, deny, enforced block, or fail-open alert.</td><td>Show unresolved approvals and coverage gaps truthfully.</td></tr>
+        <tr><td>L5 Evidence Plane</td><td>Record the demo claim boundary and artifact map.</td><td>Generate replay, coverage, path graph, and policy artifacts.</td><td>Export proof, audit, evidence bundle, and RC gate report.</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>Action Timeline</h2>
+      <div class="flow">
+        <span class="node">Agent intent/action</span><span class="arrow">-></span>
+        <span class="node">Invart observation</span><span class="arrow">-></span>
+        <span class="node">Policy / mediation decision</span><span class="arrow">-></span>
+        <span class="node">Outcome</span><span class="arrow">-></span>
+        <span class="node">Artifact</span>
+      </div>
+      <p>Each container risk case audit page renders this sequence as a table so a reviewer can trace the run without reading raw JSON first.</p>
+    </section>
+    <section>
+      <h2>Artifact Map</h2>
+      <table>
+        <tr><th>Artifact</th><th>Layer signal</th><th>Use it for</th></tr>
+        <tr><td><code>ledger.jsonl</code></td><td>L2 fact source</td><td>Verifying the append-only event chain.</td></tr>
+        <tr><td><code>proof.json</code></td><td>L5 portable summary</td><td>Answering who, what, why, policy, approval, outcome, and coverage.</td></tr>
+        <tr><td><code>replay.html</code></td><td>L4 mediation trace</td><td>Reading approvals, denials, raw evidence folds, and outcomes.</td></tr>
+        <tr><td><code>path-graph.html</code></td><td>L3 causal chain</td><td>Tracing risky paths such as secret read to network sink.</td></tr>
+        <tr><td><code>coverage.html</code></td><td>L4/L5 truthfulness</td><td>Checking observed, mediated, enforced, and fail-open claims.</td></tr>
+        <tr><td><code>audit-report.html</code></td><td>L5 reviewer report</td><td>Presenting the enterprise security review view.</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>Boundary</h2>
+      <p>The container demo uses safe equivalent trajectories. It does not install hostile packages or replay private incidents.</p>
+      <p><code>observed</code>, <code>mediated</code>, and <code>enforced</code> are separate claims. Unmanaged direct agent execution is shown as a coverage gap unless it enters a managed Invart surface.</p>
+    </section>
+  </main>
+</body>
+</html>

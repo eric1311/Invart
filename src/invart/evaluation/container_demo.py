@@ -145,6 +145,18 @@ def run_container_risk_case(case_id: str, out_dir: Path) -> dict[str, Any]:
     gate = verify_gate(ledger_path=ledger, proof_path=proof_path, mode="managed")
     mediation = replay_mediation(ledger)
     audit_path = out_dir / "container-risk-audit.html"
+    artifacts = {
+        "ledger": str(ledger),
+        "proof": str(proof_path),
+        "replay": replay["replay"],
+        "path_graph": graph_html["output"],
+        "path_graph_json": graph_json["output"],
+        "path_policy": str(out_dir / "path-policy.json"),
+        "coverage_report": coverage["output"],
+        "audit_report": str(audit_path),
+        "case_json": str(out_dir / CASE_RESULT_NAME),
+    }
+    layer_timeline = _layer_timeline(case, artifacts, gate, path_policy, mediation)
 
     result = {
         "schema_version": SCHEMA_VERSION,
@@ -153,17 +165,9 @@ def run_container_risk_case(case_id: str, out_dir: Path) -> dict[str, Any]:
         "public_sources": sources,
         "container": _container_context(),
         "summary": _case_summary(proof, gate, path_policy, mediation),
-        "artifacts": {
-            "ledger": str(ledger),
-            "proof": str(proof_path),
-            "replay": replay["replay"],
-            "path_graph": graph_html["output"],
-            "path_graph_json": graph_json["output"],
-            "path_policy": str(out_dir / "path-policy.json"),
-            "coverage_report": coverage["output"],
-            "audit_report": str(audit_path),
-            "case_json": str(out_dir / CASE_RESULT_NAME),
-        },
+        "artifacts": artifacts,
+        "layer_timeline": layer_timeline,
+        "runtime_effect_matrix": _runtime_effect_matrix_for_case(layer_timeline),
         "gate": gate,
         "path_policy": path_policy,
         "mediation": mediation,
@@ -188,6 +192,7 @@ def run_container_risk_suite(out_dir: Path, *, collect_existing: bool = False) -
             "container_isolated_cases": sum(1 for case in cases if case.get("container", {}).get("case")),
             "blocked_or_paused_cases": sum(1 for case in cases if case.get("summary", {}).get("blocked_or_paused")),
             "source_mapped_cases": sum(1 for case in cases if case.get("public_sources")),
+            "runtime_effect_cases": sum(1 for case in cases if case.get("runtime_effect_matrix") and case.get("layer_timeline")),
         },
         "cases": cases,
         "artifacts": {"suite_json": str(out_dir / SUITE_RESULT_NAME), "suite_html": str(html_path)},
@@ -207,6 +212,7 @@ def run_container_risk_demo_benchmark() -> dict[str, Any]:
             "each_case_has_public_sources": all(case.get("public_sources") for case in suite["cases"]),
             "each_case_has_core_artifacts": all(_case_has_core_artifacts(case) for case in suite["cases"]),
             "each_case_has_block_or_pause_signal": all(case.get("summary", {}).get("blocked_or_paused") for case in suite["cases"]),
+            "each_case_has_runtime_effect_model": all(case.get("runtime_effect_matrix") and case.get("layer_timeline") for case in suite["cases"]),
             "suite_html_exists": Path(suite["artifacts"]["suite_html"]).exists(),
             "case_output_dirs_are_distinct": len({Path(case["artifacts"]["case_json"]).parent for case in suite["cases"]}) == 3,
         }
@@ -354,6 +360,86 @@ def _case_has_core_artifacts(case: dict[str, Any]) -> bool:
     return all(Path(case["artifacts"][key]).exists() for key in required)
 
 
+def _layer_timeline(
+    case: ContainerRiskCase,
+    artifacts: dict[str, str],
+    gate: dict[str, Any],
+    path_policy: dict[str, Any],
+    mediation: dict[str, Any],
+) -> list[dict[str, Any]]:
+    gate_status = str(gate.get("status", "unknown"))
+    path_status = str(path_policy.get("status", "unknown"))
+    mediation_summary = mediation.get("summary", {}) if isinstance(mediation.get("summary"), dict) else {}
+    paused = int(mediation_summary.get("paused", 0) or 0)
+    blocked = int(mediation_summary.get("blocked", 0) or 0)
+    mediation_effect = "pause/deny" if paused or blocked or gate_status == "fail" or path_status == "fail" else "allow/audit"
+    return [
+        {
+            "stage": "before-runtime",
+            "layer": "L1",
+            "layer_name": "Execution Surface",
+            "agent_intent": case.objective,
+            "invart_observation": "Session launch, declared agent, skill/file/network/shell surfaces, and safe equivalent risk source are inventoried.",
+            "decision": "surface discovered",
+            "outcome": "case enters a managed Invart run instead of an unobserved agent path",
+            "artifact": artifacts["ledger"],
+        },
+        {
+            "stage": "during-runtime",
+            "layer": "L2",
+            "layer_name": "Runtime Fact Model",
+            "agent_intent": "Agent-like action touches command, file, network, skill, or content surface.",
+            "invart_observation": "Runtime events are normalized into invocations with identity, taint, coverage, resource, and outcome facts.",
+            "decision": "facts recorded",
+            "outcome": "ledger preserves the accountable trajectory",
+            "artifact": artifacts["ledger"],
+        },
+        {
+            "stage": "during-runtime",
+            "layer": "L3",
+            "layer_name": "Decision Plane",
+            "agent_intent": "Risky path is evaluated against deterministic and path-aware policy.",
+            "invart_observation": f"Path policy status is {path_status}; deterministic critical findings cannot be downgraded.",
+            "decision": path_status,
+            "outcome": case.expected_invart_action,
+            "artifact": artifacts["path_policy"],
+        },
+        {
+            "stage": "during-runtime",
+            "layer": "L4",
+            "layer_name": "Mediation Plane",
+            "agent_intent": "The action attempts to continue toward a side effect.",
+            "invart_observation": f"Mediation summary is {json.dumps(mediation_summary, ensure_ascii=False, sort_keys=True)}.",
+            "decision": mediation_effect,
+            "outcome": "high-risk action is paused, denied, or blocked while low-risk work can continue",
+            "artifact": artifacts["replay"],
+        },
+        {
+            "stage": "after-runtime",
+            "layer": "L5",
+            "layer_name": "Evidence Plane",
+            "agent_intent": "Reviewer needs to reconstruct what happened and why.",
+            "invart_observation": "Proof, replay, path graph, coverage, audit, and manifest-style artifacts explain the run.",
+            "decision": gate_status,
+            "outcome": "security review can inspect who, what, why, policy, approval, outcome, and coverage",
+            "artifact": artifacts["proof"],
+        },
+    ]
+
+
+def _runtime_effect_matrix_for_case(layer_timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "stage": item["stage"],
+            "layer": item["layer"],
+            "layer_name": item["layer_name"],
+            "effect": item["outcome"],
+            "artifact": item["artifact"],
+        }
+        for item in layer_timeline
+    ]
+
+
 def _load_existing_case_results(out_dir: Path) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for path in sorted(out_dir.glob(f"*/{CASE_RESULT_NAME}")):
@@ -379,8 +465,12 @@ def _render_case_html(result: dict[str, Any]) -> str:
             ("ledger", artifacts["ledger"]),
         ]
     )
+    timeline_rows = "".join(
+        f"<tr><td>{esc(item['stage'])}</td><td>{esc(item['layer'])} {esc(item['layer_name'])}</td><td>{esc(item['agent_intent'])}</td><td>{esc(item['invart_observation'])}</td><td>{esc(item['decision'])}</td><td>{esc(item['outcome'])}</td><td><a href=\"{relative_href(base, Path(item['artifact']))}\">{esc(Path(item['artifact']).name)}</a></td></tr>"
+        for item in result["layer_timeline"]
+    )
     raw = esc(json.dumps(result["summary"], ensure_ascii=False, indent=2, sort_keys=True))
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>{esc(result['case']['title'])}</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}main{{max-width:1080px;margin:0 auto;padding:32px 24px}}section{{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:16px 0}}table{{width:100%;border-collapse:collapse}}td,th{{border-bottom:1px solid #e5e7eb;padding:9px;text-align:left;vertical-align:top}}pre{{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}}.pill{{display:inline-block;background:#e0ecff;color:#1d4ed8;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}}</style></head><body><main><span class="pill">container risk case</span><h1>{esc(result['case']['title'])}</h1><p>{esc(result['case']['objective'])}</p><section><h2>Invart Action</h2><p>{esc(result['case']['expected_invart_action'])}</p><pre>{raw}</pre></section><section><h2>Artifacts</h2><p>{artifact_links}</p></section><section><h2>Public Source Seeds</h2><table><tr><th>Source</th><th>Type</th><th>URL</th><th>Evidence Anchor</th></tr>{source_rows}</table></section></main></body></html>"""
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>{esc(result['case']['title'])}</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}main{{max-width:1180px;margin:0 auto;padding:32px 24px}}section{{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:16px 0}}table{{width:100%;border-collapse:collapse}}td,th{{border-bottom:1px solid #e5e7eb;padding:9px;text-align:left;vertical-align:top}}pre{{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}}.pill{{display:inline-block;background:#e0ecff;color:#1d4ed8;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:700}}</style></head><body><main><span class="pill">container risk case</span><h1>{esc(result['case']['title'])}</h1><p>{esc(result['case']['objective'])}</p><section><h2>Invart Action</h2><p>{esc(result['case']['expected_invart_action'])}</p><pre>{raw}</pre></section><section><h2>Action Timeline</h2><table><tr><th>Stage</th><th>Layer</th><th>Agent intent/action</th><th>Invart observation</th><th>Policy / mediation decision</th><th>Outcome</th><th>Artifact</th></tr>{timeline_rows}</table></section><section><h2>Artifacts</h2><p>{artifact_links}</p></section><section><h2>Public Source Seeds</h2><table><tr><th>Source</th><th>Type</th><th>URL</th><th>Evidence Anchor</th></tr>{source_rows}</table></section></main></body></html>"""
 
 
 def _render_suite_html(result: dict[str, Any]) -> str:
@@ -390,7 +480,18 @@ def _render_suite_html(result: dict[str, Any]) -> str:
         f"<div class=\"card\"><h3>{esc(case['case']['title'])}</h3><p>{esc(case['case']['risk_class'])}</p><p>Status: {esc(case['status'])}; gate: {esc(str(case['summary']['gate_status']))}; blocked/paused: {esc(str(case['summary']['blocked_or_paused']))}</p><p><a href=\"{relative_href(base, Path(case['artifacts']['audit_report']))}\">audit</a> · <a href=\"{relative_href(base, Path(case['artifacts']['replay']))}\">replay</a> · <a href=\"{relative_href(base, Path(case['artifacts']['path_graph']))}\">path graph</a></p></div>"
         for case in result["cases"]
     )
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Invart Containerized Risk Demo</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}header{{background:#0f172a;color:white;padding:42px 48px}}main{{max-width:1120px;margin:0 auto;padding:28px 24px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}}.card,section{{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:16px 0}}code,pre{{font-family:SFMono-Regular,Consolas,monospace}}pre{{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}}</style></head><body><header><h1>Invart Containerized Risk Demo</h1><p>Each card is produced by an isolated container run for one safe equivalent risk trajectory.</p></header><main><section><h2>Run</h2><pre>scripts/container-demo.sh all .invart/container-risk-demo</pre><p>{esc(result['claim_boundary'])}</p></section><section><h2>Cases</h2><div class="grid">{cards}</div></section></main></body></html>"""
+    layer_rows = "".join(_suite_layer_rows(case) for case in result["cases"])
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Invart Containerized Risk Demo</title><style>body{{font-family:Inter,Arial,sans-serif;margin:0;background:#f7f8fb;color:#172033}}header{{background:#0f172a;color:white;padding:42px 48px}}main{{max-width:1180px;margin:0 auto;padding:28px 24px}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}}.card,section{{background:white;border:1px solid #dfe5ef;border-radius:8px;padding:18px;margin:16px 0}}table{{width:100%;border-collapse:collapse}}td,th{{border-bottom:1px solid #e5e7eb;padding:9px;text-align:left;vertical-align:top}}code,pre{{font-family:SFMono-Regular,Consolas,monospace}}pre{{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow:auto}}</style></head><body><header><h1>Invart Containerized Risk Demo</h1><p>Each card is produced by an isolated container run for one safe equivalent risk trajectory.</p></header><main><section><h2>Run</h2><pre>scripts/container-demo.sh all .invart/container-risk-demo</pre><p>{esc(result['claim_boundary'])}</p><p>Coverage labels are truthful: observed / mediated / enforced are separate claims.</p></section><section><h2>Cases</h2><div class="grid">{cards}</div></section><section><h2>Layer Effect Summary</h2><table><tr><th>Case</th><th>L1 Execution Surface</th><th>L2 Runtime Facts</th><th>L3 Decision Plane</th><th>L4 Mediation Plane</th><th>L5 Evidence Plane</th></tr>{layer_rows}</table></section></main></body></html>"""
+
+
+def _suite_layer_rows(case: dict[str, Any]) -> str:
+    esc = html.escape
+    by_layer = {item["layer"]: item for item in case.get("layer_timeline", [])}
+    cells = []
+    for layer in ["L1", "L2", "L3", "L4", "L5"]:
+        item = by_layer.get(layer, {})
+        cells.append(f"<td>{esc(str(item.get('outcome', 'missing')))}</td>")
+    return f"<tr><td>{esc(case['case']['title'])}</td>{''.join(cells)}</tr>"
 
 
 __all__ = [

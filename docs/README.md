@@ -20,6 +20,7 @@ Public pages:
 | CLI reference | [`cli-reference.md`](cli-reference.md) | [`html/cli-reference.html`](html/cli-reference.html) |
 | API and SDK | [`api-sdk.md`](api-sdk.md) | [`html/api-sdk.html`](html/api-sdk.html) |
 | Examples | [`examples.md`](examples.md) | [`html/examples.html`](html/examples.html) |
+| Runtime effect demo | [`runtime-effect-demo.md`](runtime-effect-demo.md) | [`html/runtime-effect-demo.html`](html/runtime-effect-demo.html) |
 | Architecture | [`architecture.md`](architecture.md) | [`html/architecture.html`](html/architecture.html) |
 | Evaluation | [`evaluation.md`](evaluation.md) | [`html/evaluation.html`](html/evaluation.html) |
 | Open-source boundary | [`open-source-boundary.md`](open-source-boundary.md) | [`html/open-source-boundary.html`](html/open-source-boundary.html) |

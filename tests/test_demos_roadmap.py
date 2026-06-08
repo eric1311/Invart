@@ -204,15 +204,29 @@ def test_containerized_risk_demo_generates_per_case_artifact_bundles(tmp_path: P
     assert secret_case["summary"]["blocked_or_paused"] is True
     for key in ["ledger", "proof", "replay", "path_graph", "coverage_report", "audit_report", "case_json"]:
         assert Path(secret_case["artifacts"][key]).exists()
+    assert {item["layer"] for item in secret_case["layer_timeline"]} == {"L1", "L2", "L3", "L4", "L5"}
+    assert {item["stage"] for item in secret_case["layer_timeline"]} == {"before-runtime", "during-runtime", "after-runtime"}
+    assert all(item["artifact"] for item in secret_case["layer_timeline"])
+    case_html = Path(secret_case["artifacts"]["audit_report"]).read_text(encoding="utf-8")
+    assert "Action Timeline" in case_html
+    assert "Agent intent/action" in case_html
+    assert "Invart observation" in case_html
+    assert "Policy / mediation decision" in case_html
+    assert "ledger.jsonl" in case_html
+    assert "proof.json" in case_html
 
     suite = run_container_risk_suite(tmp_path / "suite")
     assert suite["status"] == "pass"
     assert suite["summary"]["cases"] == 3
     assert suite["summary"]["blocked_or_paused_cases"] == 3
     assert suite["summary"]["source_mapped_cases"] == 3
+    assert suite["summary"]["runtime_effect_cases"] == 3
     html = Path(suite["artifacts"]["suite_html"]).read_text(encoding="utf-8")
     assert "Invart Containerized Risk Demo" in html
     assert "isolated container" in html
+    assert "Layer Effect Summary" in html
+    assert "L1 Execution Surface" in html
+    assert "L5 Evidence Plane" in html
 
     benchmark = run_benchmark("containerized-risk-demo")
     assert benchmark["passed"] is True
@@ -239,9 +253,18 @@ def test_v045_pre_1_0_final_demo_links_control_plane_evidence(tmp_path: Path) ->
     assert Path(demo["artifacts"]["vendor_matrix"]).exists()
     assert Path(demo["artifacts"]["unmanaged_inventory"]).exists()
     assert Path(demo["artifacts"]["pre_v1_demo"]["artifacts"]["proof"]).exists()
+    assert {item["stage"] for item in demo["runtime_effect_matrix"]} == {"before-runtime", "during-runtime", "after-runtime"}
+    assert {item["layer"] for item in demo["runtime_effect_matrix"]} == {"L1", "L2", "L3", "L4", "L5"}
+    assert all(item["artifact"] for item in demo["runtime_effect_matrix"])
     html = Path(demo["artifacts"]["entrypoint"]).read_text(encoding="utf-8")
     assert "Invart Pre-1.0 Final Demo" in html
     assert "Invart actions" in html
+    assert "Runtime Effect Matrix" in html
+    assert "Before runtime" in html
+    assert "During runtime" in html
+    assert "After runtime" in html
+    assert "L1 Execution Surface" in html
+    assert "observed / mediated / enforced are separate claims" in html
     assert "vendor-matrix.json" in html
     assert "external validation" in html.lower()
     assert main(["demo", "pre-1.0-final", "--out-dir", str(tmp_path / "cli-final-demo")]) == 0
