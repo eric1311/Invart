@@ -14,6 +14,12 @@ from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
 from invart.assurance.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
 from invart.evaluation.release_candidate import verify_release_candidate
 from invart.evaluation.experiment_cases import export_experiment_report, list_experiment_suites, run_experiment_suite, run_paper_suite
+from invart.evaluation.audit_reconstruction import run_audit_reconstruction_study
+from invart.evaluation.coverage_experiments import run_coverage_truthfulness_matrix
+from invart.evaluation.paper_tables import export_paper_tables_from_file
+from invart.evaluation.product_control_matrix import run_product_control_matrix
+from invart.evaluation.research_readiness import verify_research_readiness
+from invart.evaluation.reviewer_experiments import run_reviewer_selectivity_experiment
 from invart.evaluation.experiment_fixtures import validate_experiment_fixture_root
 from invart.evaluation.real_world_cases import run_real_world_risk_demo
 from invart.evaluation.pre_1_0 import run_pre_1_0_final_demo
@@ -41,6 +47,26 @@ def handle_experiment(args: argparse.Namespace) -> int:
         return 0 if result.get("status") == "pass" else 1
     if args.experiment_command == "paper-suite":
         result = run_paper_suite(Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "paper-tables":
+        result = export_paper_tables_from_file(Path(args.paper_suite), Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "coverage-matrix":
+        result = run_coverage_truthfulness_matrix(out_dir=Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "audit-reconstruction":
+        result = run_audit_reconstruction_study(out_dir=Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "reviewer-ablation":
+        result = run_reviewer_selectivity_experiment(out_dir=Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "product-control-matrix":
+        result = run_product_control_matrix(out_dir=Path(args.out_dir))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
     return 2
@@ -180,6 +206,20 @@ def handle_release_candidate(args: argparse.Namespace) -> int:
             require_external_validation=args.require_external_validation,
             external_evidence_manifest=Path(args.external_evidence) if args.external_evidence else None,
         )
+        if args.paper:
+            research = verify_research_readiness(
+                Path(args.out_dir) / "research-readiness",
+                paper_tables=Path(args.paper_tables) if args.paper_tables else None,
+                coverage=Path(args.coverage) if args.coverage else None,
+                reviewer=Path(args.reviewer) if args.reviewer else None,
+                audit=Path(args.audit) if args.audit else None,
+                product_matrix=Path(args.product_matrix) if args.product_matrix else None,
+                external_evidence=Path(args.external_evidence) if args.external_evidence else None,
+                require_external_validation=args.require_external_validation,
+            )
+            result["research_readiness"] = research
+            result["final_readiness"]["research_state"] = research.get("state")
+            result["status"] = "pass" if result.get("status") == "pass" and research.get("status") == "pass" else "fail"
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
     return 2

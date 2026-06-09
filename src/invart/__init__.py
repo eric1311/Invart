@@ -8,4 +8,4 @@ install_module_aliases(__name__, LEGACY_MODULE_ALIASES)
 
 __all__ = ["__version__"]
 
-__version__ = "0.9.0"
+__version__ = "0.9.2"

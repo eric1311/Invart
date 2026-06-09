@@ -665,6 +665,68 @@ def test_v029_release_candidate_gate_requires_complete_product_artifacts(tmp_pat
     assert main(["rc", "verify", "--out-dir", str(tmp_path / "cli-rc-alias"), "--skip-pytest"]) == 0
 
 
+def test_v051_research_ready_gate_is_separate_from_product_rc(tmp_path: Path) -> None:
+    from invart.evaluation.paper_tables import export_paper_tables
+    from invart.evaluation.research_readiness import verify_research_readiness
+    from invart.evaluation.experiment_cases import run_paper_suite
+    from invart.evaluation.coverage_experiments import run_coverage_truthfulness_matrix
+    from invart.evaluation.reviewer_experiments import run_reviewer_selectivity_experiment
+    from invart.evaluation.audit_reconstruction import run_audit_reconstruction_study
+    from invart.evaluation.product_control_matrix import run_product_control_matrix
+    from invart.evaluation.release_candidate import verify_release_candidate
+
+    product = verify_release_candidate(tmp_path / "product-rc", run_pytest=False, benchmark_suites=["v0.46-paper-evidence-tables"])
+    assert product["status"] == "pass"
+    assert product["final_readiness"]["state"] == "local_rc_ready"
+
+    missing = verify_research_readiness(tmp_path / "missing-research")
+    assert missing["status"] == "fail"
+    assert missing["state"] == "research_incomplete"
+    assert "paper_tables" in missing["missing"]
+
+    paper = run_paper_suite(tmp_path / "paper")
+    tables = export_paper_tables(paper, tmp_path / "tables")
+    coverage = run_coverage_truthfulness_matrix(out_dir=tmp_path / "coverage")
+    reviewer = run_reviewer_selectivity_experiment(out_dir=tmp_path / "reviewer")
+    audit = run_audit_reconstruction_study(out_dir=tmp_path / "audit")
+    matrix = run_product_control_matrix(out_dir=tmp_path / "matrix")
+    ready = verify_research_readiness(
+        tmp_path / "ready-research",
+        paper_tables=Path(tables["artifacts"]["tables_json"]),
+        coverage=Path(coverage["artifacts"]["coverage_json"]),
+        reviewer=Path(reviewer["artifacts"]["reviewer_json"]),
+        audit=Path(audit["artifacts"]["report_json"]),
+        product_matrix=Path(matrix["artifacts"]["matrix_json"]),
+    )
+    assert ready["status"] == "pass"
+    assert ready["state"] == "research_ready"
+    assert ready["checks"]["coverage_truthfulness"]["status"] == "pass"
+    assert ready["checks"]["reviewer_ablation"]["status"] == "pass"
+    assert Path(ready["artifacts"]["report_html"]).exists()
+
+    assert main(
+        [
+            "release-candidate",
+            "verify",
+            "--out-dir",
+            str(tmp_path / "cli-paper-rc"),
+            "--skip-pytest",
+            "--paper",
+            "--paper-tables",
+            tables["artifacts"]["tables_json"],
+            "--coverage",
+            coverage["artifacts"]["coverage_json"],
+            "--reviewer",
+            reviewer["artifacts"]["reviewer_json"],
+            "--audit",
+            audit["artifacts"]["report_json"],
+            "--product-matrix",
+            matrix["artifacts"]["matrix_json"],
+        ]
+    ) == 0
+    assert run_benchmark("v0.51-pre-1.0-research-ready-gate")["passed"] is True
+
+
 def test_v025_to_v029_benchmarks_and_roadmap_are_registered() -> None:
     for suite in [
         "v0.25-adapter-runtime-integration",

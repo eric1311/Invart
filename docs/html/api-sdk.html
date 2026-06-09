@@ -84,6 +84,8 @@ payload = event.to_dict()</pre>
         <tr><td>Runtime event JSON</td><td>Wrappers, hooks, adapters, demos</td><td><code>invart runtime analyze-event</code>, mediation, policy checks</td><td>Useful when integrating a new execution surface.</td></tr>
         <tr><td>Policy profile TOML</td><td>Security or platform owner</td><td>Policy checks, gates, replay display policy</td><td>See <code>examples/policy-profile.toml</code> for a compact profile.</td></tr>
         <tr><td>Evidence bundle</td><td><code>invart evidence export</code>, RC gate, demos</td><td><code>invart evidence verify</code>, enterprise audit review</td><td>Manifest plus hashes for proof, ledger-derived artifacts, profile, coverage, and audit material.</td></tr>
+        <tr><td>Paper tables JSON/CSV/HTML</td><td><code>invart experiment paper-tables</code></td><td>Research reports, appendix tables, product validation review</td><td>Derived summaries. Each row should link back to ledger/proof/replay/path graph/evidence artifacts.</td></tr>
+        <tr><td>Research readiness report</td><td><code>invart release-candidate verify --paper</code></td><td>Pre-release research review</td><td>Separate from product RC. It checks evidence completeness without claiming external benchmark completion.</td></tr>
       </table>
     </section>
 

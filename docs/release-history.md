@@ -13,6 +13,18 @@ Invart has a long local implementation history. The public docs summarize capabi
 | Policy and governance | Identity binding, profile precedence, policy-as-code, path-aware policy, raw-content display control, break-glass facts. |
 | Evidence | Replay, path graph, coverage report, evidence bundle, audit HTML/JSON, release-candidate gate. |
 | Evaluation | Full-product readiness, real-world-risk demo, containerized demo, experiment cases, optional external benchmark evidence contracts. |
+| Research readiness | Paper evidence tables, coverage mediation pilot, audit reconstruction study, reviewer ablation/cost, product-control matrix, research-ready gate. |
+
+## Pre-1.0 Research-Ready Track
+
+| Version | Status | Focus |
+| --- | --- | --- |
+| v0.46 | Implemented | Paper evidence table export from LLM/agent workflow artifacts. |
+| v0.47 | Implemented | Coverage mediation pilot that prevents observed/mediated/enforced label inflation. |
+| v0.48 | Implemented | Audit reconstruction study with tamper and mismatch scenarios. |
+| v0.49 | Implemented | LLM reviewer ablation, estimated cost, redaction, and deterministic non-downgrade checks. |
+| v0.50 | Implemented | Product control matrix showing why plugin-only coverage is not full runtime mediation. |
+| v0.51 | Implemented | Separate research-ready gate layered on top of product RC readiness. |
 
 ## Internal History
 
