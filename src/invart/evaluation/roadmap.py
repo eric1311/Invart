@@ -767,6 +767,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Run progressive external validation samples, then attach full external benchmark manifests.",
     ),
+    RoadmapCapability(
+        version="v0.9.3",
+        capability_id="agent_adapter_contract_foundation",
+        title="Agent adapter contract and real-agent conformance foundation",
+        target="Define truthful adapter profiles and fixture-backed real-agent conformance reports for priority agent products.",
+        status="implemented",
+        implementation=["src/invart/surfaces/adapter_profiles.py", "src/invart/evaluation/real_agent_conformance.py", "src/invart/commands/parser_integrations.py", "src/invart/commands/integrations.py"],
+        tests=["test_v093_adapter_profile_registry_reports_truthful_agent_contracts", "test_v093_real_agent_conformance_fixture_and_strict_live_modes", "v0.9.3-agent-adapter-contract"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html"],
+        product_boundaries=["Fixture-backed conformance validates Invart's adapter contract and harness behavior; strict live mode fails when installed agent binaries or live evidence are missing.", "Coverage grades prevent vendor import, plugin-only, and discovery-only surfaces from being reported as full managed mediation."],
+        claim_scope="local_agent_adapter_contract",
+        evidence_level="fixture_backed_conformance",
+        external_validation="not_run_optional",
+        next_step="Harden Claude Code as the first full reference adapter and attach live conformance traces for each priority product.",
+    ),
 )
 
 

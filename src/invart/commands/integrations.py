@@ -18,6 +18,7 @@ from invart.evaluation.harness import (
     run_official_swe_bench_lite_check,
     run_swe_bench_lite_check,
 )
+from invart.evaluation.real_agent_conformance import export_real_agent_report_html, run_real_agent_conformance
 from invart.surfaces.adapter_profiles import build_adapter_profile
 from invart.surfaces.enforcement import check_enforcement, run_enforced_command, run_file_write_intercepted, rust_build_check, rust_shim_decision, rust_shim_spec
 from invart.surfaces.native import install_native_integration, inventory_native_integrations, native_capability_matrix, native_conformance_report, unmanaged_agent_inventory
@@ -174,6 +175,40 @@ def handle_external_validation(args: argparse.Namespace) -> int:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
     return 2
+
+
+def handle_real_agent(args: argparse.Namespace) -> int:
+    if args.real_agent_command == "check":
+        try:
+            binary_overrides = _parse_agent_binary_overrides(args.binary)
+            result = run_real_agent_conformance(
+                out_dir=Path(args.out_dir),
+                agents=args.agent or None,
+                binary_overrides=binary_overrides,
+                require_live=args.require_live,
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.real_agent_command == "report":
+        result = export_real_agent_report_html(Path(args.run_dir), Path(args.out))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    return 2
+
+
+def _parse_agent_binary_overrides(values: list[str]) -> dict[str, str]:
+    overrides: dict[str, str] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError("--binary must use agent-id=/path/to/binary")
+        agent, path = value.split("=", 1)
+        if not agent or not path:
+            raise ValueError("--binary must use agent-id=/path/to/binary")
+        overrides[agent] = path
+    return overrides
 
 def handle_enforce(args: argparse.Namespace) -> int:
     if args.enforce_command == "check":

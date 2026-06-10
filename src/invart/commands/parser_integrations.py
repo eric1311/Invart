@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 
 from invart.evaluation.harness import SWE_BENCH_FULL_DATASET, SWE_BENCH_FULL_EXPECTED_INSTANCES, SWE_BENCH_LITE_DATASET
+from invart.surfaces.adapter_profiles import adapter_profile_ids
 from .common import add_profile_args
-from .integrations import handle_adapter, handle_bridge, handle_coverage, handle_enforce, handle_external_validation, handle_graph, handle_harness, handle_launcher, handle_mcp, handle_mediation, handle_native, handle_supervise
+from .integrations import handle_adapter, handle_bridge, handle_coverage, handle_enforce, handle_external_validation, handle_graph, handle_harness, handle_launcher, handle_mcp, handle_mediation, handle_native, handle_real_agent, handle_supervise
 
 
 def register_integration_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -30,7 +31,7 @@ def register_integration_commands(subparsers: argparse._SubParsersAction[argpars
     adapter_package.add_argument("--ledger", required=True)
     adapter_package.add_argument("--out-dir", required=True)
     adapter_profile = adapter_sub.add_parser("profile", help="Inspect a hardened adapter profile.")
-    adapter_profile.add_argument("--kind", choices=("claude-code", "codex", "generic"), default="claude-code")
+    adapter_profile.add_argument("--kind", choices=adapter_profile_ids(), default="claude-code")
     adapter_claude_check = adapter_sub.add_parser("claude-code-check", help="Check a real Claude Code binary environment when available.")
     adapter_claude_check.add_argument("--binary", default="claude")
     adapter_claude = adapter_sub.add_parser("claude-code", help="Run a command through the Claude Code wrapper/hook bridge.")
@@ -101,6 +102,18 @@ def register_integration_commands(subparsers: argparse._SubParsersAction[argpars
     swe_full.add_argument("--instance-results-path", default=None, help="Explicit official instance_results.jsonl path.")
     swe_full.add_argument("--expected-total-instances", type=int, default=SWE_BENCH_FULL_EXPECTED_INSTANCES)
     swe_full.add_argument("--allow-subset", action="store_true", help="Mark this as a subset smoke run; it will not satisfy full external validation.")
+
+    real_agent = subparsers.add_parser("real-agent", help="Validate real or fixture-backed agent products through Invart profiles.")
+    real_agent.set_defaults(handler=handle_real_agent)
+    real_agent_sub = real_agent.add_subparsers(dest="real_agent_command", required=True)
+    real_agent_check = real_agent_sub.add_parser("check", help="Run agent profile and binary-shaped conformance checks.")
+    real_agent_check.add_argument("--agent", action="append", choices=adapter_profile_ids(), default=[])
+    real_agent_check.add_argument("--binary", action="append", default=[], help="Override an agent binary as agent-id=/path/to/binary.")
+    real_agent_check.add_argument("--require-live", action="store_true", help="Fail when requested real agent binaries are missing.")
+    real_agent_check.add_argument("--out-dir", default=".invart/real-agent-conformance")
+    real_agent_report = real_agent_sub.add_parser("report", help="Render a real-agent conformance HTML report from a run directory.")
+    real_agent_report.add_argument("--run-dir", required=True)
+    real_agent_report.add_argument("--out", required=True)
 
     enforce = subparsers.add_parser("enforce", help="Evaluate enforcement guard decisions.")
     enforce.set_defaults(handler=handle_enforce)

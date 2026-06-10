@@ -31,6 +31,7 @@ BENCHMARK_SUITES: tuple[dict[str, Any], ...] = (
     {"suite": "v0.49-reviewer-ablation-cost", "version": "v0.49", "category": "reviewer", "optional_heavy": False, "claim_scope": "local_experiment_substrate", "evidence_level": "simulated_agent_trace"},
     {"suite": "v0.50-product-control-matrix", "version": "v0.50", "category": "product-boundary", "optional_heavy": False, "claim_scope": "product_comparison", "evidence_level": "documented_capability_matrix"},
     {"suite": "v0.51-pre-1.0-research-ready-gate", "version": "v0.51", "category": "release", "optional_heavy": False, "claim_scope": "research_gate", "evidence_level": "local_research_artifact_bundle"},
+    {"suite": "v0.9.3-agent-adapter-contract", "version": "v0.9.3", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_agent_adapter_contract", "evidence_level": "fixture_backed_conformance"},
     {"suite": "progressive-external-validation", "version": "pre-release", "category": "external-validation", "optional_heavy": False, "claim_scope": "progressive_external_validation", "evidence_level": "external_progressive_sample"},
     {"suite": "real-world-agent-risk-demo", "version": "pre-release", "category": "demo", "optional_heavy": False, "claim_scope": "public_source_mapping", "evidence_level": "public_source_seed_plus_local_demo"},
     {"suite": "containerized-risk-demo", "version": "pre-release", "category": "demo", "optional_heavy": False, "claim_scope": "containerized_local_demo", "evidence_level": "per_case_container_artifact_bundle"},

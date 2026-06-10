@@ -40,10 +40,21 @@ invart replay export --ledger ledger.jsonl --out replay.html
 invart audit report --ledger ledger.jsonl --out-dir .invart/audit
 ```
 
+### Real agent conformance
+
+```bash
+invart adapter profile --kind claude-code
+invart real-agent check --agent claude-code --out-dir .invart/real-agent
+invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
+```
+
+Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
+
 ### Evaluation
 
 ```bash
 invart eval list
 invart eval benchmark --suite full-product-readiness
+invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart roadmap status --require-full
 ```

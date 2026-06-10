@@ -343,6 +343,117 @@ def test_full_claude_adapter_environment_check_reports_real_binary() -> None:
     assert result["available"] is True
     assert result["binary"].endswith("python3") or result["binary"] == "python3"
     assert "adapter_profile" in result
+    assert isinstance(result["conformance"]["returncode"], int)
+
+
+def test_v093_adapter_profile_registry_reports_truthful_agent_contracts() -> None:
+    from invart.surfaces.adapter_profiles import get_adapter_profile, list_adapter_profiles, validate_adapter_profile_truthfulness
+
+    profiles = list_adapter_profiles()
+    by_agent = {profile["agent_id"]: profile for profile in profiles}
+    required = {
+        "claude-code",
+        "codex",
+        "gemini-cli",
+        "cursor",
+        "opencode",
+        "openclaw",
+        "hermes",
+        "cline",
+        "roo-code",
+        "github-copilot-cloud-agent",
+        "aider",
+        "openai-agents-sdk",
+        "langgraph",
+        "crewai",
+    }
+    assert required.issubset(by_agent)
+    assert by_agent["claude-code"]["coverage_grade"] == "full_managed_adapter"
+    assert by_agent["github-copilot-cloud-agent"]["coverage_grade"] == "vendor_evidence_import"
+    assert by_agent["cursor"]["coverage_grade"] in {"native_event_bridge", "discovery_only", "vendor_evidence_import"}
+    assert all(profile["claim_boundary"] for profile in profiles)
+    assert all(profile["source_urls"] for profile in profiles)
+
+    validation = validate_adapter_profile_truthfulness(profiles)
+    assert validation["status"] == "pass"
+    assert validation["checks"]["full_managed_requires_artifacts"] is True
+    assert validation["checks"]["import_only_not_mediated"] is True
+    assert validation["checks"]["discovery_only_not_mediated"] is True
+
+    claude = get_adapter_profile("claude-code")
+    assert {"ledger", "proof", "evidence_bundle"}.issubset(set(claude["required_artifacts"]))
+
+
+def test_v093_adapter_profile_cli_accepts_priority_agents() -> None:
+    assert main(["adapter", "profile", "--kind", "gemini-cli"]) == 0
+    assert main(["adapter", "profile", "--kind", "github-copilot-cloud-agent"]) == 0
+
+
+def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Path) -> None:
+    from invart.evaluation.real_agent_conformance import run_real_agent_conformance
+
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+
+    report = run_real_agent_conformance(
+        out_dir=tmp_path / "pass",
+        agents=["claude-code", "codex"],
+        binary_overrides={"claude-code": str(fake), "codex": str(fake)},
+        require_live=True,
+    )
+    assert report["schema_version"] == "invart.real_agent_conformance.v0.9.3"
+    assert report["status"] == "pass"
+    assert report["summary"]["passed_agents"] == 2
+    assert all(agent["binary"]["status"] == "found" for agent in report["agents"])
+    assert all(agent["managed_run"]["status"] == "pass" for agent in report["agents"])
+    assert Path(report["artifacts"]["report_json"]).exists()
+    assert Path(report["artifacts"]["report_html"]).exists()
+
+    advisory_missing = run_real_agent_conformance(
+        out_dir=tmp_path / "advisory-missing",
+        agents=["hermes"],
+        binary_overrides={"hermes": str(tmp_path / "missing-hermes")},
+        require_live=False,
+    )
+    assert advisory_missing["status"] == "pass"
+    assert advisory_missing["agents"][0]["status"] == "blocked_missing_binary"
+    assert advisory_missing["agents"][0]["claim_boundary"]
+
+    strict_missing = run_real_agent_conformance(
+        out_dir=tmp_path / "strict-missing",
+        agents=["hermes"],
+        binary_overrides={"hermes": str(tmp_path / "missing-hermes")},
+        require_live=True,
+    )
+    assert strict_missing["status"] == "fail"
+    assert strict_missing["agents"][0]["status"] == "blocked_missing_binary"
+
+
+def test_v093_real_agent_cli_and_benchmark(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    out = tmp_path / "cli"
+
+    assert main([
+        "real-agent",
+        "check",
+        "--agent",
+        "claude-code",
+        "--agent",
+        "codex",
+        "--binary",
+        f"claude-code={fake}",
+        "--binary",
+        f"codex={fake}",
+        "--require-live",
+        "--out-dir",
+        str(out),
+    ]) == 0
+    assert (out / "real-agent-conformance.json").exists()
+    assert main(["real-agent", "report", "--run-dir", str(out), "--out", str(tmp_path / "report.html")]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.3-agent-adapter-contract"]) == 0
 
 
 def test_v13_adapter_run_uses_file_write_enforcement(tmp_path: Path) -> None:

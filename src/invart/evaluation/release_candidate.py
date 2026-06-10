@@ -47,6 +47,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.49-reviewer-ablation-cost",
     "v0.50-product-control-matrix",
     "v0.51-pre-1.0-research-ready-gate",
+    "v0.9.3-agent-adapter-contract",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )
