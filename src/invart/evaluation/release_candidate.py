@@ -41,6 +41,12 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.43-enterprise-coverage-gate",
     "v0.44-external-evidence-and-swebench",
     "v0.45-final-demo-and-rc-gate",
+    "v0.46-paper-evidence-tables",
+    "v0.47-coverage-mediation-pilot",
+    "v0.48-audit-reconstruction-study",
+    "v0.49-reviewer-ablation-cost",
+    "v0.50-product-control-matrix",
+    "v0.51-pre-1.0-research-ready-gate",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

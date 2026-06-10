@@ -12,7 +12,20 @@
       <tr><td>Policy and governance</td><td>Identity binding, profile precedence, policy-as-code, path-aware policy, raw-content display control, break-glass facts.</td></tr>
       <tr><td>Evidence</td><td>Replay, path graph, coverage report, evidence bundle, audit HTML/JSON, release-candidate gate.</td></tr>
       <tr><td>Evaluation</td><td>Full-product readiness, real-world-risk demo, containerized demo, experiment cases, optional external benchmark evidence contracts.</td></tr>
+      <tr><td>Research readiness</td><td>Paper evidence tables, coverage mediation pilot, audit reconstruction study, reviewer ablation/cost, product-control matrix, research-ready gate.</td></tr>
     </table>
+    <section>
+      <h2>Pre-1.0 Research-Ready Track</h2>
+      <table>
+        <tr><th>Version</th><th>Status</th><th>Focus</th></tr>
+        <tr><td>v0.46</td><td>Implemented</td><td>Paper evidence table export from LLM/agent workflow artifacts.</td></tr>
+        <tr><td>v0.47</td><td>Implemented</td><td>Coverage mediation pilot that prevents observed/mediated/enforced label inflation.</td></tr>
+        <tr><td>v0.48</td><td>Implemented</td><td>Audit reconstruction study with tamper and mismatch scenarios.</td></tr>
+        <tr><td>v0.49</td><td>Implemented</td><td>LLM reviewer ablation, estimated cost, redaction, and deterministic non-downgrade checks.</td></tr>
+        <tr><td>v0.50</td><td>Implemented</td><td>Product control matrix showing why plugin-only coverage is not full runtime mediation.</td></tr>
+        <tr><td>v0.51</td><td>Implemented</td><td>Separate research-ready gate layered on top of product RC readiness.</td></tr>
+      </table>
+    </section>
     <section>
       <h2>Internal History</h2>
       <p>Detailed historical roadmap and design pages live in <code>internal/history/docs/</code>. They are local-only planning material and are ignored by git for the open-source boundary.</p>

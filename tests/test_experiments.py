@@ -325,6 +325,119 @@ def test_v039_paper_suite_generates_reproducible_bundle(tmp_path: Path) -> None:
     assert run_benchmark("v0.39-paper-ready-experiment-suite")["passed"] is True
 
 
+def test_v046_paper_tables_export_agent_workflow_evidence(tmp_path: Path) -> None:
+    from invart.evaluation.paper_tables import export_paper_tables, validate_paper_table_bundle
+
+    paper = run_paper_suite(tmp_path / "paper")
+    bundle = export_paper_tables(paper, tmp_path / "tables")
+
+    assert bundle["schema_version"] == "invart.paper_tables.v0.46"
+    assert bundle["status"] == "pass"
+    table_ids = {table["table_id"] for table in bundle["tables"]}
+    assert {
+        "risk_path_outcomes",
+        "benign_friction",
+        "coverage_truthfulness",
+        "reviewer_cost",
+        "audit_reconstruction",
+        "external_corpus_mapping",
+    }.issubset(table_ids)
+
+    risk_rows = [row for table in bundle["tables"] if table["table_id"] == "risk_path_outcomes" for row in table["rows"]]
+    assert risk_rows
+    first = risk_rows[0]
+    assert first["row_id"]
+    assert first["agent_workflow_kind"] in {"simulated_agent_trace", "coverage_matrix", "audit_reconstruction", "reviewer_ablation"}
+    assert first["claim_boundary"]
+    for key in ("ledger", "proof", "replay", "path_graph", "evidence_manifest"):
+        assert key in first["artifacts"], first
+        assert Path(first["artifacts"][key]).exists(), first["artifacts"][key]
+
+    validation = validate_paper_table_bundle(bundle)
+    assert validation["status"] == "pass"
+    broken = json.loads(json.dumps(bundle))
+    broken["tables"][0]["rows"][0]["artifacts"] = {}
+    broken_validation = validate_paper_table_bundle(broken)
+    assert broken_validation["status"] == "fail"
+    assert any("artifact anchor" in error or "missing artifact" in error for error in broken_validation["errors"])
+    assert Path(bundle["artifacts"]["tables_json"]).exists()
+    assert Path(bundle["artifacts"]["tables_csv"]).exists()
+    assert Path(bundle["artifacts"]["tables_html"]).exists()
+    assert main(["experiment", "paper-tables", "--paper-suite", paper["artifacts"]["metrics_json"], "--out-dir", str(tmp_path / "cli-tables")]) == 0
+    assert run_benchmark("v0.46-paper-evidence-tables")["passed"] is True
+
+
+def test_v047_same_action_coverage_pilot_prevents_label_inflation(tmp_path: Path) -> None:
+    matrix = run_coverage_truthfulness_matrix(out_dir=tmp_path / "coverage")
+    assert matrix["schema_version"] == "invart.coverage_experiments.v0.47"
+    assert matrix["status"] == "pass"
+    same_action = matrix["same_action"]
+    assert same_action["action_id"] == "same-network-egress"
+    by_surface = {item["surface"]: item for item in same_action["positions"]}
+    assert by_surface["imported_log"]["actual_runtime_enforcement"] == "none"
+    assert by_surface["managed_wrapper"]["actual_runtime_enforcement"] == "mediated"
+    assert by_surface["shim_proxy"]["actual_runtime_enforcement"] == "enforced"
+    assert by_surface["fail_open"]["actual_runtime_enforcement"] != "enforced"
+    assert by_surface["bypass"]["coverage_gap"] is True
+    assert matrix["metrics"]["coverage_label_correctness"] == 1.0
+    assert Path(matrix["artifacts"]["coverage_json"]).exists()
+    assert run_benchmark("v0.47-coverage-mediation-pilot")["passed"] is True
+
+
+def test_v048_audit_reconstruction_scores_agent_evidence(tmp_path: Path) -> None:
+    from invart.evaluation.audit_reconstruction import run_audit_reconstruction_study
+
+    report = run_audit_reconstruction_study(out_dir=tmp_path / "audit-study")
+    assert report["schema_version"] == "invart.audit_reconstruction.v0.48"
+    assert report["status"] == "pass"
+    assert report["metrics"]["audit_reconstruction_success"] == 1.0
+    assert report["metrics"]["tamper_detection_rate"] == 1.0
+    assert report["metrics"]["missing_field_rate"] > 0
+    scenarios = {item["scenario_id"]: item for item in report["scenarios"]}
+    assert scenarios["blocked_risk_path"]["answers"]["who"]
+    assert scenarios["approved_risk_path"]["answers"]["approval"]
+    assert scenarios["tampered_ledger"]["artifact_integrity"] is False
+    assert scenarios["proof_ledger_mismatch"]["artifact_consistency"] is False
+    assert Path(report["artifacts"]["report_html"]).exists()
+    assert run_benchmark("v0.48-audit-reconstruction-study")["passed"] is True
+
+
+def test_v049_reviewer_ablation_records_cost_and_non_downgrade(tmp_path: Path) -> None:
+    report = run_reviewer_selectivity_experiment(out_dir=tmp_path / "reviewer")
+    assert report["schema_version"] == "invart.reviewer_experiments.v0.49"
+    assert report["status"] == "pass"
+    assert report["critical_non_downgradable"] is True
+    assert report["modes"]["selective"]["reviewer_call_rate"] < report["modes"]["always_on"]["reviewer_call_rate"]
+    assert report["modes"]["async_audit"]["changes_policy_outcome"] is False
+    assert report["modes"]["selective"]["estimated_tokens"] > 0
+    assert report["modes"]["selective"]["estimated_cost_usd"] >= 0
+    assert report["live_provider"]["status"] in {"skipped", "pass"}
+    assert report["redaction"]["raw_secret_persisted"] is False
+    assert Path(report["artifacts"]["reviewer_json"]).exists()
+    assert run_benchmark("v0.49-reviewer-ablation-cost")["passed"] is True
+
+
+def test_v050_product_control_matrix_separates_plugin_only_from_mediation(tmp_path: Path) -> None:
+    from invart.evaluation.product_control_matrix import run_product_control_matrix
+
+    matrix = run_product_control_matrix(out_dir=tmp_path / "matrix")
+    assert matrix["schema_version"] == "invart.product_control_matrix.v0.50"
+    assert matrix["status"] == "pass"
+    assert matrix["summary"]["products"] >= 4
+    for row in matrix["rows"]:
+        for key in ("product", "surface", "source", "source_kind", "source_urls", "native_control", "invart_layer", "coverage_grade", "limitation"):
+            assert row[key], row
+        assert all(url.startswith("https://") for url in row["source_urls"])
+    plugin = next(row for row in matrix["baselines"] if row["baseline"] == "plugin_only")
+    assert plugin["supports_mediation"] is False
+    assert plugin["coverage_grade"] in {"observed", "vendor_owned"}
+    managed = next(row for row in matrix["baselines"] if row["baseline"] == "invart_managed_launcher")
+    assert managed["supports_mediation"] is True
+    assert managed["coverage_grade"] == "mediated"
+    assert Path(matrix["artifacts"]["matrix_json"]).exists()
+    assert run_benchmark("v0.50-product-control-matrix")["passed"] is True
+
+
 def test_roadmap_truthfulness_audit_distinguishes_local_experiments_from_external_validation() -> None:
     from invart.evaluation.roadmap import verify_roadmap_coverage
 

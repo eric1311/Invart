@@ -47,6 +47,14 @@ from .releases_v41_v45 import (
     run_progressive_external_validation_benchmark,
     run_unmanaged_agent_inventory_benchmark,
 )
+from .releases_v46_v51 import (
+    run_audit_reconstruction_study_benchmark,
+    run_coverage_mediation_pilot_benchmark,
+    run_paper_evidence_tables_benchmark,
+    run_pre_1_0_research_ready_gate_benchmark,
+    run_product_control_matrix_benchmark,
+    run_reviewer_ablation_cost_benchmark,
+)
 
 BenchmarkRunner = Callable[[], dict[str, Any]]
 
@@ -95,6 +103,12 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.43-enterprise-coverage-gate": run_enterprise_coverage_gate_benchmark,
         "v0.44-external-evidence-and-swebench": run_external_evidence_and_swebench_benchmark,
         "v0.45-final-demo-and-rc-gate": run_final_demo_and_rc_gate_benchmark,
+        "v0.46-paper-evidence-tables": run_paper_evidence_tables_benchmark,
+        "v0.47-coverage-mediation-pilot": run_coverage_mediation_pilot_benchmark,
+        "v0.48-audit-reconstruction-study": run_audit_reconstruction_study_benchmark,
+        "v0.49-reviewer-ablation-cost": run_reviewer_ablation_cost_benchmark,
+        "v0.50-product-control-matrix": run_product_control_matrix_benchmark,
+        "v0.51-pre-1.0-research-ready-gate": run_pre_1_0_research_ready_gate_benchmark,
         "progressive-external-validation": run_progressive_external_validation_benchmark,
         "real-world-agent-risk-demo": run_real_world_risk_benchmark,
         "containerized-risk-demo": run_container_risk_demo_benchmark,

@@ -74,6 +74,8 @@ These helpers are suitable for local adapters, experiments, and internal automat
 | Runtime event JSON | Wrappers, hooks, adapters, demos | invart runtime analyze-event, mediation, policy checks | Useful when integrating a new execution surface. |
 | Policy profile TOML | Security or platform owner | Policy checks, gates, replay display policy | See examples/policy-profile.toml for a compact profile. |
 | Evidence bundle | invart evidence export, RC gate, demos | invart evidence verify, enterprise audit review | Manifest plus hashes for proof, ledger-derived artifacts, profile, coverage, and audit material. |
+| Paper tables JSON/CSV/HTML | invart experiment paper-tables | Research reports, appendix tables, product validation review | Derived summaries. Each row should link back to ledger/proof/replay/path graph/evidence artifacts. |
+| Research readiness report | invart release-candidate verify --paper | Pre-release research review | Separate from product RC. It checks evidence completeness without claiming external benchmark completion. |
 
 ## Compatibility Names
 

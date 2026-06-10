@@ -23,6 +23,39 @@ PYTHONPATH=src python -m invart.cli roadmap status --require-full</pre>
       </table>
     </section>
     <section>
+      <h2>Research-Ready Validation Loop</h2>
+      <p>The pre-1.0 research track validates an LLM/agent workflow end to end:</p>
+      <div class="diagram">
+        <span>agent task / prompt / skill / case</span>
+        <span>→ trace</span>
+        <span>→ ledger + policy + reviewer + mediation</span>
+        <span>→ proof + replay + path graph + evidence</span>
+        <span>→ paper tables + research gate</span>
+      </div>
+      <pre>PYTHONPATH=src python -m invart.cli experiment paper-suite --out-dir .invart/paper-suite
+PYTHONPATH=src python -m invart.cli experiment paper-tables \
+  --paper-suite .invart/paper-suite/paper-metrics.json \
+  --out-dir .invart/paper-tables
+PYTHONPATH=src python -m invart.cli experiment coverage-matrix --out-dir .invart/research-coverage
+PYTHONPATH=src python -m invart.cli experiment reviewer-ablation --out-dir .invart/research-reviewer
+PYTHONPATH=src python -m invart.cli experiment audit-reconstruction --out-dir .invart/research-audit
+PYTHONPATH=src python -m invart.cli experiment product-control-matrix --out-dir .invart/research-matrix
+PYTHONPATH=src python -m invart.cli eval benchmark --suite v0.51-pre-1.0-research-ready-gate</pre>
+      <p>The research gate is separate from the product release-candidate gate. <code>local_rc_ready</code> means local product checks pass. <code>research_ready</code> means paper/evaluation artifacts are present and internally consistent.</p>
+    </section>
+    <section>
+      <h2>v0.46-v0.51 Evidence Artifacts</h2>
+      <table>
+        <tr><th>Version</th><th>Artifact</th><th>Product question answered</th></tr>
+        <tr><td>v0.46</td><td>Paper evidence tables</td><td>Can every claim row link back to ledger, proof, replay, path graph, and evidence?</td></tr>
+        <tr><td>v0.47</td><td>Coverage mediation pilot</td><td>Are observed, mediated, enforced, fail-open, and bypass labels kept truthful for the same action?</td></tr>
+        <tr><td>v0.48</td><td>Audit reconstruction study</td><td>Can an auditor answer who/what/why/policy/approval/outcome/coverage, and detect tamper?</td></tr>
+        <tr><td>v0.49</td><td>Reviewer ablation and cost</td><td>Does selective LLM review reduce calls/cost without downgrading deterministic critical rules?</td></tr>
+        <tr><td>v0.50</td><td>Product control matrix</td><td>Why is plugin-only visibility not equivalent to runtime mediation or enforcement?</td></tr>
+        <tr><td>v0.51</td><td>Research-ready gate</td><td>Are the product RC and research/paper evidence gates reported separately?</td></tr>
+      </table>
+    </section>
+    <section>
       <h2>External Validation Boundary</h2>
       <p>Full SWE-Bench and other upstream benchmark runs are optional heavy validation. Invart can verify complete external evidence artifacts, but local tests do not pretend that a partial sample is a full upstream benchmark result.</p>
     </section>
