@@ -26,6 +26,12 @@ Invart has a long local implementation history. The public docs summarize capabi
 | v0.50 | Implemented | Product control matrix showing why plugin-only coverage is not full runtime mediation. |
 | v0.51 | Implemented | Separate research-ready gate layered on top of product RC readiness. |
 
+## 0.9 Patch Track
+
+| Version | Status | Focus |
+| --- | --- | --- |
+| v0.9.3 | Implemented | Agent adapter contract registry and fixture-backed real-agent conformance foundation. The live mode can be strict, but missing local agent binaries are not reported as successful live validation. |
+
 ## Internal History
 
 Detailed historical roadmap and design pages live in internal/history/docs/. They are local-only planning material and are ignored by git for the open-source boundary.

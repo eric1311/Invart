@@ -127,7 +127,7 @@ def check_claude_code_environment(binary: str = "claude") -> dict[str, Any]:
             completed = subprocess.run([resolved, "--version"], check=False, capture_output=True, text=True, timeout=10)
             result["conformance"] = {
                 "status": "pass" if completed.returncode == 0 else "warn",
-                "returncode": returncode,
+                "returncode": completed.returncode,
                 "stdout": completed.stdout.strip()[:400],
                 "stderr": completed.stderr.strip()[:400],
             }
