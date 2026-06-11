@@ -1,11 +1,10 @@
-# Agent Runtime Control Plane
+# Invart Docs
 
 [HTML version](html/index.html)
 
-
 Use Invart to discover agent runtime risk before execution, mediate behavior during execution, and produce verifiable evidence after execution.
 
-[Product](product.md) · [Quickstart](quickstart.md) · [CLI](cli-reference.md) · [API & SDK](api-sdk.md) · [Architecture](architecture.md) · [Evaluation](evaluation.md)
+[Product](product.md) · [Quickstart](quickstart.md) · [Five-layer operator guide](five-layer-operator-guide.md) · [CLI](cli-reference.md) · [API & SDK](api-sdk.md) · [Evaluation](evaluation.md)
 
 ![Invart logo](../assets/brand/png-from-original/invart-logo-docs-header-1200x400.png)
 
@@ -13,50 +12,56 @@ Use Invart to discover agent runtime risk before execution, mediate behavior dur
 
 ### [Product Overview](product.md)
 
-What Invart is, who it helps, and how the three-stage control loop works.
+Understand what Invart is, why plugin-only control is not enough, and how the before / during / after runtime loop works.
 
 ### [Quickstart](quickstart.md)
 
-Install locally, create a managed session, record one action, export proof, and verify it.
-
-### [Examples](examples.md)
-
-Runnable examples for local sessions, policy profiles, risk demos, and containerized flows.
+Install locally, create one managed session, record one action, export proof, and continue into layer inspection.
 
 ### [Runtime Effect Demo](runtime-effect-demo.md)
 
-Read the demo matrix and action timeline that map before / during / after runtime to L1-L5.
+Open a generated demo matrix and action timeline when you want to see Invart's product story in one local artifact package.
 
-## Understand
+## Operate
 
-### [Core Concepts](concepts.md)
+### [Five-layer Operator Guide](five-layer-operator-guide.md)
 
-Ledger, proof, policy, mediation, path graph, coverage, approval, and evidence bundle.
-
-### [Architecture](architecture.md)
-
-Three stages, five layers, and how adapters, daemon state, policy, ledger, and proof fit together.
-
-### [Release History](release-history.md)
-
-A compact public summary of the implementation tracks behind the 0.9 pre-release.
-
-## Integrate
+Run the L1-L5 workflow for a ledger, inspect evidence, and decide whether the run was observed, mediated, enforced, fail-open, or unmanaged.
 
 ### [CLI Reference](cli-reference.md)
 
-The practical command groups users should automate first.
+Find the command group for a concrete task: scan, run, inspect layers, integrate an agent, export evidence, or evaluate.
+
+## Integrate
 
 ### [API & SDK](api-sdk.md)
 
-The stable CLI and artifact contracts, plus provisional Python helper entry points.
+Use stable CLI and artifact contracts first, then provisional Python helpers where direct imports are useful.
+
+### [Architecture](architecture.md)
+
+Map the five control layers to the Invart source layout and integration boundaries.
 
 ## Evaluate
 
 ### [Evaluation](evaluation.md)
 
-Built-in benchmarks, product-effectiveness metrics, and external validation boundaries.
+Connect product claims to benchmark suites, evidence artifacts, and external-validation boundaries.
+
+### [Examples](examples.md)
+
+Find small safe fixtures and runnable examples before using larger demos.
+
+## Reference
+
+### [Core Concepts](concepts.md)
+
+Glossary-style reference for ledger, proof, policy, mediation, path graph, coverage, approval, and evidence bundle.
+
+### [Release History](release-history.md)
+
+Compact public summary of the 0.9 pre-release capability tracks.
 
 ### [Open-source Boundary](open-source-boundary.md)
 
-What is intended for GitHub and what stays in local internal planning.
+What belongs in the public repository and what remains local-only planning material.

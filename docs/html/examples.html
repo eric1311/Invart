@@ -2,16 +2,21 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Examples</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">Examples</span><h1>Small examples before full demos.</h1><p>The <code>examples/</code> directory contains short runnable or copyable examples for local evaluation.</p></header>
+  <header class="hero"><span class="badge">Examples</span><h1>Examples and safe fixtures</h1><p>Small local inputs for learning Invart before running larger demos.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="quickstart.html">Quickstart</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="runtime-effect-demo.html">Runtime Demo</a></nav></header>
   <main class="wrap">
-    <section class="grid">
-      <div class="card"><h3>Basic managed session</h3><p><code>examples/basic-managed-session.sh</code> creates a ledger and proof for one low-risk command.</p></div>
-      <div class="card"><h3>Policy profile</h3><p><code>examples/policy-profile.toml</code> shows a small TOML profile with path-aware risk rules.</p></div>
-      <div class="card"><h3>Unsafe event</h3><p><code>examples/unsafe-action-event.json</code> is a shell event you can analyze without executing it.</p></div>
+    <section>
+      <p>This page is a compatibility index for small examples. For a guided first run, use Quickstart. For layer-by-layer operation, use the five-layer operator guide.</p>
+      <table>
+        <tr><th>Example</th><th>Use it for</th></tr>
+        <tr><td><a href="../../examples/basic-managed-session.sh">basic-managed-session.sh</a></td><td>Create one managed session, ledger, and proof for a low-risk command.</td></tr>
+        <tr><td><a href="../../examples/policy-profile.toml">policy-profile.toml</a></td><td>Inspect a compact policy-as-code profile with path-aware rules.</td></tr>
+        <tr><td><a href="../../examples/unsafe-action-event.json">unsafe-action-event.json</a></td><td>Analyze an unsafe shell event without executing it.</td></tr>
+      </table>
     </section>
     <section>
-      <h2>Analyze The Unsafe Event</h2>
+      <h2>Analyze the unsafe event</h2>
       <pre>invart runtime analyze-event --event "$(cat examples/unsafe-action-event.json)"</pre>
+      <p>This command analyzes a JSON event payload. It does not execute the unsafe command inside the fixture.</p>
     </section>
   </main>
 </body>

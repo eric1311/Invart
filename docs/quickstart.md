@@ -3,7 +3,7 @@
 [HTML version](html/quickstart.html)
 
 
-This path creates a ledger, records a runtime command, exports proof, and verifies the proof against the ledger.
+This path creates a ledger, records a runtime command, exports proof, verifies the proof against the ledger, and points you to the five-layer inspection workflow.
 
 ## Install
 
@@ -47,3 +47,20 @@ invart proof verify \
 ```
 
 The ledger is the fact source. The proof is a portable summary that can be shared with a gate, reviewer, or audit process.
+
+## Inspect L1-L5
+
+```bash
+invart runtime layers \
+  --ledger .invart/quickstart/ledger.jsonl \
+  --out-dir .invart/quickstart/layers
+
+invart evidence inspect \
+  --manifest .invart/quickstart/layers/evidence/manifest.json \
+  --out-dir .invart/quickstart/evidence-workspace \
+  --require-layer-workflow
+```
+
+Open `.invart/quickstart/layers/layer-runtime-workflow.html` to see before-runtime, during-runtime, and after-runtime across L1-L5. Open `.invart/quickstart/evidence-workspace/evidence-workspace.html` to verify whether the run can answer who, what, why, policy, approval, outcome, and coverage.
+
+For layer-by-layer interpretation rules, read the [five-layer operator guide](five-layer-operator-guide.md). For small copyable fixtures, see [Examples](examples.md).

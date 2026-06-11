@@ -5,7 +5,7 @@
 
 Invart 0.9 is CLI-first. The stable integration surface is the CLI plus verifiable artifacts. Python helpers are available for local tooling, but only a small set should be treated as provisional SDK entry points before 1.0.
 
-[Docs Home](index.md) · [Quickstart](quickstart.md) · [CLI](cli-reference.md) · [Architecture](architecture.md) · [Examples](examples.md)
+[Docs Home](index.md) · [Quickstart](quickstart.md) · [Operate L1-L5](five-layer-operator-guide.md) · [CLI](cli-reference.md) · [Architecture](architecture.md) · [Examples](examples.md)
 
 ## Public Surface
 
@@ -76,6 +76,8 @@ These helpers are suitable for local adapters, experiments, and internal automat
 | Evidence bundle | invart evidence export, RC gate, demos | invart evidence verify, enterprise audit review | Manifest plus hashes for proof, ledger-derived artifacts, profile, coverage, and audit material. |
 | Paper tables JSON/CSV/HTML | invart experiment paper-tables | Research reports, appendix tables, product validation review | Derived summaries. Each row should link back to ledger/proof/replay/path graph/evidence artifacts. |
 | Research readiness report | invart release-candidate verify --paper | Pre-release research review | Separate from product RC. It checks evidence completeness without claiming external benchmark completion. |
+
+For the operational meaning of proof, replay, path graph, coverage, audit, and evidence workspace, use the [five-layer operator guide](five-layer-operator-guide.md). It explains which artifact answers each L1-L5 review question.
 
 ## Compatibility Names
 

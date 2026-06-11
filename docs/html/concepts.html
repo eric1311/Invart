@@ -2,19 +2,22 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Concepts</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">Concepts</span><h1>The nouns that matter.</h1><p>Invart is easier to understand when you separate facts, decisions, mediation, and portable evidence.</p></header>
+  <header class="hero"><span class="badge">Reference</span><h1>Core concepts reference</h1><p>A glossary for readers who need precise names after seeing the product and operator flows.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="product.html">Product</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="architecture.html">Architecture</a><a href="api-sdk.html">API &amp; SDK</a></nav></header>
   <main class="wrap">
-    <table>
-      <tr><th>Concept</th><th>Meaning</th></tr>
-      <tr><td>Session</td><td>A bounded agent run with target, goal, agent identity, principal, and ledger.</td></tr>
-      <tr><td>Invocation</td><td>A normalized runtime action such as shell, file, network, MCP, skill, or content activity.</td></tr>
-      <tr><td>Ledger</td><td>The append-only fact source. Proof, replay, graph, audit, and gates derive from it.</td></tr>
-      <tr><td>Proof</td><td>A portable summary of the run. It should answer who, what, why, policy, approval, outcome, and coverage.</td></tr>
-      <tr><td>Mediation</td><td>The decision contract for allow, audit, require approval, deny, enforced block, and fail-open alert.</td></tr>
-      <tr><td>Coverage</td><td>The strength of observation or control: declared, observed, mediated, enforced, or fail-open.</td></tr>
-      <tr><td>Path graph</td><td>A ledger-derived graph connecting identity, grant, invocation, resource, taint, decision, approval, outcome, and artifact.</td></tr>
-      <tr><td>Evidence bundle</td><td>A verifiable package containing manifest hashes, proof, replay, graph, coverage, audit JSON/HTML, and policy summary.</td></tr>
-    </table>
+    <section>
+      <p>This page is a compatibility reference. If you are learning Invart for the first time, start with Product Overview, then use the five-layer operator guide for command-level usage.</p>
+      <table>
+        <tr><th>Concept</th><th>Meaning</th><th>Where to use it</th></tr>
+        <tr><td>Session</td><td>A bounded agent run with target, goal, agent identity, principal, and ledger.</td><td><a href="quickstart.html">Quickstart</a></td></tr>
+        <tr><td>Invocation</td><td>A normalized runtime action such as shell, file, network, MCP, skill, or content activity.</td><td><a href="five-layer-operator-guide.html">Five-layer operator guide</a></td></tr>
+        <tr><td>Ledger</td><td>The append-only fact source. Proof, replay, graph, audit, and gates derive from it.</td><td><a href="product.html">Product Overview</a></td></tr>
+        <tr><td>Proof</td><td>A portable summary that should answer who, what, why, policy, approval, outcome, and coverage.</td><td><a href="api-sdk.html">API &amp; SDK</a></td></tr>
+        <tr><td>Mediation</td><td>The decision contract for allow, audit, require approval, deny, enforced block, and fail-open alert.</td><td><a href="five-layer-operator-guide.html">Five-layer operator guide</a></td></tr>
+        <tr><td>Coverage</td><td>The strength of observation or control: declared, observed, mediated, enforced, or fail-open.</td><td><a href="evaluation.html">Evaluation</a></td></tr>
+        <tr><td>Path graph</td><td>A ledger-derived graph connecting identity, grant, invocation, resource, taint, decision, approval, outcome, and artifact.</td><td><a href="runtime-effect-demo.html">Runtime effect demo</a></td></tr>
+        <tr><td>Evidence bundle</td><td>A verifiable package containing manifest hashes, proof, replay, graph, coverage, audit JSON/HTML, and policy summary.</td><td><a href="api-sdk.html">API &amp; SDK</a></td></tr>
+      </table>
+    </section>
   </main>
 </body>
 </html>

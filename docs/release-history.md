@@ -5,6 +5,8 @@
 
 Invart has a long local implementation history. The public docs summarize capability areas instead of publishing every internal version-design page.
 
+This page is a reference, not the first-run learning path. Start with [Product Overview](product.md), [Quickstart](quickstart.md), or the [five-layer operator guide](five-layer-operator-guide.md).
+
 | Track | Capability Area |
 | --- | --- |
 | Foundation | Managed sessions, runtime event normalization, deterministic rules, ledger, proof, proof verification. |

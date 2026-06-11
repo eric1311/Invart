@@ -2,11 +2,17 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Architecture</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">Architecture</span><h1>Three lifecycle stages, five control layers.</h1><p>Invart is not a plugin-only wrapper. Plugin and hook integration can improve coverage, but the durable product boundary is the runtime control plane.</p></header>
+  <header class="hero"><span class="badge">Architecture</span><h1>Three lifecycle stages, five control layers.</h1><p>Invart is not a plugin-only wrapper. Plugin and hook integration can improve coverage, but the durable product boundary is the runtime control plane.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="runtime-effect-demo.html">Runtime Demo</a></nav></header>
   <main class="wrap">
     <section>
       <h2>Lifecycle</h2>
       <div class="flow"><span class="node">Pre-runtime discovery</span><span class="arrow">-></span><span class="node">Runtime mediation</span><span class="arrow">-></span><span class="node">Post-runtime assurance</span></div>
+      <table>
+        <tr><th>Stage</th><th>Architecture role</th></tr>
+        <tr><td>Before runtime</td><td>Inventory surfaces, bind identity, resolve profile and grants, and establish the claim boundary.</td></tr>
+        <tr><td>During runtime</td><td>Normalize actions into ledger facts, evaluate policy, mediate covered surfaces, and record outcomes.</td></tr>
+        <tr><td>After runtime</td><td>Derive proof, replay, path graph, coverage, audit, evidence bundles, and gates from the ledger.</td></tr>
+      </table>
     </section>
     <section>
       <h2>Layer Model</h2>
@@ -21,7 +27,7 @@
     </section>
     <section>
       <h2>Demo Verification</h2>
-      <p><a href="runtime-effect-demo.html">Runtime Effect Demo</a> is the concrete verification surface for this architecture. It renders a stage × layer matrix in the final demo entrypoint and an action timeline in each container risk case audit page.</p>
+      <p><a href="runtime-effect-demo.html">Runtime Effect Demo</a> is the concrete verification surface for this architecture. It renders a stage × layer matrix in the final demo entrypoint and an action timeline in each container risk case audit page. The <a href="five-layer-operator-guide.html">five-layer operator guide</a> is the command-level usage surface for the same layers.</p>
       <p>Coverage terms remain strict: <code>observed</code>, <code>mediated</code>, and <code>enforced</code> are not interchangeable. Unmanaged direct execution is shown as a coverage gap unless it enters a managed launcher, wrapper, hook, broker, or shim.</p>
     </section>
     <section>

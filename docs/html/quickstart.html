@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Quickstart</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">Quickstart</span><h1>Run one managed Invart session.</h1><p>This path creates a ledger, records a runtime command, exports proof, and verifies the proof against the ledger.</p></header>
+  <header class="hero"><span class="badge">Quickstart</span><h1>Run one managed Invart session.</h1><p>This path creates a ledger, records a runtime command, exports proof, verifies it, and points you to L1-L5 inspection.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="examples.html">Examples</a></nav></header>
   <main class="wrap">
     <section>
       <h2>Install</h2>
@@ -39,6 +39,19 @@ invart proof verify \
   --proof .invart/quickstart/proof.json \
   --ledger .invart/quickstart/ledger.jsonl</pre>
       <p>The ledger is the fact source. The proof is a portable summary that can be shared with a gate, reviewer, or audit process.</p>
+    </section>
+    <section>
+      <h2>Inspect L1-L5</h2>
+      <pre>invart runtime layers \
+  --ledger .invart/quickstart/ledger.jsonl \
+  --out-dir .invart/quickstart/layers
+
+invart evidence inspect \
+  --manifest .invart/quickstart/layers/evidence/manifest.json \
+  --out-dir .invart/quickstart/evidence-workspace \
+  --require-layer-workflow</pre>
+      <p>Open <code>.invart/quickstart/layers/layer-runtime-workflow.html</code> for the before-runtime, during-runtime, and after-runtime L1-L5 matrix. Open <code>.invart/quickstart/evidence-workspace/evidence-workspace.html</code> to verify who, what, why, policy, approval, outcome, and coverage.</p>
+      <p>For interpretation rules, read the <a href="five-layer-operator-guide.html">five-layer operator guide</a>.</p>
     </section>
   </main>
 </body>

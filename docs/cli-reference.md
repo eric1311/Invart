@@ -3,7 +3,20 @@
 [HTML version](html/cli-reference.html)
 
 
-Run invart --help for the complete parser. These are the entry points most people should start with.
+Run `invart --help` for the complete parser. These are the entry points most people should start with. For a guided L1-L5 workflow, use the [five-layer operator guide](five-layer-operator-guide.md).
+
+## User intent to command
+
+| I want to... | Start with |
+| --- | --- |
+| Scan before an agent runs | `invart pre-runtime --target . --save` |
+| Run one managed session | `invart run --target . --agent codex --goal "..." -- <command>` |
+| Inspect L1-L5 for a ledger | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` |
+| Explain a risky path | `invart policy check-path --ledger ledger.jsonl --out path-policy.json` |
+| Inspect mediation state | `invart mediation inspect --ledger ledger.jsonl` |
+| Export reviewable evidence | `invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence` |
+| Validate real-agent integration | `invart real-agent check --agent claude-code --out-dir .invart/real-agent` |
+| Run product benchmarks | `invart eval benchmark --suite full-product-readiness` |
 
 ### Pre-runtime
 

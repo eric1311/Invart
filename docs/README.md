@@ -16,6 +16,7 @@ Public pages:
 | --- | --- | --- |
 | Product overview | [`product.md`](product.md) | [`html/product.html`](html/product.html) |
 | Quickstart | [`quickstart.md`](quickstart.md) | [`html/quickstart.html`](html/quickstart.html) |
+| Five-layer operator guide | [`five-layer-operator-guide.md`](five-layer-operator-guide.md) | [`html/five-layer-operator-guide.html`](html/five-layer-operator-guide.html) |
 | Concepts | [`concepts.md`](concepts.md) | [`html/concepts.html`](html/concepts.html) |
 | CLI reference | [`cli-reference.md`](cli-reference.md) | [`html/cli-reference.html`](html/cli-reference.html) |
 | API and SDK | [`api-sdk.md`](api-sdk.md) | [`html/api-sdk.html`](html/api-sdk.html) |

@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart Evaluation</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">Evaluation</span><h1>Measure control-plane behavior, not just code paths.</h1><p>Invart separates local product checks from optional heavy external benchmark evidence.</p></header>
+  <header class="hero"><span class="badge">Evaluation</span><h1>Measure control-plane behavior, not just code paths.</h1><p>Invart separates local product checks from optional heavy external benchmark evidence.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="runtime-effect-demo.html">Runtime Demo</a><a href="cli-reference.html">CLI</a></nav></header>
   <main class="wrap">
     <section>
       <h2>Default Local Checks</h2>
@@ -20,6 +20,18 @@ PYTHONPATH=src python -m invart.cli roadmap status --require-full</pre>
         <tr><td>Proof completeness</td><td>The proof should answer who, what, why, policy, approval, outcome, and coverage.</td></tr>
         <tr><td>Coverage truthfulness</td><td>Observed, mediated, enforced, and fail-open are not the same claim.</td></tr>
         <tr><td>Audit reconstruction</td><td>A reviewer should reconstruct the run from durable evidence.</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>Product claim to benchmark</h2>
+      <table>
+        <tr><th>Product claim</th><th>Local check</th><th>Evidence to inspect</th></tr>
+        <tr><td>Closed before / during / after runtime loop.</td><td><code>invart eval benchmark --suite pre-v1-control-plane</code></td><td>ledger, proof, replay, path graph, coverage, audit report</td></tr>
+        <tr><td>High-risk agent-like actions are blocked, paused, or escalated.</td><td><code>invart eval benchmark --suite real-world-agent-risk-demo</code></td><td>risk demo HTML, case audit report, mediation decisions</td></tr>
+        <tr><td>Coverage labels remain truthful across observed, mediated, enforced, fail-open, and bypassed paths.</td><td><code>invart eval benchmark --suite v0.47-coverage-mediation-pilot</code></td><td>coverage matrix JSON/HTML</td></tr>
+        <tr><td>Auditors can reconstruct who, what, why, policy, approval, outcome, and coverage.</td><td><code>invart eval benchmark --suite v0.48-audit-reconstruction-study</code></td><td>audit reconstruction study and evidence bundle</td></tr>
+        <tr><td>Plugin-only or vendor-native visibility is not reported as full runtime mediation.</td><td><code>invart eval benchmark --suite v0.50-product-control-matrix</code></td><td>product control matrix</td></tr>
+        <tr><td>Pre-release evidence is separate from external benchmark completion.</td><td><code>invart eval benchmark --suite v0.51-pre-1.0-research-ready-gate</code></td><td>research-ready gate report</td></tr>
       </table>
     </section>
     <section>

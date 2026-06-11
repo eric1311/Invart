@@ -44,6 +44,7 @@ For a first pass, the most useful public-facing surfaces are:
 | --- | --- |
 | [`docs/product.md`](docs/product.md) | One-page product overview for the before / during / after control loop. |
 | [`docs/quickstart.md`](docs/quickstart.md) | Minimal local session that writes a ledger and verifies proof. |
+| [`docs/five-layer-operator-guide.md`](docs/five-layer-operator-guide.md) | Practical guide for operating L1-L5 on a real ledger. |
 | [`docs/runtime-effect-demo.md`](docs/runtime-effect-demo.md) | Shows the demo's before / during / after stages and L1-L5 control effects. |
 | [`docs/evaluation.md`](docs/evaluation.md) | Explains what the built-in benchmarks measure and what they do not claim. |
 | [`examples/`](examples/) | Small runnable examples before running the larger demos. |
@@ -148,6 +149,7 @@ Open the local docs:
 - [HTML docs home](docs/html/index.html)
 - [Product page](docs/product.md)
 - [Quickstart](docs/quickstart.md)
+- [Five-layer operator guide](docs/five-layer-operator-guide.md)
 - [Concepts](docs/concepts.md)
 - [CLI reference](docs/cli-reference.md)
 - [API and SDK](docs/api-sdk.md)

@@ -5,6 +5,8 @@
 
 Invart separates local product checks from optional heavy external benchmark evidence.
 
+[Operate L1-L5](five-layer-operator-guide.md) · [Runtime Effect Demo](runtime-effect-demo.md) · [CLI](cli-reference.md)
+
 ## Default Local Checks
 
 ```bash
@@ -23,6 +25,17 @@ PYTHONPATH=src python -m invart.cli roadmap status --require-full
 | Proof completeness | The proof should answer who, what, why, policy, approval, outcome, and coverage. |
 | Coverage truthfulness | Observed, mediated, enforced, and fail-open are not the same claim. |
 | Audit reconstruction | A reviewer should reconstruct the run from durable evidence. |
+
+## Product claim to benchmark
+
+| Product claim | Local check | Evidence to inspect |
+| --- | --- | --- |
+| Invart can preserve a closed before / during / after runtime loop. | `invart eval benchmark --suite pre-v1-control-plane` | ledger, proof, replay, path graph, coverage, audit report |
+| High-risk agent-like actions are blocked, paused, or escalated without silent pass-through. | `invart eval benchmark --suite real-world-agent-risk-demo` | risk demo HTML, case audit report, mediation decisions |
+| Coverage labels remain truthful across observed, mediated, enforced, fail-open, and bypassed paths. | `invart eval benchmark --suite v0.47-coverage-mediation-pilot` | coverage matrix JSON/HTML |
+| Auditors can reconstruct who, what, why, policy, approval, outcome, and coverage. | `invart eval benchmark --suite v0.48-audit-reconstruction-study` | audit reconstruction study and evidence bundle |
+| Plugin-only or vendor-native visibility is not reported as full runtime mediation. | `invart eval benchmark --suite v0.50-product-control-matrix` | product control matrix |
+| Pre-release evidence can be checked separately from external benchmark completion. | `invart eval benchmark --suite v0.51-pre-1.0-research-ready-gate` | research-ready gate report |
 
 ## Research-Ready Validation Loop
 

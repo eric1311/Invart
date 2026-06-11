@@ -2,9 +2,9 @@
 
 [HTML version](html/runtime-effect-demo.html)
 
-This page explains how to see Invart's three runtime stages and five control layers in the demo artifacts.
+This page explains how to read Invart's three runtime stages and five control layers in generated demo artifacts. For the command-by-command operating path, use the [five-layer operator guide](five-layer-operator-guide.md).
 
-The short version: run a demo, open the HTML entrypoint, then read the matrix first and the timeline second.
+The short version: run a demo, open the HTML entrypoint, then read the matrix first and the timeline second. The demo shows the effect; the operator guide shows how to run the same layer workflow on your own ledger.
 
 ## Run The Demo
 
@@ -19,7 +19,7 @@ For isolated per-risk-case runs:
 scripts/container-demo.sh all .invart/container-risk-demo
 ```
 
-For any existing Invart ledger:
+For any existing Invart ledger, the operator path starts here:
 
 ```bash
 PYTHONPATH=src python -m invart.cli runtime layers \
@@ -79,6 +79,8 @@ Open `.invart/evidence-workspace/evidence-workspace.html`. This report verifies 
 | L3 Decision Plane | `invart policy check-path --ledger ledger.jsonl --out path-policy.json` | Deterministic and path-aware reasons for allow, approval, or deny. |
 | L4 Mediation Plane | `invart mediation inspect --ledger ledger.jsonl` | Pause, block, fail-open, approval, and mediation outcome state. |
 | L5 Evidence Plane | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` then `invart evidence inspect --manifest .invart/layers/evidence/manifest.json --out-dir .invart/evidence-workspace --require-layer-workflow` | A reviewable stage x layer matrix plus a gateable L5 workspace for proof/replay/graph/coverage/audit links. |
+
+For interpretation rules, healthy signals, failure signals, and next actions for each row, read the [five-layer operator guide](five-layer-operator-guide.md).
 
 ## Boundaries
 

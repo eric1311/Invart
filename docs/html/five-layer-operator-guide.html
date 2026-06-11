@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invart Five-Layer Operator Guide</title>
+  <link rel="icon" href="../../assets/brand/png-from-original/invart-mark-from-original-64x64.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <span class="badge">Operate</span>
+    <h1>Operate the five runtime layers.</h1>
+    <p>Turn Invart's L1-L5 model into concrete commands, artifacts, interpretation rules, and failure signals for a single agent run.</p>
+    <nav class="nav">
+      <a href="index.html">Docs Home</a>
+      <a href="quickstart.html">Quickstart</a>
+      <a href="runtime-effect-demo.html">Runtime Demo</a>
+      <a href="cli-reference.html">CLI</a>
+      <a href="evaluation.html">Evaluation</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    <section>
+      <h2>Ten-minute path</h2>
+      <p>Start with one managed session, then derive the layer workflow and L5 evidence workspace.</p>
+      <pre>mkdir -p .invart/operator-guide
+
+invart pre-runtime --target . --save \
+  --preflight .invart/operator-guide/preflight.json
+
+invart session start \
+  --target . \
+  --agent demo-agent \
+  --goal "Inspect the repository without risky changes" \
+  --session-id invart_operator_guide \
+  --ledger .invart/operator-guide/ledger.jsonl \
+  --preflight .invart/operator-guide/preflight.json
+
+invart runtime shell \
+  --session invart_operator_guide \
+  --ledger .invart/operator-guide/ledger.jsonl \
+  -- python -c "from pathlib import Path; print(len(list(Path('.').iterdir())))"
+
+invart session close --ledger .invart/operator-guide/ledger.jsonl
+
+invart runtime layers \
+  --ledger .invart/operator-guide/ledger.jsonl \
+  --out-dir .invart/operator-guide/layers
+
+invart evidence inspect \
+  --manifest .invart/operator-guide/layers/evidence/manifest.json \
+  --out-dir .invart/operator-guide/evidence-workspace \
+  --require-layer-workflow</pre>
+    </section>
+
+    <section>
+      <h2>Which layer should I use?</h2>
+      <table>
+        <tr><th>User question</th><th>Layer</th><th>Command</th><th>Artifact</th></tr>
+        <tr><td>What can this agent touch before it runs?</td><td>L1 Execution Surface</td><td><code>invart pre-runtime --target . --save</code></td><td>preflight JSON, L1 workflow rows</td></tr>
+        <tr><td>What actually happened?</td><td>L2 Runtime Fact Model</td><td><code>invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers</code></td><td><code>ledger.jsonl</code>, <code>proof.json</code>, workflow HTML</td></tr>
+        <tr><td>Why was an action allowed, paused, denied, or blocked?</td><td>L3 Decision Plane</td><td><code>invart policy check-path --ledger ledger.jsonl --out path-policy.json</code></td><td><code>path-policy.json</code>, path graph</td></tr>
+        <tr><td>Did Invart only observe, mediate, or enforce?</td><td>L4 Mediation Plane</td><td><code>invart mediation inspect --ledger ledger.jsonl</code></td><td>mediation JSON, replay, coverage</td></tr>
+        <tr><td>Can a reviewer verify the run after the fact?</td><td>L5 Evidence Plane</td><td><code>invart evidence inspect --manifest .invart/layers/evidence/manifest.json --out-dir .invart/evidence-workspace --require-layer-workflow</code></td><td>evidence workspace, audit report</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Layer operation table</h2>
+      <table>
+        <tr><th>Layer</th><th>Healthy signal</th><th>Failure signal</th><th>Next action</th></tr>
+        <tr><td>L1 Execution Surface</td><td>Repo, skills, MCP, hooks, wrappers, launchers, and unmanaged surfaces are visible.</td><td>A surface is missing from inventory.</td><td>Route the agent through a managed launcher, wrapper, hook, or adapter.</td></tr>
+        <tr><td>L2 Runtime Fact Model</td><td>Session, invocation, resource, taint, decision, approval, outcome, and coverage facts exist.</td><td>The ledger has only session boundaries or incomplete action facts.</td><td>Record actions through managed runtime surfaces.</td></tr>
+        <tr><td>L3 Decision Plane</td><td>Policy and path graph explain allow, audit, approval, deny, or critical outcomes.</td><td>A high-risk path has no reason or only an LLM allow.</td><td>Tighten profile rules or add missing path predicates.</td></tr>
+        <tr><td>L4 Mediation Plane</td><td>allow, audit, require approval, deny, enforced block, and fail-open are visible without coverage inflation.</td><td>Proof claims enforcement while coverage only shows observed or fail-open.</td><td>Resolve approvals or strengthen the execution surface.</td></tr>
+        <tr><td>L5 Evidence Plane</td><td>Hashes verify and evidence answers who, what, why, policy, approval, outcome, and coverage.</td><td>Bundle tamper, missing layer workflow, or incomplete review questions.</td><td>Regenerate or attach artifacts, then fail the gate if still incomplete.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Runtime stage matrix</h2>
+      <table>
+        <tr><th>Layer</th><th>before-runtime</th><th>during-runtime</th><th>after-runtime</th></tr>
+        <tr><td>L1 Execution Surface</td><td>Inventory agent, skill, MCP, launcher, wrapper, hook, and unmanaged surfaces.</td><td>Attribute each action to a runtime surface.</td><td>Review coverage gaps and unmanaged execution paths.</td></tr>
+        <tr><td>L2 Runtime Fact Model</td><td>Bind session, principal, agent, credential boundary, and grants.</td><td>Record invocations, resources, taint, decisions, approvals, and outcomes.</td><td>Keep the ledger as the fact source.</td></tr>
+        <tr><td>L3 Decision Plane</td><td>Load deterministic policy and path-aware rules.</td><td>Explain allow, audit, approval, deny, and critical path decisions.</td><td>Reconstruct causal chains with policy and graph artifacts.</td></tr>
+        <tr><td>L4 Mediation Plane</td><td>Decide which surfaces are observed, mediated, enforced, fail-open, or unmanaged.</td><td>Apply mediation outcomes and approval state.</td><td>Report unresolved approvals and fail-open conditions truthfully.</td></tr>
+        <tr><td>L5 Evidence Plane</td><td>Record claim boundary and expected artifacts.</td><td>Generate replay, coverage, proof, and graph artifacts.</td><td>Export audit, evidence bundle, evidence workspace, and release gate inputs.</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Read the result</h2>
+      <p>Open <code>layer-runtime-workflow.html</code> for a single-run L1-L5 matrix. Open <code>evidence-workspace.html</code> when a reviewer needs a gateable L5 workspace.</p>
+      <p>Use <a href="runtime-effect-demo.html">Runtime effect demo</a> for risk-shaped demo artifacts, <a href="cli-reference.html">CLI reference</a> for every command group, and <a href="evaluation.html">Evaluation</a> to connect claims to benchmark evidence.</p>
+    </section>
+
+    <section>
+      <h2>Boundary</h2>
+      <p>Plugin-only or imported traces can provide useful evidence, but they are not equivalent to Invart mediation or enforcement. Local demos use safe equivalent trajectories and do not claim live external benchmark completion.</p>
+    </section>
+  </main>
+</body>
+</html>
