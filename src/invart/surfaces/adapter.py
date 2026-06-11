@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from invart.core.artifacts import sha256_file, write_html_artifact, write_json_artifact
+from invart.assurance.evidence_bundle import export_evidence_bundle
 from invart.assurance.coverage import export_coverage_html_report
 from invart.control.daemon import RuntimeAuthority
 from invart.control.gate import verify_gate
@@ -34,6 +35,7 @@ class AdapterRunResult:
     proof: str
     gate_report: str | None = None
     gate_status: str | None = None
+    package: str | None = None
     capability_registration: dict[str, Any] | None = None
     started_at: str | None = None
     ended_at: str | None = None
@@ -113,6 +115,7 @@ def run_adapter_command(
             authority.transition_session(registry.session_id, "stopped", reason="adapter command blocked")
             export_proof_report(ledger, proof)
             gate_status = None
+            package = _export_command_adapter_package(ledger, resolved_out_dir, policy_mode=policy_mode, agent=agent)
             if gate_report_path:
                 gate = verify_gate(ledger_path=ledger, proof_path=proof, mode=gate_mode, output_path=gate_report_path)
                 gate_status = str(gate.get("status"))
@@ -125,6 +128,7 @@ def run_adapter_command(
                 proof=str(proof),
                 gate_report=str(gate_report_path) if gate_report_path else None,
                 gate_status=gate_status,
+                package=package,
                 capability_registration=capability_registration,
                 started_at=started_at,
                 ended_at=utc_now(),
@@ -146,6 +150,7 @@ def run_adapter_command(
     if gate_report_path:
         gate = verify_gate(ledger_path=ledger, proof_path=proof, mode=gate_mode, output_path=gate_report_path)
         gate_status = str(gate.get("status"))
+    package = _export_command_adapter_package(ledger, resolved_out_dir, policy_mode=policy_mode, agent=agent)
     status = "blocked" if child_status in {"blocked", "requires_approval"} else "passed" if returncode == 0 and gate_status not in {"fail"} else "failed"
     return AdapterRunResult(
         session_id=registry.session_id,
@@ -156,6 +161,7 @@ def run_adapter_command(
         proof=str(proof),
         gate_report=str(gate_report_path) if gate_report_path else None,
         gate_status=gate_status,
+        package=package,
         capability_registration=capability_registration,
         started_at=started_at,
         ended_at=utc_now(),
@@ -374,6 +380,17 @@ def _write_adapter_package(package_path: Path, *, adapter: dict[str, Any], artif
     }
     write_json_artifact(package_path, manifest)
     return package_path
+
+
+def _export_command_adapter_package(ledger: Path, out_dir: Path | None, *, policy_mode: str, agent: str | None) -> str | None:
+    if out_dir is None:
+        return None
+    bundle = export_evidence_bundle(
+        ledger,
+        out_dir / "adapter-package",
+        profile={"name": "adapter-run", "mode": policy_mode, "agent": agent or "generic"},
+    )
+    return str(bundle["manifest_path"])
 
 
 __all__ = ["AdapterRunResult", "inspect_adapter_package", "run_adapter_command", "run_adapter_runtime"]

@@ -797,6 +797,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add priority agent tracks and product-specific adapter coverage claims for Codex, Gemini CLI, Cursor, OpenClaw, Hermes, OpenCode, and related agent products.",
     ),
+    RoadmapCapability(
+        version="v0.9.5",
+        capability_id="priority_agent_tracks",
+        title="Priority agent profile tracks",
+        target="Classify priority agent products into truthful adapter tracks with control position, adapter family, coverage grade, and product-matrix alignment.",
+        status="implemented",
+        implementation=["src/invart/surfaces/adapter_profiles.py", "src/invart/evaluation/product_control_matrix.py", "src/invart/commands/parser_integrations.py", "src/invart/commands/integrations.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v095_priority_agent_profiles_emit_tracks_and_control_positions", "test_v095_managed_local_tracks_produce_fixture_evidence", "test_v095_product_matrix_uses_profile_track_vocabulary", "test_v095_cli_and_benchmark_are_registered", "v0.9.5-priority-agent-tracks"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html"],
+        product_boundaries=["Local fixture-backed profile matrix validates Invart's track vocabulary and artifact expectations; it does not claim every live vendor product has full runtime mediation.", "Vendor evidence import, cloud import, and framework trace import tracks are explicitly not treated as Invart-mediated or enforced control positions.", "Managed wrapper and reference full adapter tracks require ledger/proof/evidence artifacts before they can satisfy product claims."],
+        claim_scope="local_agent_track_matrix",
+        evidence_level="fixture_backed_profile_matrix",
+        external_validation="not_run_optional",
+        next_step="Add L1-L5 runtime operation commands and evidence views so users can operate each layer explicitly.",
+    ),
 )
 
 

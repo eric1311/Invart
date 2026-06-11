@@ -19,7 +19,7 @@ from invart.evaluation.harness import (
     run_swe_bench_lite_check,
 )
 from invart.evaluation.real_agent_conformance import export_real_agent_report_html, run_real_agent_conformance
-from invart.surfaces.adapter_profiles import build_adapter_profile
+from invart.surfaces.adapter_profiles import adapter_track_matrix, build_adapter_profile
 from invart.surfaces.enforcement import check_enforcement, run_enforced_command, run_file_write_intercepted, rust_build_check, rust_shim_decision, rust_shim_spec
 from invart.surfaces.native import install_native_integration, inventory_native_integrations, native_capability_matrix, native_conformance_report, unmanaged_agent_inventory
 from invart.surfaces.launcher import install_managed_launcher, preview_managed_launcher, verify_managed_launcher
@@ -45,6 +45,10 @@ def handle_adapter(args: argparse.Namespace) -> int:
     if args.adapter_command == "profile":
         print(json.dumps(build_adapter_profile(args.kind), ensure_ascii=False, indent=2, sort_keys=True))
         return 0
+    if args.adapter_command == "profiles":
+        result = adapter_track_matrix(track=args.track)
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
     if args.adapter_command == "claude-code-check":
         result = check_claude_code_environment(binary=args.binary)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
