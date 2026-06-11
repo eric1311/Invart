@@ -30,6 +30,12 @@ scripts/container-demo.sh all .invart/container-risk-demo</pre>
   --ledger .invart/session.jsonl \
   --out-dir .invart/layer-workflow</pre>
       <p>Open <code>.invart/layer-workflow/layer-runtime-workflow.html</code>. The report is derived from the ledger and links proof, replay, path graph, coverage, audit, and evidence manifest artifacts.</p>
+      <p>To inspect the after-runtime evidence plane as a gate:</p>
+      <pre>PYTHONPATH=src python -m invart.cli evidence inspect \
+  --manifest .invart/layer-workflow/evidence/manifest.json \
+  --out-dir .invart/evidence-workspace \
+  --require-layer-workflow</pre>
+      <p>Open <code>.invart/evidence-workspace/evidence-workspace.html</code>. This report verifies bundle hashes and shows whether the run can answer who, what, why, policy, approval, outcome, and coverage.</p>
     </section>
     <section>
       <h2>Runtime Effect Matrix</h2>
@@ -39,7 +45,7 @@ scripts/container-demo.sh all .invart/container-risk-demo</pre>
         <tr><td>L2 Runtime Fact Model</td><td>Bind principal, agent identity, credentials, grants, and session.</td><td>Normalize invocations with resources, taint, coverage, decisions, and outcomes.</td><td>Use the ledger as the fact source.</td></tr>
         <tr><td>L3 Decision Plane</td><td>Load deterministic policy and path-aware risk rules.</td><td>Classify secret egress, unsafe deletion, external instruction, and suspicious skill paths.</td><td>Explain why an action was allowed, paused, denied, or blocked.</td></tr>
         <tr><td>L4 Mediation Plane</td><td>Route covered surfaces through managed launchers, wrappers, hooks, or brokers.</td><td>Apply allow, audit, require approval, deny, enforced block, or fail-open alert.</td><td>Show unresolved approvals and coverage gaps truthfully.</td></tr>
-        <tr><td>L5 Evidence Plane</td><td>Record the demo claim boundary and artifact map.</td><td>Generate replay, coverage, path graph, and policy artifacts.</td><td>Export proof, audit, evidence bundle, and RC gate report.</td></tr>
+        <tr><td>L5 Evidence Plane</td><td>Record the demo claim boundary and artifact map.</td><td>Generate replay, coverage, path graph, and policy artifacts.</td><td>Export proof, audit, evidence bundle, evidence workspace, and RC gate report.</td></tr>
       </table>
     </section>
     <section>
@@ -64,6 +70,7 @@ scripts/container-demo.sh all .invart/container-risk-demo</pre>
         <tr><td><code>coverage.html</code></td><td>L4/L5 truthfulness</td><td>Checking observed, mediated, enforced, and fail-open claims.</td></tr>
         <tr><td><code>audit-report.html</code></td><td>L5 reviewer report</td><td>Presenting the enterprise security review view.</td></tr>
         <tr><td><code>layer-runtime-workflow.html</code></td><td>L1-L5 operation workflow</td><td>Operating a single ledger through before/during/after runtime questions.</td></tr>
+        <tr><td><code>evidence-workspace.html</code></td><td>L5 gateable workspace</td><td>Checking bundle integrity, required links, and review-question completeness.</td></tr>
       </table>
     </section>
     <section>
@@ -74,7 +81,7 @@ scripts/container-demo.sh all .invart/container-risk-demo</pre>
         <tr><td>L2 Runtime Fact Model</td><td><code>invart runtime record-event --ledger ledger.jsonl --event '{...}'</code></td><td>Normalized invocation, resource, taint, identity, and outcome facts.</td></tr>
         <tr><td>L3 Decision Plane</td><td><code>invart policy check-path --ledger ledger.jsonl --out path-policy.json</code></td><td>Deterministic and path-aware reasons for allow, approval, or deny.</td></tr>
         <tr><td>L4 Mediation Plane</td><td><code>invart mediation inspect --ledger ledger.jsonl</code></td><td>Pause, block, fail-open, approval, and mediation outcome state.</td></tr>
-        <tr><td>L5 Evidence Plane</td><td><code>invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers</code></td><td>A reviewable stage x layer matrix with proof/replay/graph/coverage/audit links.</td></tr>
+        <tr><td>L5 Evidence Plane</td><td><code>invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers</code><br><code>invart evidence inspect --manifest .invart/layers/evidence/manifest.json --out-dir .invart/evidence-workspace --require-layer-workflow</code></td><td>A reviewable stage x layer matrix plus a gateable L5 workspace for proof/replay/graph/coverage/audit links.</td></tr>
       </table>
     </section>
     <section>

@@ -827,6 +827,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Harden L5 evidence workspace and release gate checks so missing or inconsistent artifacts fail clearly.",
     ),
+    RoadmapCapability(
+        version="v0.9.7",
+        capability_id="l5_evidence_workspace_gate",
+        title="L5 evidence workspace and gate hardening",
+        target="Inspect evidence bundles as review workspaces that answer who, what, why, policy, approval, outcome, and coverage while failing clearly on tamper, missing layer workflow, or missing adapter package requirements.",
+        status="implemented",
+        implementation=["src/invart/assurance/evidence_workspace.py", "src/invart/evaluation/release_candidate.py", "src/invart/commands/parser_product.py", "src/invart/commands/product.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v097_evidence_workspace_answers_l5_review_questions", "test_v097_evidence_workspace_fails_on_tamper_and_requires_layer_workflow", "test_v097_evidence_workspace_cli_rc_and_benchmark_are_registered", "v0.9.7-evidence-workspace-gate"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/runtime-effect-demo.md", "docs/html/runtime-effect-demo.html", "docs/release-history.md", "docs/html/release-history.html"],
+        product_boundaries=["Local ledger-derived runtime fixture validates evidence workspace checks and RC gate integration; it is not a hosted evidence review UI.", "The workspace verifies artifact hashes and required links but does not create runtime facts outside the ledger-derived bundle.", "Layer workflow and adapter package requirements are explicit gate inputs; weak or missing coverage is reported as a finding rather than silently upgraded."],
+        claim_scope="local_l5_evidence_workspace",
+        evidence_level="ledger_derived_runtime_fixture",
+        external_validation="not_run_optional",
+        next_step="Use the workspace gate as the pre-release evidence review surface while continuing live-agent conformance sampling.",
+    ),
 )
 
 

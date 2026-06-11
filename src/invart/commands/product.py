@@ -12,6 +12,7 @@ from invart.evaluation.roadmap import verify_roadmap_coverage
 from invart.assurance.audit_demo import record_audit_signoff, run_enterprise_audit_demo, run_enterprise_audit_live_adapter_demo
 from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
 from invart.assurance.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
+from invart.assurance.evidence_workspace import inspect_evidence_workspace
 from invart.evaluation.release_candidate import verify_release_candidate
 from invart.evaluation.experiment_cases import export_experiment_report, list_experiment_suites, run_experiment_suite, run_paper_suite
 from invart.evaluation.audit_reconstruction import run_audit_reconstruction_study
@@ -147,6 +148,16 @@ def handle_evidence(args: argparse.Namespace) -> int:
         result = verify_evidence_bundle(Path(args.bundle))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
+    if args.evidence_command == "inspect":
+        result = inspect_evidence_workspace(
+            Path(args.manifest),
+            out_dir=Path(args.out_dir) if args.out_dir else None,
+            require_questions=args.require_questions,
+            require_layer_workflow=args.require_layer_workflow,
+            require_adapter_package=args.require_adapter_package,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
     return 2
 
 
@@ -205,6 +216,9 @@ def handle_release_candidate(args: argparse.Namespace) -> int:
             final=args.final,
             require_external_validation=args.require_external_validation,
             external_evidence_manifest=Path(args.external_evidence) if args.external_evidence else None,
+            evidence_workspace_manifest=Path(args.evidence_workspace_manifest) if args.evidence_workspace_manifest else None,
+            require_evidence_layer_workflow=args.require_evidence_layer_workflow,
+            require_evidence_adapter_package=args.require_evidence_adapter_package,
         )
         if args.paper:
             research = verify_research_readiness(

@@ -43,6 +43,19 @@ invart replay export --ledger ledger.jsonl --out replay.html
 invart audit report --ledger ledger.jsonl --out-dir .invart/audit
 ```
 
+### Evidence workspace
+
+```bash
+invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence
+invart evidence verify --bundle .invart/evidence/manifest.json
+invart evidence inspect \
+  --manifest .invart/evidence/manifest.json \
+  --out-dir .invart/evidence-workspace \
+  --require-layer-workflow
+```
+
+`evidence inspect` treats the bundle as an L5 review workspace. It verifies artifact hashes, checks required bundle contents, and reports whether the run can answer who, what, why, policy, approval, outcome, and coverage. Optional requirements such as `--require-layer-workflow` and `--require-adapter-package` turn missing links into gate failures.
+
 ### Real agent conformance
 
 ```bash
@@ -78,5 +91,6 @@ invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
+invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart roadmap status --require-full
 ```

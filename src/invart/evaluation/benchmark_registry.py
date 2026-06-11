@@ -35,6 +35,7 @@ BENCHMARK_SUITES: tuple[dict[str, Any], ...] = (
     {"suite": "v0.9.4-claude-reference-adapter", "version": "v0.9.4", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_claude_reference_adapter", "evidence_level": "local_runtime_fixture"},
     {"suite": "v0.9.5-priority-agent-tracks", "version": "v0.9.5", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_agent_track_matrix", "evidence_level": "fixture_backed_profile_matrix"},
     {"suite": "v0.9.6-layer-runtime-workflow", "version": "v0.9.6", "category": "runtime", "optional_heavy": False, "claim_scope": "local_layer_runtime_workflow", "evidence_level": "ledger_derived_runtime_fixture"},
+    {"suite": "v0.9.7-evidence-workspace-gate", "version": "v0.9.7", "category": "evidence", "optional_heavy": False, "claim_scope": "local_l5_evidence_workspace", "evidence_level": "ledger_derived_runtime_fixture"},
     {"suite": "progressive-external-validation", "version": "pre-release", "category": "external-validation", "optional_heavy": False, "claim_scope": "progressive_external_validation", "evidence_level": "external_progressive_sample"},
     {"suite": "real-world-agent-risk-demo", "version": "pre-release", "category": "demo", "optional_heavy": False, "claim_scope": "public_source_mapping", "evidence_level": "public_source_seed_plus_local_demo"},
     {"suite": "containerized-risk-demo", "version": "pre-release", "category": "demo", "optional_heavy": False, "claim_scope": "containerized_local_demo", "evidence_level": "per_case_container_artifact_bundle"},

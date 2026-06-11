@@ -758,6 +758,86 @@ def test_v096_runtime_layers_cli_and_benchmark_are_registered(tmp_path: Path) ->
     assert main(["eval", "benchmark", "--suite", "v0.9.6-layer-runtime-workflow"]) == 0
 
 
+def test_v097_evidence_workspace_answers_l5_review_questions(tmp_path: Path) -> None:
+    from invart.assurance.evidence_bundle import export_evidence_bundle
+    from invart.assurance.evidence_workspace import inspect_evidence_workspace
+
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="claude-code", goal="v0.9.7 evidence workspace", create_preflight=False)
+    action, decision, _taint = record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(tmp_path / ".env"), metadata={"coverage_layer": "native_hook"}), ledger)
+    record_approval(ledger, decision.decision_id, "approved", approver="security-reviewer", reason="fixture approval for L5 workspace")
+    record_outcome(ledger, "executed", decision_id=decision.decision_id, invocation_id=action.invocation_id, actor="claude-code-adapter", reason="fixture completed")
+    record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://example.com/upload", metadata={"coverage_layer": "native_hook"}), ledger)
+    close_session(ledger)
+
+    bundle = export_evidence_bundle(ledger, tmp_path / "bundle", profile={"name": "workspace", "mode": "managed"})
+    workspace = inspect_evidence_workspace(Path(bundle["manifest_path"]), out_dir=tmp_path / "workspace", require_questions=True)
+
+    assert workspace["schema_version"] == "invart.evidence_workspace.v0.9.7"
+    assert workspace["status"] == "pass"
+    assert workspace["artifact_completeness"]["status"] == "pass"
+    assert workspace["ledger_is_fact_source"] is True
+    assert workspace["proof_is_portable_summary"] is True
+    assert set(workspace["answers"]) == {"who", "what", "why", "policy", "approval", "outcome", "coverage"}
+    assert all(answer["answered"] is True for answer in workspace["answers"].values())
+    assert Path(workspace["artifacts"]["workspace_json"]).exists()
+    html = Path(workspace["artifacts"]["workspace_html"]).read_text(encoding="utf-8")
+    assert "L5 Evidence Workspace" in html
+    assert "who" in html
+    assert "coverage" in html
+
+
+def test_v097_evidence_workspace_fails_on_tamper_and_requires_layer_workflow(tmp_path: Path) -> None:
+    from invart.assurance.evidence_bundle import export_evidence_bundle
+    from invart.assurance.evidence_workspace import inspect_evidence_workspace
+    from invart.assurance.layer_runtime import export_layer_runtime_workflow
+
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="codex", goal="v0.9.7 evidence tamper", create_preflight=False)
+    record_action(RuntimeEvent(type="shell", session_id=session.session_id, command="cat .env", metadata={"coverage_layer": "shell_wrapper"}), ledger)
+    close_session(ledger)
+
+    bundle = export_evidence_bundle(ledger, tmp_path / "bundle", profile={"name": "workspace", "mode": "managed"})
+    missing_layer = inspect_evidence_workspace(Path(bundle["manifest_path"]), out_dir=tmp_path / "missing-layer", require_layer_workflow=True)
+    assert missing_layer["status"] == "fail"
+    assert any(finding["check_id"] == "workspace.layer_workflow_missing" for finding in missing_layer["findings"])
+
+    proof_path = Path(bundle["artifacts"]["proof"])
+    proof_path.write_text(proof_path.read_text(encoding="utf-8") + "\n{\"tampered\": true}\n", encoding="utf-8")
+    tampered = inspect_evidence_workspace(Path(bundle["manifest_path"]), out_dir=tmp_path / "tampered")
+    assert tampered["status"] == "fail"
+    assert any(finding["check_id"] == "artifact.hash_mismatch" for finding in tampered["findings"])
+
+    workflow = export_layer_runtime_workflow(ledger, tmp_path / "layers")
+    layered = inspect_evidence_workspace(Path(workflow["artifacts"]["evidence_manifest"]), out_dir=tmp_path / "layered", require_layer_workflow=True)
+    assert layered["status"] == "pass"
+    assert layered["layer_workflow"]["present"] is True
+
+
+def test_v097_evidence_workspace_cli_rc_and_benchmark_are_registered(tmp_path: Path) -> None:
+    from invart.assurance.layer_runtime import export_layer_runtime_workflow
+    from invart.evaluation.release_candidate import verify_release_candidate
+
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="claude-code", goal="v0.9.7 cli rc", create_preflight=False)
+    record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(tmp_path / "README.md"), metadata={"coverage_layer": "native_hook"}), ledger)
+    close_session(ledger)
+    workflow = export_layer_runtime_workflow(ledger, tmp_path / "layers")
+    manifest = workflow["artifacts"]["evidence_manifest"]
+
+    assert main(["evidence", "inspect", "--manifest", manifest, "--out-dir", str(tmp_path / "cli-workspace"), "--require-questions", "--require-layer-workflow"]) == 0
+    rc = verify_release_candidate(
+        tmp_path / "rc",
+        run_pytest=False,
+        benchmark_suites=["v0.9.7-evidence-workspace-gate"],
+        evidence_workspace_manifest=Path(manifest),
+        require_evidence_layer_workflow=True,
+    )
+    assert rc["status"] == "pass"
+    assert rc["checks"]["evidence_workspace"]["status"] == "pass"
+    assert main(["eval", "benchmark", "--suite", "v0.9.7-evidence-workspace-gate"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([
