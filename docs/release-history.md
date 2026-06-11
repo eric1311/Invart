@@ -41,6 +41,7 @@ This page is a reference, not the first-run learning path. Start with [Product O
 | v0.9.9 | Implemented | Live adapter conformance contract v2: each real-agent row now records evidence level, control position, side-effect timing, required artifacts, claimable coverage, and a claim gate that rejects vendor/import/discovery evidence inflated into Invart-mediated or enforced coverage. |
 | v0.9.10 | Implemented | OpenCode real adapter track: binary-backed managed wrapper run, plugin/MCP config inventory, L5 artifact export, benign autonomy preservation, and managed risk blocking before side effects without treating plugin-only inventory as mediation. |
 | v0.9.11 | Implemented | Terminal-agent managed wrappers for Gemini CLI and Aider: binary-backed wrapper runs, Gemini MCP/config inventory, Aider config/repo-context inventory, artifact parity, and low approval-noise checks for benign workflows. |
+| v0.9.12 | Implemented | Codex deep adapter boundary: Codex managed-wrapper runs remain Invart-mediated, while Codex-native sandbox, approval, network, and credential-boundary facts are imported as vendor-owned evidence and rejected if inflated into Invart enforcement. |
 
 ## Internal History
 
