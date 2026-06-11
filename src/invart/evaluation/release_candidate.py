@@ -62,6 +62,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.14-gateway-server-evidence",
     "v0.9.15-enterprise-registration-authority",
     "v0.9.16-public-control-plane-slice",
+    "v0.9.17-benign-coding-friction",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

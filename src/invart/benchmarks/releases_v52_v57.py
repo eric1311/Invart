@@ -24,6 +24,7 @@ from invart.surfaces.native_bridge import bridge_conformance_matrix, normalize_n
 from invart.governance.registration import export_agent_registry, unmanaged_registration_gaps, verify_registered_launch
 from invart.surfaces.launcher import install_managed_launcher
 from invart.evaluation.public_benchmark_slice import run_public_control_plane_slice
+from invart.evaluation.benign_friction import run_benign_coding_friction_study
 
 
 def run_agent_adapter_contract_benchmark() -> dict[str, object]:
@@ -653,8 +654,25 @@ def run_public_control_plane_slice_benchmark() -> dict[str, object]:
         }
 
 
+def run_benign_coding_friction_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0917_") as tmp:
+        result = run_benign_coding_friction_study(Path(tmp) / "friction")
+        return {
+            "suite": "v0.9.17-benign-coding-friction",
+            "passed": result.get("status") == "pass",
+            "summary": {
+                "total": len(result.get("cases", [])),
+                "passed": len(result.get("cases", [])) if result.get("status") == "pass" else 0,
+                "failed": 0 if result.get("status") == "pass" else 1,
+            },
+            "metrics": result.get("metrics", {}),
+            "result": result,
+        }
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
+    "run_benign_coding_friction_benchmark",
     "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
     "run_conformance_contract_v2_benchmark",

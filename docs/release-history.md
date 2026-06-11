@@ -46,6 +46,7 @@ This page is a reference, not the first-run learning path. Start with [Product O
 | v0.9.14 | Implemented | Gateway/server-agent evidence track for OpenClaw and Hermes: backend/container/security logs preserve source hash, timestamp, limitation, and vendor-owned coverage, while local managed launcher runs can still emit Invart ledger/proof artifacts for controlled boundaries. |
 | v0.9.15 | Implemented | Enterprise registration authority: enrolled agent/profile/launcher facts are exported with stable hashes, launch requests can be denied for unregistered agents, declared-agent mismatches, or missing managed launchers, and unmanaged native surfaces become explicit coverage gaps. |
 | v0.9.16 | Implemented | Public control-plane benchmark slice: safe-equivalent attack and benign agent workflows produce ledger/proof/replay/path graph/coverage/audit/evidence artifacts and report block rate, approval rate, benign false-positive proxy, proof completeness, coverage distribution, and reconstruction success. |
+| v0.9.17 | Implemented | Benign coding friction study: paired local baseline versus Invart-managed benign workflows preserve exit code, artifact names, and grading result while reporting approval noise, auto-approval rate, and per-case ledger/proof/evidence completeness. |
 
 ## Internal History
 

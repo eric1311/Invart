@@ -1433,6 +1433,35 @@ def test_v0916_public_benchmark_slice_cli_and_roadmap() -> None:
     assert statuses["public_control_plane_benchmark_slice"] == "implemented"
 
 
+def test_v0917_benign_coding_friction_study_preserves_harness_results(tmp_path: Path) -> None:
+    from invart.evaluation.benign_friction import run_benign_coding_friction_study
+
+    result = run_benign_coding_friction_study(tmp_path / "friction")
+    assert result["schema_version"] == "invart.benign_coding_friction.v0.9.17"
+    assert result["status"] == "pass"
+    assert result["metrics"]["exit_code_parity"] == 1
+    assert result["metrics"]["artifact_parity"] == 1
+    assert result["metrics"]["grading_result_parity"] == 1
+    assert result["metrics"]["approval_noise"] == 0
+    assert result["metrics"]["evidence_completeness"] == 1
+    assert result["metrics"]["benign_auto_approval_rate"] == 1
+    assert result["claim_boundary"].startswith("This local study")
+    for case in result["cases"]:
+        assert case["compatibility"]["status"] == "pass"
+        assert case["managed"]["status"] == "passed"
+        assert Path(case["artifacts"]["baseline_artifact"]).exists()
+        assert Path(case["artifacts"]["managed_artifact"]).exists()
+        assert Path(case["artifacts"]["ledger"]).exists()
+        assert Path(case["artifacts"]["proof"]).exists()
+        assert Path(case["artifacts"]["evidence_manifest"]).exists()
+
+
+def test_v0917_benign_coding_friction_cli_and_roadmap() -> None:
+    assert main(["eval", "benchmark", "--suite", "v0.9.17-benign-coding-friction"]) == 0
+    statuses = {item["capability_id"]: item["status"] for item in roadmap_capabilities()}
+    assert statuses["benign_coding_friction_study"] == "implemented"
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

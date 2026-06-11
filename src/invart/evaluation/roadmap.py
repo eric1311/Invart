@@ -977,6 +977,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add paired baseline versus Invart-managed benign coding friction study with artifact and grading parity checks.",
     ),
+    RoadmapCapability(
+        version="v0.9.17",
+        capability_id="benign_coding_friction_study",
+        title="Benign coding friction study",
+        target="Compare pinned benign coding workflows under direct baseline and Invart-managed execution, preserving exit code, artifacts, grading result, and low approval noise.",
+        status="implemented",
+        implementation=["src/invart/evaluation/benign_friction.py", "src/invart/surfaces/adapter.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0917_benign_coding_friction_study_preserves_harness_results", "test_v0917_benign_coding_friction_cli_and_roadmap", "v0.9.17-benign-coding-friction"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Paired local baseline versus Invart-managed benign workflows validate compatibility and approval noise.", "This is not a full SWE-Bench Lite score; external heavy harness runs remain optional validation.", "Evidence completeness is checked through ledger/proof/evidence manifest artifacts for each managed run."],
+        claim_scope="benign_coding_friction",
+        evidence_level="paired_local_baseline_vs_managed_artifacts",
+        external_validation="not_run_optional",
+        next_step="Use the v0.9.15-v0.9.17 evidence chain to prepare final pre-release qualification and optional broader public benchmark runs.",
+    ),
 )
 
 

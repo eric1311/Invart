@@ -57,6 +57,7 @@ from .releases_v46_v51 import (
 )
 from .releases_v52_v57 import (
     run_agent_adapter_contract_benchmark,
+    run_benign_coding_friction_benchmark,
     run_claude_full_live_adapter_benchmark,
     run_claude_reference_adapter_benchmark,
     run_codex_boundary_benchmark,
@@ -139,6 +140,7 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.9.14-gateway-server-evidence": run_gateway_server_evidence_benchmark,
         "v0.9.15-enterprise-registration-authority": run_enterprise_registration_authority_benchmark,
         "v0.9.16-public-control-plane-slice": run_public_control_plane_slice_benchmark,
+        "v0.9.17-benign-coding-friction": run_benign_coding_friction_benchmark,
         "progressive-external-validation": run_progressive_external_validation_benchmark,
         "real-world-agent-risk-demo": run_real_world_risk_benchmark,
         "containerized-risk-demo": run_container_risk_demo_benchmark,
