@@ -640,6 +640,124 @@ def test_v094_claude_adapter_cli_and_benchmark_are_registered(tmp_path: Path) ->
     assert main(["eval", "benchmark", "--suite", "v0.9.4-claude-reference-adapter"]) == 0
 
 
+def test_v095_priority_agent_profiles_emit_tracks_and_control_positions() -> None:
+    from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
+
+    profiles = list_adapter_profiles()
+    by_agent = {profile["agent_id"]: profile for profile in profiles}
+    expected_tracks = {
+        "claude-code": ("reference_full_adapter", "invart_mediated"),
+        "codex": ("managed_wrapper", "invart_mediated"),
+        "gemini-cli": ("managed_wrapper", "invart_mediated"),
+        "cursor": ("native_bridge", "bridge_mediated_when_configured"),
+        "opencode": ("native_bridge", "bridge_mediated_when_configured"),
+        "openclaw": ("vendor_evidence_import", "vendor_owned_import"),
+        "hermes": ("vendor_evidence_import", "vendor_owned_import"),
+        "github-copilot-cloud-agent": ("cloud_evidence_import", "vendor_owned_import"),
+    }
+    for agent_id, (track, control_position) in expected_tracks.items():
+        profile = by_agent[agent_id]
+        assert profile["integration_track"] == track
+        assert profile["control_position"] == control_position
+        assert profile["adapter_family"]
+        assert profile["track_status"] in {"implemented", "fixture_validated", "planned_import"}
+
+    validation = validate_adapter_profile_truthfulness(profiles)
+    assert validation["status"] == "pass"
+    assert validation["checks"]["track_fields_present"] is True
+    assert validation["checks"]["vendor_import_track_not_mediated"] is True
+
+    matrix = adapter_track_matrix()
+    assert matrix["schema_version"] == "invart.adapter_track_matrix.v0.9.5"
+    assert matrix["status"] == "pass"
+    assert matrix["summary"]["tracks"]["reference_full_adapter"] >= 1
+
+
+def test_v095_managed_local_tracks_produce_fixture_evidence(tmp_path: Path) -> None:
+    from invart.assurance.evidence_bundle import verify_evidence_bundle
+
+    claude = run_claude_code_adapter(
+        target=tmp_path,
+        command=[sys.executable, "-c", "pass"],
+        out_dir=tmp_path / "claude",
+        session_id="ks_v095_claude",
+        policy_mode="advisory",
+    )
+    assert claude["status"] == "passed"
+    assert verify_evidence_bundle(Path(claude["adapter_package"]["manifest_path"]))["status"] == "pass"
+
+    codex = run_adapter_command(
+        target=tmp_path,
+        command=[sys.executable, "-c", "print('codex track')"],
+        agent="codex",
+        goal="v0.9.5 track fixture",
+        session_id="ks_v095_codex",
+        out_dir=tmp_path / "codex",
+        capabilities="audit",
+        gate_mode="audit",
+        create_preflight=False,
+    )
+    assert codex.status == "passed"
+    assert Path(codex.ledger).exists()
+    assert Path(codex.proof).exists()
+    assert codex.package is not None and Path(codex.package).exists()
+
+
+def test_v095_product_matrix_uses_profile_track_vocabulary(tmp_path: Path) -> None:
+    from invart.evaluation.product_control_matrix import run_product_control_matrix
+
+    matrix = run_product_control_matrix(out_dir=tmp_path / "matrix")
+    rows = [row for row in matrix["rows"] if row.get("source_kind") == "invart_adapter_profile"]
+    by_agent = {row["agent_id"]: row for row in rows}
+    assert by_agent["claude-code"]["integration_track"] == "reference_full_adapter"
+    assert by_agent["claude-code"]["coverage_grade"] == "mediated"
+    assert by_agent["github-copilot-cloud-agent"]["coverage_grade"] == "vendor_owned"
+    assert by_agent["github-copilot-cloud-agent"]["supports_mediation"] is False
+    assert matrix["checks"]["profile_rows_match_track_vocabulary"] is True
+
+
+def test_v095_cli_and_benchmark_are_registered() -> None:
+    assert main(["adapter", "profiles"]) == 0
+    assert main(["adapter", "profiles", "--track", "managed_wrapper"]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.5-priority-agent-tracks"]) == 0
+
+
+def test_v096_layer_runtime_workflow_exports_stage_layer_artifacts(tmp_path: Path) -> None:
+    from invart.assurance.layer_runtime import export_layer_runtime_workflow
+
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="claude-code", goal="v0.9.6 layer workflow", create_preflight=False)
+    record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(tmp_path / ".env"), metadata={"coverage_layer": "native_hook"}), ledger)
+    record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://example.com/upload", metadata={"coverage_layer": "native_hook"}), ledger)
+    close_session(ledger)
+
+    report = export_layer_runtime_workflow(ledger, tmp_path / "layers")
+    assert report["schema_version"] == "invart.layer_runtime_workflow.v0.9.6"
+    assert report["status"] == "pass"
+    assert {item["stage"] for item in report["runtime_effect_matrix"]} == {"before-runtime", "during-runtime", "after-runtime"}
+    assert {item["layer"] for item in report["runtime_effect_matrix"]} == {"L1", "L2", "L3", "L4", "L5"}
+    assert {item["layer"] for item in report["layer_timeline"]} == {"L1", "L2", "L3", "L4", "L5"}
+    for artifact in ("proof", "replay", "path_graph_json", "path_graph_html", "coverage", "audit_html", "evidence_manifest", "workflow_json", "workflow_html"):
+        assert Path(report["artifacts"][artifact]).exists()
+    html = Path(report["artifacts"]["workflow_html"]).read_text(encoding="utf-8")
+    assert "L1 Execution Surface" in html
+    assert "before-runtime" in html
+    assert "Observed, mediated, and enforced are not interchangeable" in html
+
+
+def test_v096_runtime_layers_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="codex", goal="v0.9.6 cli", create_preflight=False)
+    record_action(RuntimeEvent(type="shell", session_id=session.session_id, command="echo ok", metadata={"coverage_layer": "shell_wrapper"}), ledger)
+    close_session(ledger)
+    out_dir = tmp_path / "cli-layers"
+
+    assert main(["runtime", "layers", "--ledger", str(ledger), "--out-dir", str(out_dir)]) == 0
+    assert (out_dir / "layer-runtime-workflow.json").exists()
+    assert (out_dir / "layer-runtime-workflow.html").exists()
+    assert main(["eval", "benchmark", "--suite", "v0.9.6-layer-runtime-workflow"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

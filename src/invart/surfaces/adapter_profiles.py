@@ -26,9 +26,18 @@ class AgentAdapterProfile:
     supports_mediation: bool = False
     can_block: bool = False
     can_pause_resume: bool = False
+    integration_track: str | None = None
+    track_status: str | None = None
+    adapter_family: str | None = None
+    control_position: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        derived = _derive_track(payload)
+        for key, value in derived.items():
+            if not payload.get(key):
+                payload[key] = value
+        return payload
 
 
 _PROFILES: tuple[AgentAdapterProfile, ...] = (
@@ -335,6 +344,51 @@ def adapter_profile_registry() -> dict[str, Any]:
     }
 
 
+def adapter_track_matrix(track: str | None = None) -> dict[str, Any]:
+    profiles = list_adapter_profiles()
+    if track:
+        profiles = [profile for profile in profiles if profile.get("integration_track") == track]
+    rows = [
+        {
+            "agent_id": profile["agent_id"],
+            "display_name": profile["display_name"],
+            "priority": profile["priority"],
+            "integration_track": profile["integration_track"],
+            "track_status": profile["track_status"],
+            "adapter_family": profile["adapter_family"],
+            "control_position": profile["control_position"],
+            "coverage_grade": profile["coverage_grade"],
+            "supports_mediation": profile["supports_mediation"],
+            "can_block": profile["can_block"],
+            "can_pause_resume": profile["can_pause_resume"],
+            "required_artifacts": profile["required_artifacts"],
+            "claim_boundary": profile["claim_boundary"],
+        }
+        for profile in profiles
+    ]
+    validation = validate_adapter_profile_truthfulness(profiles)
+    checks = {
+        "profiles_validate": validation.get("status") == "pass",
+        "vendor_import_not_mediated": all(row["control_position"] == "vendor_owned_import" and not row["supports_mediation"] for row in rows if row["integration_track"] in {"vendor_evidence_import", "cloud_evidence_import", "framework_trace_import"}),
+        "managed_tracks_have_blocking_path": all(row["supports_mediation"] and row["can_block"] for row in rows if row["integration_track"] in {"reference_full_adapter", "managed_wrapper"}),
+        "tracks_have_claim_boundaries": all(bool(row["claim_boundary"]) for row in rows),
+    }
+    return {
+        "schema_version": "invart.adapter_track_matrix.v0.9.5",
+        "status": "pass" if all(checks.values()) else "fail",
+        "track_filter": track,
+        "rows": rows,
+        "checks": checks,
+        "validation": validation,
+        "summary": {
+            "profiles": len(rows),
+            "tracks": _count_by(rows, "integration_track"),
+            "adapter_families": _count_by(rows, "adapter_family"),
+            "control_positions": _count_by(rows, "control_position"),
+        },
+    }
+
+
 def validate_adapter_profile_truthfulness(profiles: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     profiles = profiles or list_adapter_profiles()
     required_fields = {
@@ -349,6 +403,10 @@ def validate_adapter_profile_truthfulness(profiles: list[dict[str, Any]] | None 
         "required_artifacts",
         "source_urls",
         "last_reviewed",
+        "integration_track",
+        "track_status",
+        "adapter_family",
+        "control_position",
     }
     valid_grades = {
         "full_managed_adapter",
@@ -357,9 +415,26 @@ def validate_adapter_profile_truthfulness(profiles: list[dict[str, Any]] | None 
         "vendor_evidence_import",
         "discovery_only",
     }
+    valid_tracks = {
+        "reference_full_adapter",
+        "managed_wrapper",
+        "native_bridge",
+        "vendor_evidence_import",
+        "cloud_evidence_import",
+        "framework_trace_import",
+        "discovery_only",
+    }
+    valid_control_positions = {
+        "invart_mediated",
+        "bridge_mediated_when_configured",
+        "vendor_owned_import",
+        "discovery_only",
+    }
     checks = {
         "required_fields_present": all(required_fields.issubset(profile) and all(profile.get(field) for field in required_fields) for profile in profiles),
         "coverage_grades_known": all(profile.get("coverage_grade") in valid_grades for profile in profiles),
+        "track_fields_present": all(all(profile.get(field) for field in ("integration_track", "track_status", "adapter_family", "control_position")) for profile in profiles),
+        "tracks_known": all(profile.get("integration_track") in valid_tracks and profile.get("control_position") in valid_control_positions for profile in profiles),
         "source_urls_https": all(str(url).startswith("https://") for profile in profiles for url in profile.get("source_urls", [])),
         "claim_boundaries_present": all(bool(profile.get("claim_boundary")) for profile in profiles),
         "full_managed_requires_artifacts": all(
@@ -379,6 +454,21 @@ def validate_adapter_profile_truthfulness(profiles: list[dict[str, Any]] | None 
             profile.get("supports_mediation") is False and profile.get("can_block") is False
             for profile in profiles
             if profile.get("coverage_grade") == "discovery_only"
+        ),
+        "vendor_import_track_not_mediated": all(
+            profile.get("supports_mediation") is False
+            and profile.get("can_block") is False
+            and profile.get("control_position") == "vendor_owned_import"
+            for profile in profiles
+            if profile.get("integration_track") in {"vendor_evidence_import", "cloud_evidence_import", "framework_trace_import"}
+        ),
+        "managed_track_has_artifact_boundary": all(
+            {"ledger", "proof"}.issubset(set(profile.get("required_artifacts", [])))
+            and profile.get("supports_mediation") is True
+            and profile.get("can_block") is True
+            and profile.get("control_position") == "invart_mediated"
+            for profile in profiles
+            if profile.get("integration_track") in {"reference_full_adapter", "managed_wrapper"}
         ),
     }
     findings = [
@@ -426,10 +516,65 @@ def _count_by(items: list[dict[str, Any]], field_name: str) -> dict[str, int]:
     return counts
 
 
+def _derive_track(profile: dict[str, Any]) -> dict[str, str]:
+    agent_id = str(profile.get("agent_id", ""))
+    coverage_grade = str(profile.get("coverage_grade", ""))
+    execution_modes = set(profile.get("execution_modes", []))
+    if agent_id == "claude-code":
+        return {
+            "integration_track": "reference_full_adapter",
+            "track_status": "implemented",
+            "adapter_family": "product_cli",
+            "control_position": "invart_mediated",
+        }
+    if agent_id == "github-copilot-cloud-agent":
+        return {
+            "integration_track": "cloud_evidence_import",
+            "track_status": "planned_import",
+            "adapter_family": "cloud_agent",
+            "control_position": "vendor_owned_import",
+        }
+    if coverage_grade == "managed_wrapper_adapter":
+        return {
+            "integration_track": "managed_wrapper",
+            "track_status": "fixture_validated",
+            "adapter_family": "product_cli",
+            "control_position": "invart_mediated",
+        }
+    if coverage_grade == "native_event_bridge":
+        return {
+            "integration_track": "native_bridge",
+            "track_status": "fixture_validated" if profile.get("supports_mediation") else "planned_import",
+            "adapter_family": "ide_agent" if "ide_extension" in execution_modes or "ide_extension" in set(profile.get("native_surfaces", [])) else "product_cli",
+            "control_position": "bridge_mediated_when_configured",
+        }
+    if coverage_grade == "vendor_evidence_import" and ("framework_trace_import" in execution_modes or agent_id in {"openai-agents-sdk", "langgraph", "crewai"}):
+        return {
+            "integration_track": "framework_trace_import",
+            "track_status": "planned_import",
+            "adapter_family": "framework",
+            "control_position": "vendor_owned_import",
+        }
+    if coverage_grade == "vendor_evidence_import":
+        return {
+            "integration_track": "vendor_evidence_import",
+            "track_status": "planned_import",
+            "adapter_family": "product_cli",
+            "control_position": "vendor_owned_import",
+        }
+    return {
+        "integration_track": "discovery_only",
+        "track_status": "planned_import",
+        "adapter_family": "unknown",
+        "control_position": "discovery_only",
+    }
+
+
 __all__ = [
     "AgentAdapterProfile",
     "adapter_profile_ids",
     "adapter_profile_registry",
+    "adapter_track_matrix",
     "build_adapter_profile",
     "get_adapter_profile",
     "list_adapter_profiles",

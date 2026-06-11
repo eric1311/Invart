@@ -23,7 +23,10 @@ invart run --target . --agent codex --goal "..." -- <command>
 ```bash
 invart runtime analyze-event --event '{"type":"shell","command":"rm -rf ."}'
 invart runtime shell --session demo --ledger .invart/demo.jsonl -- <command>
+invart runtime layers --ledger .invart/demo.jsonl --out-dir .invart/layers
 ```
+
+`runtime layers` exports a L1-L5 operation workflow for an existing ledger. It writes JSON and HTML that link proof, replay, path graph, coverage, audit, and evidence manifest artifacts.
 
 ### Proof and gate
 
@@ -44,11 +47,14 @@ invart audit report --ledger ledger.jsonl --out-dir .invart/audit
 
 ```bash
 invart adapter profile --kind claude-code
+invart adapter profiles
+invart adapter profiles --track managed_wrapper
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
 ```
 
 Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
+The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation.
 
 ### Claude Code reference adapter
 
@@ -70,5 +76,7 @@ invart eval list
 invart eval benchmark --suite full-product-readiness
 invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart eval benchmark --suite v0.9.4-claude-reference-adapter
+invart eval benchmark --suite v0.9.5-priority-agent-tracks
+invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart roadmap status --require-full
 ```

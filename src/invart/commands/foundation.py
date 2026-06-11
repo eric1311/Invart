@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from invart.assurance.postruntime import export_proof_report, summarize_session, verify_proof_report
+from invart.assurance.layer_runtime import export_layer_runtime_workflow
 from invart.control.runtime import (
     analyze_event_payload,
     close_session,
@@ -191,6 +192,10 @@ def handle_runtime(args: argparse.Namespace) -> int:
         )
         print(json.dumps({"outcome": outcome.to_dict()}, ensure_ascii=False, indent=2, sort_keys=True))
         return 0
+    if args.runtime_command == "layers":
+        report = export_layer_runtime_workflow(Path(args.ledger), Path(args.out_dir))
+        print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if report.get("status") == "pass" else 1
     return 2
 
 def handle_approval(args: argparse.Namespace) -> int:

@@ -99,6 +99,9 @@ def register_foundation_commands(subparsers: argparse._SubParsersAction[argparse
     outcome.add_argument("--status", choices=("executed", "blocked", "skipped", "overridden", "failed"), required=True)
     outcome.add_argument("--actor", default=None)
     outcome.add_argument("--reason", default=None)
+    layers = runtime_sub.add_parser("layers", help="Export the L1-L5 runtime operation workflow for a ledger.")
+    layers.add_argument("--ledger", required=True)
+    layers.add_argument("--out-dir", required=True)
 
     approval = subparsers.add_parser("approval", help="List and resolve approval inbox items.")
     approval.set_defaults(handler=handle_approval)
@@ -177,4 +180,3 @@ def register_foundation_commands(subparsers: argparse._SubParsersAction[argparse
     post = subparsers.add_parser("post-runtime", help="Summarize a JSONL runtime audit log.")
     post.set_defaults(handler=handle_post_runtime)
     post.add_argument("--events", default=".invart/session.jsonl", help="JSONL event log path.")
-

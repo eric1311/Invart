@@ -32,6 +32,8 @@ def register_integration_commands(subparsers: argparse._SubParsersAction[argpars
     adapter_package.add_argument("--out-dir", required=True)
     adapter_profile = adapter_sub.add_parser("profile", help="Inspect a hardened adapter profile.")
     adapter_profile.add_argument("--kind", choices=adapter_profile_ids(), default="claude-code")
+    adapter_profiles = adapter_sub.add_parser("profiles", help="List priority agent adapter tracks.")
+    adapter_profiles.add_argument("--track", default=None)
     adapter_claude_check = adapter_sub.add_parser("claude-code-check", help="Check a real Claude Code binary environment when available.")
     adapter_claude_check.add_argument("--binary", default="claude")
     adapter_claude = adapter_sub.add_parser("claude-code", help="Run a command through the Claude Code wrapper/hook bridge.")

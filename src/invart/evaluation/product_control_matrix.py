@@ -7,6 +7,7 @@ from typing import Any
 
 from invart.core.artifacts import stable_json_hash, write_html_artifact, write_json_artifact
 from invart.core.models import utc_now
+from invart.surfaces.adapter_profiles import list_adapter_profiles
 
 
 SCHEMA_VERSION = "invart.product_control_matrix.v0.50"
@@ -15,7 +16,7 @@ SCHEMA_VERSION = "invart.product_control_matrix.v0.50"
 def run_product_control_matrix(*, out_dir: Path | None = None) -> dict[str, Any]:
     root = (out_dir or Path(tempfile.mkdtemp(prefix="invart_product_control_matrix_"))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
-    rows = _product_rows()
+    rows = _product_rows() + _profile_rows()
     baselines = _baseline_rows()
     checks = {
         "products_covered": len({row["product"] for row in rows}) >= 4,
@@ -29,6 +30,7 @@ def run_product_control_matrix(*, out_dir: Path | None = None) -> dict[str, Any]
             for row in baselines
         ),
         "required_fields_present": all(_required_fields_present(row) for row in rows),
+        "profile_rows_match_track_vocabulary": _profile_rows_match_track_vocabulary(rows),
     }
     matrix_json = root / "product-control-matrix.json"
     matrix_html = root / "product-control-matrix.html"
@@ -137,6 +139,56 @@ def _product_rows() -> list[dict[str, Any]]:
             "reference_meaning": "Good design probe for comparing no-prompt, allowlist, review, and human approval modes.",
         },
     ]
+
+
+def _profile_rows() -> list[dict[str, Any]]:
+    rows = []
+    for profile in list_adapter_profiles():
+        coverage_grade = _profile_coverage_grade(profile)
+        rows.append(
+            {
+                "product": str(profile["display_name"]),
+                "agent_id": str(profile["agent_id"]),
+                "surface": ", ".join(profile.get("native_surfaces", [])),
+                "source": f"invart_profile:{profile['agent_id']}",
+                "source_kind": "invart_adapter_profile",
+                "source_urls": list(profile.get("source_urls", [])),
+                "native_control": ", ".join(profile.get("execution_modes", [])),
+                "invart_layer": str(profile.get("integration_track")),
+                "integration_track": str(profile.get("integration_track")),
+                "track_status": str(profile.get("track_status")),
+                "adapter_family": str(profile.get("adapter_family")),
+                "control_position": str(profile.get("control_position")),
+                "coverage_grade": coverage_grade,
+                "supports_mediation": bool(profile.get("supports_mediation")),
+                "limitation": str(profile.get("claim_boundary")),
+                "reference_meaning": "Profile-derived track row used to keep product comparison aligned with adapter coverage claims.",
+            }
+        )
+    return rows
+
+
+def _profile_rows_match_track_vocabulary(rows: list[dict[str, Any]]) -> bool:
+    valid_coverage = {"mediated", "vendor_owned", "observed"}
+    for row in rows:
+        if row.get("source_kind") != "invart_adapter_profile":
+            continue
+        if row.get("coverage_grade") not in valid_coverage:
+            return False
+        if row.get("control_position") == "vendor_owned_import" and (row.get("supports_mediation") or row.get("coverage_grade") != "vendor_owned"):
+            return False
+        if row.get("control_position") == "invart_mediated" and row.get("coverage_grade") != "mediated":
+            return False
+    return True
+
+
+def _profile_coverage_grade(profile: dict[str, Any]) -> str:
+    control_position = str(profile.get("control_position", ""))
+    if control_position == "vendor_owned_import":
+        return "vendor_owned"
+    if control_position in {"invart_mediated", "bridge_mediated_when_configured"}:
+        return "mediated"
+    return "observed"
 
 
 def _baseline_rows() -> list[dict[str, Any]]:
