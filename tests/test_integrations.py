@@ -1192,6 +1192,64 @@ def test_v0911_terminal_agent_cli_and_benchmark_are_registered(tmp_path: Path) -
     assert main(["eval", "benchmark", "--suite", "v0.9.11-terminal-agent-managed-wrappers"]) == 0
 
 
+def test_v0912_codex_vendor_native_facts_do_not_count_as_invart_enforcement(tmp_path: Path) -> None:
+    from invart.surfaces.vendor_evidence import import_vendor_native_evidence, validate_vendor_claim_boundary
+
+    source = tmp_path / "codex-native.json"
+    source.write_text(
+        json.dumps({
+            "sandbox": "workspace-write",
+            "approval": "on-request",
+            "network_policy": "restricted",
+            "credential_boundary": "redacted-env",
+        }),
+        encoding="utf-8",
+    )
+    report = import_vendor_native_evidence(agent="codex", source_path=source, out_dir=tmp_path / "codex-vendor")
+    assert report["schema_version"] == "invart.vendor_native_evidence.v0.9.12"
+    assert report["status"] == "pass"
+    assert report["coverage"]["control_position"] == "vendor_owned_import"
+    assert report["coverage"]["invart_enforced"] is False
+    assert {control["name"] for control in report["controls"]} == {"sandbox", "approval", "network_policy", "credential_boundary"}
+    assert validate_vendor_claim_boundary(report)["status"] == "pass"
+    inflated = {**report, "coverage": {**report["coverage"], "invart_enforced": True}}
+    failed = validate_vendor_claim_boundary(inflated)
+    assert failed["status"] == "fail"
+    assert any(item["check_id"] == "vendor.enforcement_inflation" for item in failed["findings"])
+
+
+def test_v0912_codex_managed_wrapper_remains_invart_mediated(tmp_path: Path) -> None:
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    fake = tmp_path / "fake-codex"
+    marker = tmp_path / "codex-ran.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    result = run_live_agent_adapter(
+        agent="codex",
+        target=tmp_path,
+        out_dir=tmp_path / "codex-live",
+        command=[str(fake), "--write-marker", str(marker)],
+        binary=str(fake),
+        require_live=True,
+        policy_mode="advisory",
+    )
+    assert result["status"] == "passed"
+    assert marker.exists()
+    assert result["live_evidence"]["control_position"] == "managed_wrapper"
+    entries, _warnings = load_ledger_entries(Path(result["managed_run"]["ledger"]))
+    assert any(entry.entry_type == "action" and entry.decision and entry.decision.get("effect") == "allow" for entry in entries)
+    assert main(["eval", "benchmark", "--suite", "v0.9.12-codex-boundary"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

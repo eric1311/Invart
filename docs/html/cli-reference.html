@@ -44,6 +44,7 @@ invart real-agent run --agent claude-code --require-live --out-dir .invart/live-
 invart real-agent run --agent opencode --require-live --out-dir .invart/live-opencode -- &lt;opencode-or-fixture-command&gt;
 invart real-agent run --agent gemini-cli --require-live --out-dir .invart/live-gemini -- &lt;gemini-or-fixture-command&gt;
 invart real-agent run --agent aider --require-live --out-dir .invart/live-aider -- &lt;aider-or-fixture-command&gt;
+invart real-agent run --agent codex --require-live --out-dir .invart/live-codex -- &lt;codex-or-fixture-command&gt;
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html</pre><p>Use <code>--require-live</code> when missing local binaries should fail instead of being recorded as blocked evidence. <code>adapter profiles</code> lists priority tracks and keeps vendor/cloud import separate from Invart-mediated control. <code>real-agent check</code> emits a conformance contract row so imported, discovered, fixture-backed, and live evidence cannot be mixed into stronger claims.</p></div>
       <div class="card"><h3>Claude Code reference adapter</h3><pre>invart adapter claude-code \
   --target . \
@@ -64,6 +65,7 @@ invart eval benchmark --suite v0.9.8-claude-full-live-adapter
 invart eval benchmark --suite v0.9.9-conformance-contract-v2
 invart eval benchmark --suite v0.9.10-opencode-real-adapter
 invart eval benchmark --suite v0.9.11-terminal-agent-managed-wrappers
+invart eval benchmark --suite v0.9.12-codex-boundary
 invart roadmap status --require-full</pre></div>
     </section>
   </main>

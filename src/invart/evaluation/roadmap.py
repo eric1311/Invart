@@ -902,6 +902,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Integrate Codex while keeping Codex-native sandbox and approval facts separate from Invart-owned enforcement.",
     ),
+    RoadmapCapability(
+        version="v0.9.12",
+        capability_id="codex_deep_adapter_boundary",
+        title="Codex deep adapter and native-control boundary",
+        target="Integrate Codex managed-wrapper evidence while importing Codex-native sandbox, approval, network, and credential-boundary facts as vendor-owned evidence rather than Invart enforcement.",
+        status="implemented",
+        implementation=["src/invart/surfaces/live_adapter.py", "src/invart/surfaces/vendor_evidence.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0912_codex_vendor_native_facts_do_not_count_as_invart_enforcement", "test_v0912_codex_managed_wrapper_remains_invart_mediated", "v0.9.12-codex-boundary"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Local fixture-backed Codex validation checks the boundary contract; installed Codex strict-live validation remains optional.", "Codex-native sandbox, approval, network, and credential facts are vendor-owned evidence unless the action enters Invart mediation.", "Invart wrapper runs remain Invart-mediated and ledger-backed.", "Gate checks reject reports that upgrade vendor-native facts into Invart enforcement."],
+        claim_scope="codex_vendor_boundary",
+        evidence_level="vendor_native_import_plus_managed_wrapper_fixture",
+        external_validation="not_run_optional",
+        next_step="Add IDE extension bridge and inventory tracks for Cursor, Cline, and Roo without overclaiming discovery-only evidence.",
+    ),
 )
 
 

@@ -18,6 +18,7 @@ from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.claude_adapter import run_claude_code_adapter
 from invart.surfaces.live_adapter import run_live_agent_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
+from invart.surfaces.vendor_evidence import import_vendor_native_evidence, validate_vendor_claim_boundary
 
 
 def run_agent_adapter_contract_benchmark() -> dict[str, object]:
@@ -466,11 +467,60 @@ def run_terminal_agent_managed_wrappers_benchmark() -> dict[str, object]:
         )
 
 
+def run_codex_boundary_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0912_") as tmp:
+        root = Path(tmp)
+        source = root / "codex-native.json"
+        source.write_text('{"sandbox":"workspace-write","approval":"on-request","network_policy":"restricted","credential_boundary":"redacted-env"}\n', encoding="utf-8")
+        vendor = import_vendor_native_evidence(agent="codex", source_path=source, out_dir=root / "vendor")
+        inflated = {**vendor, "coverage": {**vendor["coverage"], "invart_enforced": True}}
+        inflated_check = validate_vendor_claim_boundary(inflated)
+        fake = root / "fake-codex"
+        marker = root / "codex-marker.txt"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        run = run_live_agent_adapter(
+            agent="codex",
+            target=root,
+            out_dir=root / "codex",
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        entries, _warnings = load_ledger_entries(Path(run["managed_run"]["ledger"]))
+        checks = {
+            "vendor_native_imported": vendor.get("status") == "pass" and vendor.get("coverage", {}).get("control_position") == "vendor_owned_import",
+            "vendor_not_invart_enforced": vendor.get("coverage", {}).get("invart_enforced") is False,
+            "inflated_vendor_claim_fails": inflated_check.get("status") == "fail",
+            "wrapper_run_is_invart_mediated": any(entry.entry_type == "action" and entry.decision for entry in entries),
+            "wrapper_run_keeps_autonomy": run.get("status") == "passed" and marker.exists(),
+            "boundary_text_present": "must not be counted" in vendor.get("claim_boundary", ""),
+        }
+        return _suite_result(
+            "v0.9.12-codex-boundary",
+            checks,
+            artifacts={
+                "vendor_evidence": vendor.get("artifacts", {}).get("report_json"),
+                "managed_run": run.get("artifacts", {}).get("report_json"),
+            },
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
     "run_conformance_contract_v2_benchmark",
+    "run_codex_boundary_benchmark",
     "run_evidence_workspace_gate_benchmark",
     "run_opencode_real_adapter_benchmark",
     "run_terminal_agent_managed_wrappers_benchmark",
