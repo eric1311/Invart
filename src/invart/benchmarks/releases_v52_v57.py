@@ -18,7 +18,7 @@ from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.claude_adapter import run_claude_code_adapter
 from invart.surfaces.live_adapter import run_live_agent_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
-from invart.surfaces.vendor_evidence import import_vendor_native_evidence, validate_vendor_claim_boundary
+from invart.surfaces.vendor_evidence import import_gateway_server_evidence, import_vendor_native_evidence, validate_vendor_claim_boundary
 from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inventory
 from invart.surfaces.native_bridge import bridge_conformance_matrix, normalize_native_event
 
@@ -546,6 +546,51 @@ def run_ide_bridge_inventory_benchmark() -> dict[str, object]:
         )
 
 
+def run_gateway_server_evidence_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0914_") as tmp:
+        root = Path(tmp)
+        hermes_source = root / "hermes-backend.json"
+        hermes_source.write_text('{"timestamp":"2026-06-11T00:00:00Z","backend":"container","security_posture":{"credential_filter":"enabled"},"runtime_boundary":"vendor_owned"}\n', encoding="utf-8")
+        hermes = import_gateway_server_evidence(agent="hermes", source_path=hermes_source, out_dir=root / "hermes")
+        fake = root / "fake-openclaw"
+        marker = root / "openclaw-marker.txt"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        managed = run_live_agent_adapter(
+            agent="openclaw",
+            target=root,
+            out_dir=root / "openclaw",
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        checks = {
+            "gateway_source_hash_recorded": bool(hermes.get("source", {}).get("sha256")),
+            "gateway_source_timestamp_recorded": hermes.get("source", {}).get("source_timestamp") == "2026-06-11T00:00:00Z",
+            "gateway_vendor_owned_not_mediated": hermes.get("coverage", {}).get("invart_mediated") is False and hermes.get("coverage", {}).get("coverage_grade") == "vendor_owned",
+            "gateway_limitation_present": bool(hermes.get("limitation")),
+            "managed_launcher_boundary_can_emit_ledger": managed.get("status") == "passed" and marker.exists() and bool(managed.get("managed_run", {}).get("ledger")),
+            "claim_boundary_truthful": "cannot be counted as Invart-mediated" in hermes.get("claim_boundary", ""),
+        }
+        return _suite_result(
+            "v0.9.14-gateway-server-evidence",
+            checks,
+            artifacts={
+                "gateway_evidence": hermes.get("artifacts", {}).get("report_json"),
+                "managed_run": managed.get("artifacts", {}).get("report_json"),
+            },
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
@@ -553,6 +598,7 @@ __all__ = [
     "run_conformance_contract_v2_benchmark",
     "run_codex_boundary_benchmark",
     "run_evidence_workspace_gate_benchmark",
+    "run_gateway_server_evidence_benchmark",
     "run_ide_bridge_inventory_benchmark",
     "run_opencode_real_adapter_benchmark",
     "run_terminal_agent_managed_wrappers_benchmark",

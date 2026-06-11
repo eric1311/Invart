@@ -59,6 +59,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.11-terminal-agent-managed-wrappers",
     "v0.9.12-codex-boundary",
     "v0.9.13-ide-bridge-inventory",
+    "v0.9.14-gateway-server-evidence",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

@@ -932,6 +932,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add gateway and server-agent evidence imports for OpenClaw and Hermes while preserving vendor-owned boundaries.",
     ),
+    RoadmapCapability(
+        version="v0.9.14",
+        capability_id="gateway_server_agent_evidence",
+        title="Gateway and server-agent evidence track",
+        target="Represent OpenClaw and Hermes gateway/server-agent evidence as auditable vendor-owned facts, while allowing managed launcher runs when a local boundary exists.",
+        status="implemented",
+        implementation=["src/invart/surfaces/vendor_evidence.py", "src/invart/surfaces/live_adapter.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0914_gateway_server_evidence_import_preserves_boundaries", "test_v0914_gateway_managed_launcher_when_local_boundary_exists", "v0.9.14-gateway-server-evidence"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Local gateway/server fixtures validate evidence import; installed OpenClaw or Hermes validation remains optional.", "Vendor backend, container, and security logs are audit evidence, not Invart mediation.", "A local managed launcher can emit Invart ledger/proof artifacts only for the launch boundary it controls."],
+        claim_scope="gateway_server_evidence",
+        evidence_level="local_vendor_gateway_fixture_plus_managed_launcher",
+        external_validation="not_run_optional",
+        next_step="Add enterprise registration authority for enrolled agents, launchers, adapter evidence, and unmanaged gaps.",
+    ),
 )
 
 

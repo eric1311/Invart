@@ -1286,6 +1286,61 @@ def test_v0913_ide_bridge_event_preserves_source_and_cli(tmp_path: Path) -> None
     assert main(["eval", "benchmark", "--suite", "v0.9.13-ide-bridge-inventory"]) == 0
 
 
+def test_v0914_gateway_server_evidence_import_preserves_boundaries(tmp_path: Path) -> None:
+    from invart.surfaces.vendor_evidence import import_gateway_server_evidence, validate_vendor_claim_boundary
+
+    source = tmp_path / "hermes-backend.json"
+    source.write_text(
+        json.dumps({
+            "timestamp": "2026-06-11T00:00:00Z",
+            "backend": "container",
+            "security_posture": {"terminal_safety": "approval", "credential_filter": "enabled"},
+            "runtime_boundary": "vendor_owned",
+        }),
+        encoding="utf-8",
+    )
+    report = import_gateway_server_evidence(agent="hermes", source_path=source, out_dir=tmp_path / "hermes-evidence")
+    assert report["schema_version"] == "invart.gateway_server_evidence.v0.9.14"
+    assert report["status"] == "pass"
+    assert report["source"]["sha256"]
+    assert report["source"]["source_timestamp"] == "2026-06-11T00:00:00Z"
+    assert report["coverage"]["coverage_grade"] == "vendor_owned"
+    assert report["coverage"]["invart_mediated"] is False
+    assert "cannot be counted as Invart-mediated" in report["claim_boundary"]
+    assert validate_vendor_claim_boundary(report)["status"] == "pass"
+
+
+def test_v0914_gateway_managed_launcher_when_local_boundary_exists(tmp_path: Path) -> None:
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    fake = tmp_path / "fake-openclaw"
+    marker = tmp_path / "openclaw-ran.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    run = run_live_agent_adapter(
+        agent="openclaw",
+        target=tmp_path,
+        out_dir=tmp_path / "openclaw-managed",
+        command=[str(fake), "--write-marker", str(marker)],
+        binary=str(fake),
+        require_live=True,
+        policy_mode="advisory",
+    )
+    assert run["status"] == "passed"
+    assert marker.exists()
+    assert Path(run["managed_run"]["ledger"]).exists()
+    assert Path(run["managed_run"]["proof"]).exists()
+    assert main(["eval", "benchmark", "--suite", "v0.9.14-gateway-server-evidence"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

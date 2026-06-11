@@ -61,6 +61,41 @@ def validate_vendor_claim_boundary(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def import_gateway_server_evidence(
+    *,
+    agent: str,
+    source_path: Path,
+    out_dir: Path,
+    source_timestamp: str | None = None,
+    limitation: str | None = None,
+) -> dict[str, Any]:
+    report = import_vendor_native_evidence(
+        agent=agent,
+        source_path=source_path,
+        out_dir=out_dir,
+        evidence_kind="gateway_server",
+    )
+    payload = _load_source(source_path.expanduser().resolve())
+    gateway = {
+        "schema_version": "invart.gateway_server_evidence.v0.9.14",
+        "status": report["status"],
+        "agent": agent,
+        "source": {
+            **report["source"],
+            "source_timestamp": source_timestamp or payload.get("timestamp") or payload.get("created_at") or report["source"]["loaded_at"],
+        },
+        "backend": payload.get("backend") or payload.get("container_backend") or "unknown",
+        "security_posture": payload.get("security_posture") or payload.get("security") or {},
+        "runtime_boundary": payload.get("runtime_boundary") or "vendor_owned",
+        "coverage": report["coverage"],
+        "limitation": limitation or "Gateway/server evidence is imported after or outside Invart-owned mediation unless a local launcher or backend bridge routes events through Invart before side effects.",
+        "claim_boundary": "Gateway and server-agent logs can support audit reconstruction, but they are vendor-owned evidence and cannot be counted as Invart-mediated or Invart-enforced coverage without a managed launch, proxy, or bridge boundary.",
+        "artifacts": {"report_json": str(out_dir.expanduser().resolve() / "gateway-server-evidence.json")},
+    }
+    write_json_artifact(Path(gateway["artifacts"]["report_json"]), gateway)
+    return gateway
+
+
 def _controls_for_agent(agent: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
     if agent == "codex":
         return [
@@ -90,4 +125,4 @@ def _finding(check_id: str, message: str) -> dict[str, Any]:
     return {"check_id": check_id, "severity": "high", "message": message}
 
 
-__all__ = ["import_vendor_native_evidence", "validate_vendor_claim_boundary"]
+__all__ = ["import_gateway_server_evidence", "import_vendor_native_evidence", "validate_vendor_claim_boundary"]
