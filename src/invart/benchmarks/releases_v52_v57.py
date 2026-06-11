@@ -5,11 +5,13 @@ import sys
 from pathlib import Path
 
 from .common import _suite_result
-from invart.assurance.evidence_bundle import verify_evidence_bundle
+from invart.assurance.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
+from invart.assurance.evidence_workspace import inspect_evidence_workspace
 from invart.assurance.layer_runtime import export_layer_runtime_workflow
 from invart.core.ledger import load_ledger_entries
 from invart.core.models import RuntimeEvent
 from invart.control.runtime import close_session, record_action, start_session
+from invart.evaluation.release_candidate import verify_release_candidate
 from invart.evaluation.product_control_matrix import run_product_control_matrix
 from invart.evaluation.real_agent_conformance import run_real_agent_conformance
 from invart.surfaces.adapter import run_adapter_command
@@ -198,9 +200,71 @@ def run_layer_runtime_workflow_benchmark() -> dict[str, object]:
         )
 
 
+def run_evidence_workspace_gate_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v097_") as tmp:
+        root = Path(tmp)
+        ledger = root / "ledger.jsonl"
+        session = start_session(root, ledger, agent="claude-code", goal="v0.9.7 evidence workspace benchmark", create_preflight=False)
+        record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(root / ".env"), metadata={"coverage_layer": "native_hook"}), ledger)
+        record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://example.com/upload", metadata={"coverage_layer": "native_hook"}), ledger)
+        close_session(ledger)
+
+        workflow = export_layer_runtime_workflow(ledger, root / "layers")
+        workspace = inspect_evidence_workspace(
+            Path(workflow["artifacts"]["evidence_manifest"]),
+            out_dir=root / "workspace",
+            require_questions=True,
+            require_layer_workflow=True,
+        )
+
+        tamper_bundle = export_evidence_bundle(ledger, root / "tamper-bundle", profile={"name": "tamper", "mode": "managed"})
+        proof_path = Path(tamper_bundle["artifacts"]["proof"])
+        proof_path.write_text(proof_path.read_text(encoding="utf-8") + "\n{\"tampered\": true}\n", encoding="utf-8")
+        tampered = inspect_evidence_workspace(Path(tamper_bundle["manifest_path"]), out_dir=root / "tampered")
+
+        claude = run_claude_code_adapter(
+            target=root,
+            command=[sys.executable, "-c", "pass"],
+            out_dir=root / "claude",
+            session_id="ks_v097_benchmark_claude",
+            policy_mode="advisory",
+        )
+        adapter_workspace = inspect_evidence_workspace(
+            Path(claude["adapter_package"]["manifest_path"]),
+            out_dir=root / "adapter-workspace",
+            require_adapter_package=True,
+        )
+        rc = verify_release_candidate(
+            root / "rc",
+            run_pytest=False,
+            benchmark_suites=["v0.9.6-layer-runtime-workflow"],
+            evidence_workspace_manifest=Path(workflow["artifacts"]["evidence_manifest"]),
+            require_evidence_layer_workflow=True,
+        )
+        checks = {
+            "workspace_answers_l5_questions": workspace.get("status") == "pass" and all(answer.get("answered") for answer in workspace.get("answers", {}).values()),
+            "workspace_requires_layer_workflow": workspace.get("layer_workflow", {}).get("present") is True,
+            "tamper_fails_workspace": tampered.get("status") == "fail" and any(item.get("check_id") == "artifact.hash_mismatch" for item in tampered.get("findings", [])),
+            "adapter_package_requirement_passes": adapter_workspace.get("status") == "pass" and adapter_workspace.get("adapter_package", {}).get("present") is True,
+            "rc_consumes_workspace_gate": rc.get("status") == "pass" and rc.get("checks", {}).get("evidence_workspace", {}).get("status") == "pass",
+        }
+        return _suite_result(
+            "v0.9.7-evidence-workspace-gate",
+            checks,
+            artifacts={
+                "workspace_json": workspace.get("artifacts", {}).get("workspace_json"),
+                "workspace_html": workspace.get("artifacts", {}).get("workspace_html"),
+                "layer_workflow": workflow["artifacts"]["workflow_json"],
+                "adapter_workspace": adapter_workspace.get("artifacts", {}).get("workspace_json"),
+                "rc_report": rc.get("artifacts", {}).get("report_json"),
+            },
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_reference_adapter_benchmark",
+    "run_evidence_workspace_gate_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",
 ]

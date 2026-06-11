@@ -3,7 +3,20 @@
 [HTML version](html/cli-reference.html)
 
 
-Run invart --help for the complete parser. These are the entry points most people should start with.
+Run `invart --help` for the complete parser. These are the entry points most people should start with. For a guided L1-L5 workflow, use the [five-layer operator guide](five-layer-operator-guide.md).
+
+## User intent to command
+
+| I want to... | Start with |
+| --- | --- |
+| Scan before an agent runs | `invart pre-runtime --target . --save` |
+| Run one managed session | `invart run --target . --agent codex --goal "..." -- <command>` |
+| Inspect L1-L5 for a ledger | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` |
+| Explain a risky path | `invart policy check-path --ledger ledger.jsonl --out path-policy.json` |
+| Inspect mediation state | `invart mediation inspect --ledger ledger.jsonl` |
+| Export reviewable evidence | `invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence` |
+| Validate real-agent integration | `invart real-agent check --agent claude-code --out-dir .invart/real-agent` |
+| Run product benchmarks | `invart eval benchmark --suite full-product-readiness` |
 
 ### Pre-runtime
 
@@ -43,6 +56,19 @@ invart replay export --ledger ledger.jsonl --out replay.html
 invart audit report --ledger ledger.jsonl --out-dir .invart/audit
 ```
 
+### Evidence workspace
+
+```bash
+invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence
+invart evidence verify --bundle .invart/evidence/manifest.json
+invart evidence inspect \
+  --manifest .invart/evidence/manifest.json \
+  --out-dir .invart/evidence-workspace \
+  --require-layer-workflow
+```
+
+`evidence inspect` treats the bundle as an L5 review workspace. It verifies artifact hashes, checks required bundle contents, and reports whether the run can answer who, what, why, policy, approval, outcome, and coverage. Optional requirements such as `--require-layer-workflow` and `--require-adapter-package` turn missing links into gate failures.
+
 ### Real agent conformance
 
 ```bash
@@ -78,5 +104,6 @@ invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
+invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart roadmap status --require-full
 ```

@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -72,6 +73,10 @@ class _DocLinkParser(HTMLParser):
         for name, value in attrs:
             if name == "href" and value:
                 self.hrefs.append(value)
+
+
+def _markdown_links(text: str) -> list[str]:
+    return [match.group(1).split("#", 1)[0] for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text)]
 
 
 def _write_full_swebench_evidence_fixture(root: Path, *, run_id: str = "invart_full", total: int = 3) -> dict[str, Path]:
@@ -579,21 +584,33 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
     api_markdown = docs_dir / "api-sdk.md"
     runtime_effect_doc = html_dir / "runtime-effect-demo.html"
     runtime_effect_markdown = docs_dir / "runtime-effect-demo.md"
+    operator_doc = html_dir / "five-layer-operator-guide.html"
+    operator_markdown = docs_dir / "five-layer-operator-guide.md"
 
     assert api_doc.exists()
     assert api_markdown.exists()
     assert runtime_effect_doc.exists()
     assert runtime_effect_markdown.exists()
+    assert operator_doc.exists()
+    assert operator_markdown.exists()
     assert 'href="api-sdk.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="runtime-effect-demo.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="five-layer-operator-guide.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
     docs_readme = (docs_dir / "README.md").read_text(encoding="utf-8")
     assert "[`api-sdk.md`](api-sdk.md)" in docs_readme
     assert "[`html/api-sdk.html`](html/api-sdk.html)" in docs_readme
     assert "[`runtime-effect-demo.md`](runtime-effect-demo.md)" in docs_readme
     assert "[`html/runtime-effect-demo.html`](html/runtime-effect-demo.html)" in docs_readme
-    assert "[API and SDK](docs/api-sdk.md)" in (root / "README.md").read_text(encoding="utf-8")
-    assert "[Runtime effect demo](docs/runtime-effect-demo.md)" in (root / "README.md").read_text(encoding="utf-8")
-    assert "[HTML docs home](docs/html/index.html)" in (root / "README.md").read_text(encoding="utf-8")
+    assert "[`five-layer-operator-guide.md`](five-layer-operator-guide.md)" in docs_readme
+    assert "[`html/five-layer-operator-guide.html`](html/five-layer-operator-guide.html)" in docs_readme
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for href in (
+        "docs/api-sdk.md",
+        "docs/runtime-effect-demo.md",
+        "docs/five-layer-operator-guide.md",
+        "docs/html/index.html",
+    ):
+        assert f"({href})" in readme
     assert sorted(path.name for path in docs_dir.glob("*.html")) == []
 
     markdown_pages = [path for path in docs_dir.glob("*.md") if path.name != "README.md"]
@@ -611,6 +628,94 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
             if not local:
                 continue
             assert (html_path.parent / local).resolve().exists(), f"{html_path} links to missing {href}"
+
+
+def test_markdown_docs_have_valid_local_links() -> None:
+    root = Path(__file__).resolve().parents[1]
+    markdown_pages = [root / "README.md", *sorted((root / "docs").glob("*.md"))]
+
+    missing: list[str] = []
+    for markdown_path in markdown_pages:
+        for href in _markdown_links(markdown_path.read_text(encoding="utf-8")):
+            if not href or href.startswith(("http://", "https://", "mailto:")):
+                continue
+            target = (markdown_path.parent / href).resolve()
+            if not target.exists():
+                missing.append(f"{markdown_path.relative_to(root)} -> {href}")
+
+    assert missing == []
+
+
+def test_readme_routes_users_into_documentation_journey() -> None:
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+
+    assert "## Start Here" in readme
+    assert "README is the landing page" in readme
+    assert "Quickstart -> Five-layer operator guide -> Runtime effect demo -> Evaluation" in readme
+    assert readme.index("## Start Here") < readme.index("## Install For Local Development")
+
+    for href in (
+        "docs/product.md",
+        "docs/quickstart.md",
+        "docs/five-layer-operator-guide.md",
+        "docs/runtime-effect-demo.md",
+        "docs/cli-reference.md",
+        "docs/api-sdk.md",
+        "docs/evaluation.md",
+        "docs/index.md",
+        "docs/html/index.html",
+    ):
+        assert f"({href})" in readme
+        assert (root / href).exists()
+
+
+def test_public_docs_are_organized_by_user_journey() -> None:
+    root = Path(__file__).resolve().parents[1]
+    markdown_index = (root / "docs" / "index.md").read_text(encoding="utf-8")
+    html_index = (root / "docs" / "html" / "index.html").read_text(encoding="utf-8")
+
+    for section in ("## Start", "## Operate", "## Integrate", "## Evaluate", "## Reference"):
+        assert section in markdown_index
+    for section in ("Start", "Operate", "Integrate", "Evaluate", "Reference"):
+        assert f"<h2>{section}</h2>" in html_index
+    assert markdown_index.index("## Operate") < markdown_index.index("## Reference")
+    assert "five-layer-operator-guide.md" in markdown_index
+    assert "five-layer-operator-guide.html" in html_index
+    assert "release-history.md" in markdown_index[markdown_index.index("## Reference") :]
+
+
+def test_five_layer_operator_guide_documents_operational_path() -> None:
+    root = Path(__file__).resolve().parents[1]
+    markdown_page = (root / "docs" / "five-layer-operator-guide.md").read_text(encoding="utf-8")
+    html_page = (root / "docs" / "html" / "five-layer-operator-guide.html").read_text(encoding="utf-8")
+
+    for phrase in (
+        "L1 Execution Surface",
+        "L2 Runtime Fact Model",
+        "L3 Decision Plane",
+        "L4 Mediation Plane",
+        "L5 Evidence Plane",
+        "before-runtime",
+        "during-runtime",
+        "after-runtime",
+        "observed",
+        "mediated",
+        "enforced",
+        "fail-open",
+        "invart pre-runtime",
+        "invart runtime layers",
+        "invart policy check-path",
+        "invart mediation inspect",
+        "invart evidence inspect",
+    ):
+        assert phrase in markdown_page
+
+    for href in ("runtime-effect-demo.html", "cli-reference.html", "evaluation.html"):
+        assert f'href="{href}"' in html_page
+    assert "Which layer should I use?" in html_page
+    assert "Healthy signal" in markdown_page
+    assert "Failure signal" in markdown_page
 
 
 def test_api_sdk_page_documents_real_python_helpers() -> None:
@@ -634,6 +739,8 @@ def test_api_sdk_page_documents_real_python_helpers() -> None:
     assert "docs/html/api-sdk.html" in DEFAULT_REQUIRED_DOCS
     assert "docs/runtime-effect-demo.md" in DEFAULT_REQUIRED_DOCS
     assert "docs/html/runtime-effect-demo.html" in DEFAULT_REQUIRED_DOCS
+    assert "docs/five-layer-operator-guide.md" in DEFAULT_REQUIRED_DOCS
+    assert "docs/html/five-layer-operator-guide.html" in DEFAULT_REQUIRED_DOCS
 
     assert callable(documented_load_ledger_entries)
     assert callable(documented_verify_ledger)

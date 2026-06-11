@@ -2,8 +2,22 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invart CLI Reference</title><link rel="stylesheet" href="style.css"></head>
 <body>
-  <header class="hero"><span class="badge">CLI</span><h1>The command groups users need first.</h1><p>Run <code>invart --help</code> for the complete parser. These are the entry points most people should start with.</p></header>
+  <header class="hero"><span class="badge">CLI</span><h1>The command groups users need first.</h1><p>Run <code>invart --help</code> for the complete parser. These are the entry points most people should start with.</p><nav class="nav"><a href="index.html">Docs Home</a><a href="five-layer-operator-guide.html">Operate L1-L5</a><a href="api-sdk.html">API &amp; SDK</a><a href="evaluation.html">Evaluation</a></nav></header>
   <main class="wrap">
+    <section>
+      <h2>User intent to command</h2>
+      <table>
+        <tr><th>I want to...</th><th>Start with</th></tr>
+        <tr><td>Scan before an agent runs</td><td><code>invart pre-runtime --target . --save</code></td></tr>
+        <tr><td>Run one managed session</td><td><code>invart run --target . --agent codex --goal "..." -- &lt;command&gt;</code></td></tr>
+        <tr><td>Inspect L1-L5 for a ledger</td><td><code>invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers</code></td></tr>
+        <tr><td>Explain a risky path</td><td><code>invart policy check-path --ledger ledger.jsonl --out path-policy.json</code></td></tr>
+        <tr><td>Inspect mediation state</td><td><code>invart mediation inspect --ledger ledger.jsonl</code></td></tr>
+        <tr><td>Export reviewable evidence</td><td><code>invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence</code></td></tr>
+        <tr><td>Validate real-agent integration</td><td><code>invart real-agent check --agent claude-code --out-dir .invart/real-agent</code></td></tr>
+        <tr><td>Run product benchmarks</td><td><code>invart eval benchmark --suite full-product-readiness</code></td></tr>
+      </table>
+    </section>
     <section class="grid">
       <div class="card"><h3>Pre-runtime</h3><pre>invart pre-runtime --target . --save</pre></div>
       <div class="card"><h3>Managed session</h3><pre>invart session start --target . --agent codex --goal "..."
@@ -16,6 +30,12 @@ invart proof verify --proof proof.json --ledger ledger.jsonl
 invart gate verify --proof proof.json --ledger ledger.jsonl --mode ci</pre></div>
       <div class="card"><h3>Replay and audit</h3><pre>invart replay export --ledger ledger.jsonl --out replay.html
 invart audit report --ledger ledger.jsonl --out-dir .invart/audit</pre></div>
+      <div class="card"><h3>Evidence workspace</h3><pre>invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence
+invart evidence verify --bundle .invart/evidence/manifest.json
+invart evidence inspect \
+  --manifest .invart/evidence/manifest.json \
+  --out-dir .invart/evidence-workspace \
+  --require-layer-workflow</pre><p><code>evidence inspect</code> verifies bundle hashes and required artifacts, then reports whether the L5 review workspace can answer who, what, why, policy, approval, outcome, and coverage. Optional layer workflow and adapter package requirements turn missing links into gate failures.</p></div>
       <div class="card"><h3>Real agent conformance</h3><pre>invart adapter profile --kind claude-code
 invart adapter profiles
 invart adapter profiles --track managed_wrapper
@@ -33,6 +53,7 @@ invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
+invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart roadmap status --require-full</pre></div>
     </section>
   </main>

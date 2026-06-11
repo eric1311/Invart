@@ -2,9 +2,9 @@
 
 [HTML version](html/runtime-effect-demo.html)
 
-This page explains how to see Invart's three runtime stages and five control layers in the demo artifacts.
+This page explains how to read Invart's three runtime stages and five control layers in generated demo artifacts. For the command-by-command operating path, use the [five-layer operator guide](five-layer-operator-guide.md).
 
-The short version: run a demo, open the HTML entrypoint, then read the matrix first and the timeline second.
+The short version: run a demo, open the HTML entrypoint, then read the matrix first and the timeline second. The demo shows the effect; the operator guide shows how to run the same layer workflow on your own ledger.
 
 ## Run The Demo
 
@@ -19,7 +19,7 @@ For isolated per-risk-case runs:
 scripts/container-demo.sh all .invart/container-risk-demo
 ```
 
-For any existing Invart ledger:
+For any existing Invart ledger, the operator path starts here:
 
 ```bash
 PYTHONPATH=src python -m invart.cli runtime layers \
@@ -28,6 +28,17 @@ PYTHONPATH=src python -m invart.cli runtime layers \
 ```
 
 Open `.invart/layer-workflow/layer-runtime-workflow.html`. This report is derived from the ledger and links the proof, replay, path graph, coverage, audit, and evidence manifest produced for that run.
+
+To inspect the after-runtime evidence plane as a release gate:
+
+```bash
+PYTHONPATH=src python -m invart.cli evidence inspect \
+  --manifest .invart/layer-workflow/evidence/manifest.json \
+  --out-dir .invart/evidence-workspace \
+  --require-layer-workflow
+```
+
+Open `.invart/evidence-workspace/evidence-workspace.html`. This report verifies the bundle hashes and shows whether the run can answer who, what, why, policy, approval, outcome, and coverage.
 
 ## What To Look For
 
@@ -39,6 +50,7 @@ Open `.invart/layer-workflow/layer-runtime-workflow.html`. This report is derive
 | Coverage Report | Observed, mediated, and enforced are reported as different claims. | `coverage.html` |
 | Audit Report | A reviewer can answer who, what, why, policy, approval, outcome, and coverage. | `audit-report.html` |
 | Layer Runtime Workflow | A command-level way to operate L1-L5 for a single ledger. | `layer-runtime-workflow.html` |
+| Evidence Workspace | A gateable L5 review workspace for bundle integrity and review questions. | `evidence-workspace.html` |
 
 ## Three Runtime Stages
 
@@ -56,7 +68,7 @@ Open `.invart/layer-workflow/layer-runtime-workflow.html`. This report is derive
 | L2 Runtime Fact Model | Shows invocations, taint, identity, resources, coverage, outcomes, and ledger records. |
 | L3 Decision Plane | Shows deterministic rules, path-aware policy, and non-downgradable critical findings. |
 | L4 Mediation Plane | Shows allow, audit, require approval, deny, enforced block, and fail-open alert semantics. |
-| L5 Evidence Plane | Shows proof, replay, graph, coverage, audit, evidence bundle, and release gate outputs. |
+| L5 Evidence Plane | Shows proof, replay, graph, coverage, audit, evidence bundle, evidence workspace, and release gate outputs. |
 
 ## Layer Operation Flow
 
@@ -66,7 +78,9 @@ Open `.invart/layer-workflow/layer-runtime-workflow.html`. This report is derive
 | L2 Runtime Fact Model | `invart runtime record-event --ledger ledger.jsonl --event '{...}'` | Normalized invocation, resource, taint, identity, and outcome facts. |
 | L3 Decision Plane | `invart policy check-path --ledger ledger.jsonl --out path-policy.json` | Deterministic and path-aware reasons for allow, approval, or deny. |
 | L4 Mediation Plane | `invart mediation inspect --ledger ledger.jsonl` | Pause, block, fail-open, approval, and mediation outcome state. |
-| L5 Evidence Plane | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` | A reviewable stage x layer matrix with proof/replay/graph/coverage/audit links. |
+| L5 Evidence Plane | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` then `invart evidence inspect --manifest .invart/layers/evidence/manifest.json --out-dir .invart/evidence-workspace --require-layer-workflow` | A reviewable stage x layer matrix plus a gateable L5 workspace for proof/replay/graph/coverage/audit links. |
+
+For interpretation rules, healthy signals, failure signals, and next actions for each row, read the [five-layer operator guide](five-layer-operator-guide.md).
 
 ## Boundaries
 

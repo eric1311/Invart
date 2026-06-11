@@ -3,9 +3,15 @@
 [HTML version](html/architecture.html)
 
 
-Invart is not a plugin-only wrapper. Plugin and hook integration can improve coverage, but the durable product boundary is the runtime control plane.
+Invart is not a plugin-only wrapper. Plugin and hook integration can improve coverage, but the durable product boundary is the runtime control plane. For operational usage of the same model, read the [five-layer operator guide](five-layer-operator-guide.md).
 
 ## Lifecycle
+
+| Stage | Architecture role |
+| --- | --- |
+| Before runtime | Inventory surfaces, bind identity, resolve profile and grants, and establish the claim boundary. |
+| During runtime | Normalize actions into ledger facts, evaluate policy, mediate covered surfaces, and record outcomes. |
+| After runtime | Derive proof, replay, path graph, coverage, audit, evidence bundles, and gates from the ledger. |
 
 ## Layer Model
 
@@ -19,7 +25,7 @@ Invart is not a plugin-only wrapper. Plugin and hook integration can improve cov
 
 ## Demo Verification
 
-The [runtime effect demo](runtime-effect-demo.md) is the concrete verification surface for this model. It renders a stage × layer matrix in the final demo entrypoint and an action timeline in each container risk case audit page. The timeline connects agent intent/action, Invart observation, policy or mediation decision, outcome, and the artifact that proves the step.
+The [runtime effect demo](runtime-effect-demo.md) is the concrete verification surface for this model. It renders a stage × layer matrix in the final demo entrypoint and an action timeline in each container risk case audit page. The [five-layer operator guide](five-layer-operator-guide.md) is the command-level usage surface for the same layers.
 
 Coverage terms remain strict: observed, mediated, and enforced are not interchangeable. Unmanaged direct execution is shown as a coverage gap unless it enters a managed launcher, wrapper, hook, broker, or shim.
 

@@ -5,7 +5,7 @@
 
 Invart wraps agent execution with identity, policy, mediation, ledger-backed evidence, and post-run audit. It is built for teams that want agent autonomy without blind trust.
 
-[Start](quickstart.md) · [Architecture](architecture.md) · [Evaluate](evaluation.md) · [GitHub README](../README.md)
+[Start](quickstart.md) · [Operate L1-L5](five-layer-operator-guide.md) · [Architecture](architecture.md) · [Evaluate](evaluation.md) · [GitHub README](../README.md)
 
 ## Why Invart Exists
 
@@ -20,7 +20,7 @@ invart demo real-world-risk-cases \
 
 Outputs a safe risk demo with ledger, proof, replay, audit, and evidence artifacts.
 
-For the clearest model walkthrough, open the [runtime effect demo](runtime-effect-demo.md). It maps each demo run across before-runtime, during-runtime, after-runtime and the L1-L5 control layers.
+For the clearest model walkthrough, open the [runtime effect demo](runtime-effect-demo.md). To operate the same model on your own ledger, use the [five-layer operator guide](five-layer-operator-guide.md).
 
 ## Three Stages
 
@@ -52,6 +52,16 @@ Allow, audit, require approval, deny, enforced block, and fail-open alert with c
 
 Proof, replay, audit, path graph, evidence bundle, benchmark metrics, and release gates.
 
+## Core Evidence Terms
+
+| Term | Why it matters |
+| --- | --- |
+| Ledger | The append-only fact source. Proof, replay, graph, audit, and gates derive from it. |
+| Proof | A portable summary that should answer who, what, why, policy, approval, outcome, and coverage. |
+| Mediation | The decision contract for allow, audit, require approval, deny, enforced block, and fail-open alert. |
+| Coverage | The strength of observation or control. `observed`, `mediated`, `enforced`, and `fail-open` are not interchangeable. |
+| Evidence bundle | A verifiable package containing manifest hashes and post-run artifacts. |
+
 ## What You Can Show A Team
 
 ### Security
@@ -68,4 +78,4 @@ Low-risk commands continue automatically, while high-risk steps receive precise 
 
 ## How To Verify The Model In A Demo
 
-Run `invart demo pre-1.0-final --out-dir .invart/pre-1-demo-check`, then open `pre-1.0-final-demo.html`. The Runtime Effect Matrix shows the three lifecycle stages across L1-L5, and each container risk case audit page shows an action timeline from agent intent through Invart observation, policy or mediation decision, outcome, and artifact.
+Run `invart demo pre-1.0-final --out-dir .invart/pre-1-demo-check`, then open `pre-1.0-final-demo.html`. The Runtime Effect Matrix shows the three lifecycle stages across L1-L5, and each container risk case audit page shows an action timeline from agent intent through Invart observation, policy or mediation decision, outcome, and artifact. Use [Quickstart](quickstart.md) for the smallest local run and [Operate L1-L5](five-layer-operator-guide.md) for command-level inspection.

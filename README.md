@@ -36,19 +36,21 @@ Invart is currently a CLI-first **0.9 pre-release**. It is suitable for local ev
 - Run built-in benchmarks and demos, including real-world-risk-shaped and containerized risk flows.
 - Keep old `kappaski` imports and CLI as compatibility aliases while the public project name moves to `Invart`.
 
-## What To Inspect First
+## Start Here
 
-For a first pass, the most useful public-facing surfaces are:
+README is the landing page. The docs are organized as a user journey:
 
-| Surface | Why it matters |
+| If you want to... | Start with |
 | --- | --- |
-| [`docs/product.md`](docs/product.md) | One-page product overview for the before / during / after control loop. |
-| [`docs/quickstart.md`](docs/quickstart.md) | Minimal local session that writes a ledger and verifies proof. |
-| [`docs/runtime-effect-demo.md`](docs/runtime-effect-demo.md) | Shows the demo's before / during / after stages and L1-L5 control effects. |
-| [`docs/evaluation.md`](docs/evaluation.md) | Explains what the built-in benchmarks measure and what they do not claim. |
-| [`examples/`](examples/) | Small runnable examples before running the larger demos. |
+| Understand what Invart is and why it exists | [`docs/product.md`](docs/product.md) |
+| Run one local managed session | [`docs/quickstart.md`](docs/quickstart.md) |
+| Operate the five runtime layers on a ledger | [`docs/five-layer-operator-guide.md`](docs/five-layer-operator-guide.md) |
+| See the before / during / after demo artifacts | [`docs/runtime-effect-demo.md`](docs/runtime-effect-demo.md) |
+| Integrate with CLI, artifacts, or Python helpers | [`docs/cli-reference.md`](docs/cli-reference.md) and [`docs/api-sdk.md`](docs/api-sdk.md) |
+| Evaluate claims and benchmarks | [`docs/evaluation.md`](docs/evaluation.md) |
+| Browse the full documentation map | [`docs/index.md`](docs/index.md) or [`docs/html/index.html`](docs/html/index.html) |
 
-The main demo command below produces a local HTML entrypoint plus audit, replay, path graph, coverage, proof, and ledger artifacts. Those artifacts are the best way to see Invart intervening in and explaining an agent-like run.
+The recommended first path is: **Quickstart -> Five-layer operator guide -> Runtime effect demo -> Evaluation**. That path shows the whole loop from a local ledger to proof, replay, path graph, coverage, audit, and evidence review.
 
 ## Install For Local Development
 
@@ -141,20 +143,17 @@ Heavy external validation such as full SWE-Bench runs is intentionally separate 
 
 ## Documentation
 
-Open the local docs:
+Open the docs home for the structured journey:
 
-- [Docs README](docs/README.md)
 - [Markdown docs home](docs/index.md)
 - [HTML docs home](docs/html/index.html)
-- [Product page](docs/product.md)
-- [Quickstart](docs/quickstart.md)
+
+Reference pages:
+
+- [Docs README](docs/README.md)
 - [Concepts](docs/concepts.md)
-- [CLI reference](docs/cli-reference.md)
-- [API and SDK](docs/api-sdk.md)
 - [Architecture](docs/architecture.md)
 - [Examples](docs/examples.md)
-- [Runtime effect demo](docs/runtime-effect-demo.md)
-- [Evaluation](docs/evaluation.md)
 - [Open-source boundary](docs/open-source-boundary.md)
 - [Brand assets](assets/brand/README.md)
 

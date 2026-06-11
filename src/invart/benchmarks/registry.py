@@ -55,7 +55,13 @@ from .releases_v46_v51 import (
     run_product_control_matrix_benchmark,
     run_reviewer_ablation_cost_benchmark,
 )
-from .releases_v52_v57 import run_agent_adapter_contract_benchmark, run_claude_reference_adapter_benchmark, run_layer_runtime_workflow_benchmark, run_priority_agent_tracks_benchmark
+from .releases_v52_v57 import (
+    run_agent_adapter_contract_benchmark,
+    run_claude_reference_adapter_benchmark,
+    run_evidence_workspace_gate_benchmark,
+    run_layer_runtime_workflow_benchmark,
+    run_priority_agent_tracks_benchmark,
+)
 
 BenchmarkRunner = Callable[[], dict[str, Any]]
 
@@ -114,6 +120,7 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.9.4-claude-reference-adapter": run_claude_reference_adapter_benchmark,
         "v0.9.5-priority-agent-tracks": run_priority_agent_tracks_benchmark,
         "v0.9.6-layer-runtime-workflow": run_layer_runtime_workflow_benchmark,
+        "v0.9.7-evidence-workspace-gate": run_evidence_workspace_gate_benchmark,
         "progressive-external-validation": run_progressive_external_validation_benchmark,
         "real-world-agent-risk-demo": run_real_world_risk_benchmark,
         "containerized-risk-demo": run_container_risk_demo_benchmark,

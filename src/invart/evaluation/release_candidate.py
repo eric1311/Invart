@@ -12,6 +12,7 @@ from typing import Any
 
 from invart.core.artifacts import write_html_artifact, write_json_artifact
 from invart.assurance.evidence_bundle import export_evidence_bundle, verify_evidence_bundle
+from invart.assurance.evidence_workspace import inspect_evidence_workspace
 from invart.evaluation.external_evidence import verify_external_evidence
 from invart.evaluation.pre_1_0 import run_pre_1_0_final_demo
 from invart.evaluation.pre_v1 import run_pre_v1_control_plane_demo
@@ -51,6 +52,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.4-claude-reference-adapter",
     "v0.9.5-priority-agent-tracks",
     "v0.9.6-layer-runtime-workflow",
+    "v0.9.7-evidence-workspace-gate",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )
@@ -64,6 +66,7 @@ DEFAULT_REQUIRED_DOCS = (
     "docs/index.md",
     "docs/product.md",
     "docs/quickstart.md",
+    "docs/five-layer-operator-guide.md",
     "docs/concepts.md",
     "docs/cli-reference.md",
     "docs/api-sdk.md",
@@ -76,6 +79,7 @@ DEFAULT_REQUIRED_DOCS = (
     "docs/html/index.html",
     "docs/html/product.html",
     "docs/html/quickstart.html",
+    "docs/html/five-layer-operator-guide.html",
     "docs/html/concepts.html",
     "docs/html/cli-reference.html",
     "docs/html/api-sdk.html",
@@ -107,6 +111,9 @@ def verify_release_candidate(
     final: bool = False,
     require_external_validation: bool = False,
     external_evidence_manifest: Path | None = None,
+    evidence_workspace_manifest: Path | None = None,
+    require_evidence_layer_workflow: bool = False,
+    require_evidence_adapter_package: bool = False,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     checks: dict[str, Any] = {}
@@ -143,11 +150,26 @@ def verify_release_candidate(
     demo = run_pre_v1_control_plane_demo(out_dir / "demo")
     evidence = export_evidence_bundle(Path(demo["artifacts"]["ledger"]), out_dir / "evidence", profile={"name": "rc", "mode": "managed"})
     evidence_verify = verify_evidence_bundle(Path(evidence["manifest_path"]))
+    workspace_manifest = evidence_workspace_manifest or Path(evidence["manifest_path"])
+    evidence_workspace = inspect_evidence_workspace(
+        workspace_manifest,
+        out_dir=out_dir / "evidence-workspace",
+        require_questions=True,
+        require_layer_workflow=require_evidence_layer_workflow,
+        require_adapter_package=require_evidence_adapter_package,
+    )
     checks["artifact_completeness"] = {
         "status": "pass" if demo.get("status") == "pass" and evidence_verify.get("status") == "pass" else "fail",
         "demo": demo,
         "evidence": evidence,
         "evidence_verify": evidence_verify,
+    }
+    checks["evidence_workspace"] = {
+        "status": "pass" if evidence_workspace.get("status") == "pass" else "fail",
+        "manifest_path": str(workspace_manifest),
+        "requires_layer_workflow": require_evidence_layer_workflow,
+        "requires_adapter_package": require_evidence_adapter_package,
+        "report": evidence_workspace,
     }
     final_readiness = _final_readiness(
         out_dir,

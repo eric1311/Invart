@@ -13,6 +13,7 @@
     <p>Invart wraps agent execution with identity, policy, mediation, ledger-backed evidence, and post-run audit. It is built for teams that want agent autonomy without blind trust.</p>
     <nav class="nav">
       <a href="quickstart.html">Start</a>
+      <a href="five-layer-operator-guide.html">Operate L1-L5</a>
       <a href="architecture.html">Architecture</a>
       <a href="evaluation.html">Evaluate</a>
       <a href="../../README.md">GitHub README</a>
@@ -33,7 +34,7 @@
         <h3>Quick Demo</h3>
         <pre>invart demo real-world-risk-cases \
   --out-dir .invart/real-world-risk-demo</pre>
-        <p class="muted">Outputs a safe risk demo with ledger, proof, replay, audit, and evidence artifacts. For the clearest walkthrough, open <a href="runtime-effect-demo.html">Runtime Effect Demo</a>.</p>
+        <p class="muted">Outputs a safe risk demo with ledger, proof, replay, audit, and evidence artifacts. For the clearest walkthrough, open <a href="runtime-effect-demo.html">Runtime Effect Demo</a>. To operate the model on your own ledger, use <a href="five-layer-operator-guide.html">Operate L1-L5</a>.</p>
       </div>
     </section>
     <section class="band">
@@ -59,6 +60,19 @@
     </section>
     <section class="band">
       <div class="wrap">
+        <h2>Core Evidence Terms</h2>
+        <table>
+          <tr><th>Term</th><th>Why it matters</th></tr>
+          <tr><td>Ledger</td><td>The append-only fact source. Proof, replay, graph, audit, and gates derive from it.</td></tr>
+          <tr><td>Proof</td><td>A portable summary that should answer who, what, why, policy, approval, outcome, and coverage.</td></tr>
+          <tr><td>Mediation</td><td>The decision contract for allow, audit, require approval, deny, enforced block, and fail-open alert.</td></tr>
+          <tr><td>Coverage</td><td>The strength of observation or control. observed, mediated, enforced, and fail-open are not interchangeable.</td></tr>
+          <tr><td>Evidence bundle</td><td>A verifiable package containing manifest hashes and post-run artifacts.</td></tr>
+        </table>
+      </div>
+    </section>
+    <section class="band">
+      <div class="wrap">
         <h2>What You Can Show A Team</h2>
         <div class="grid">
           <div class="card"><h3>Security</h3><p>Which agent read sensitive material, which policy applied, whether the action was blocked or approved, and what evidence proves it.</p></div>
@@ -69,7 +83,7 @@
     </section>
     <section class="wrap">
       <h2>How To Verify The Model In A Demo</h2>
-      <p>Run <code>invart demo pre-1.0-final --out-dir .invart/pre-1-demo-check</code>, then open <code>pre-1.0-final-demo.html</code>. The Runtime Effect Matrix maps before-runtime, during-runtime, and after-runtime to L1-L5, while each container case audit page shows agent intent, Invart observation, policy or mediation decision, outcome, and artifact.</p>
+      <p>Run <code>invart demo pre-1.0-final --out-dir .invart/pre-1-demo-check</code>, then open <code>pre-1.0-final-demo.html</code>. The Runtime Effect Matrix maps before-runtime, during-runtime, and after-runtime to L1-L5, while each container case audit page shows agent intent, Invart observation, policy or mediation decision, outcome, and artifact. Use <a href="quickstart.html">Quickstart</a> for the smallest local run and <a href="five-layer-operator-guide.html">Operate L1-L5</a> for command-level inspection.</p>
     </section>
   </main>
 </body>
