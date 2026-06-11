@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -72,6 +73,10 @@ class _DocLinkParser(HTMLParser):
         for name, value in attrs:
             if name == "href" and value:
                 self.hrefs.append(value)
+
+
+def _markdown_links(text: str) -> list[str]:
+    return [match.group(1).split("#", 1)[0] for match in re.finditer(r"\[[^\]]+\]\(([^)]+)\)", text)]
 
 
 def _write_full_swebench_evidence_fixture(root: Path, *, run_id: str = "invart_full", total: int = 3) -> dict[str, Path]:
@@ -598,10 +603,14 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
     assert "[`html/runtime-effect-demo.html`](html/runtime-effect-demo.html)" in docs_readme
     assert "[`five-layer-operator-guide.md`](five-layer-operator-guide.md)" in docs_readme
     assert "[`html/five-layer-operator-guide.html`](html/five-layer-operator-guide.html)" in docs_readme
-    assert "[API and SDK](docs/api-sdk.md)" in (root / "README.md").read_text(encoding="utf-8")
-    assert "[Runtime effect demo](docs/runtime-effect-demo.md)" in (root / "README.md").read_text(encoding="utf-8")
-    assert "[Five-layer operator guide](docs/five-layer-operator-guide.md)" in (root / "README.md").read_text(encoding="utf-8")
-    assert "[HTML docs home](docs/html/index.html)" in (root / "README.md").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    for href in (
+        "docs/api-sdk.md",
+        "docs/runtime-effect-demo.md",
+        "docs/five-layer-operator-guide.md",
+        "docs/html/index.html",
+    ):
+        assert f"({href})" in readme
     assert sorted(path.name for path in docs_dir.glob("*.html")) == []
 
     markdown_pages = [path for path in docs_dir.glob("*.md") if path.name != "README.md"]
@@ -619,6 +628,46 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
             if not local:
                 continue
             assert (html_path.parent / local).resolve().exists(), f"{html_path} links to missing {href}"
+
+
+def test_markdown_docs_have_valid_local_links() -> None:
+    root = Path(__file__).resolve().parents[1]
+    markdown_pages = [root / "README.md", *sorted((root / "docs").glob("*.md"))]
+
+    missing: list[str] = []
+    for markdown_path in markdown_pages:
+        for href in _markdown_links(markdown_path.read_text(encoding="utf-8")):
+            if not href or href.startswith(("http://", "https://", "mailto:")):
+                continue
+            target = (markdown_path.parent / href).resolve()
+            if not target.exists():
+                missing.append(f"{markdown_path.relative_to(root)} -> {href}")
+
+    assert missing == []
+
+
+def test_readme_routes_users_into_documentation_journey() -> None:
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+
+    assert "## Start Here" in readme
+    assert "README is the landing page" in readme
+    assert "Quickstart -> Five-layer operator guide -> Runtime effect demo -> Evaluation" in readme
+    assert readme.index("## Start Here") < readme.index("## Install For Local Development")
+
+    for href in (
+        "docs/product.md",
+        "docs/quickstart.md",
+        "docs/five-layer-operator-guide.md",
+        "docs/runtime-effect-demo.md",
+        "docs/cli-reference.md",
+        "docs/api-sdk.md",
+        "docs/evaluation.md",
+        "docs/index.md",
+        "docs/html/index.html",
+    ):
+        assert f"({href})" in readme
+        assert (root / href).exists()
 
 
 def test_public_docs_are_organized_by_user_journey() -> None:
