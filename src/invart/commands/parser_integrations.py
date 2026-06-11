@@ -195,7 +195,7 @@ def register_integration_commands(subparsers: argparse._SubParsersAction[argpars
     bridge.set_defaults(handler=handle_bridge)
     bridge_sub = bridge.add_subparsers(dest="bridge_command", required=True)
     bridge_native = bridge_sub.add_parser("native", help="Normalize a native hook payload and return a native response.")
-    bridge_native.add_argument("--agent", choices=("claude-code", "codex", "opencode", "generic"), required=True)
+    bridge_native.add_argument("--agent", choices=("claude-code", "codex", "opencode", "cursor", "cline", "roo-code", "generic"), required=True)
     bridge_native.add_argument("--event", required=True)
     bridge_conformance = bridge_sub.add_parser("conformance", help="Run native bridge response-shape conformance checks.")
 

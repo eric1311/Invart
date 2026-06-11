@@ -29,6 +29,16 @@ AGENT_SURFACE_PATHS: dict[str, dict[str, list[str]]] = {
         "mcp": [".cursor/mcp.json"],
         "hooks": [".cursor/hooks"],
     },
+    "cline": {
+        "settings": [".cline/settings.json", ".vscode/settings.json"],
+        "mcp": [".cline/mcp.json", ".vscode/mcp.json"],
+        "extension": [".cline", ".vscode/extensions.json"],
+    },
+    "roo-code": {
+        "settings": [".roo/settings.json", ".roomodes", ".vscode/settings.json"],
+        "mcp": [".roo/mcp.json", ".vscode/mcp.json"],
+        "extension": [".roo", ".vscode/extensions.json"],
+    },
     "opencode": {
         "plugins": ["opencode.json", ".opencode/plugin"],
         "mcp": ["opencode.json", ".opencode/mcp.json"],
@@ -280,6 +290,8 @@ def _surface_coverage_state(agent: str, surface_name: str, matches: list[dict[st
         return "not_covered"
     if agent in {"hermes", "openclaw"}:
         return "vendor_owned"
+    if agent in {"cursor", "cline", "roo-code"}:
+        return "discovered"
     if surface_name in {"hooks", "plugins", "extensions", "mcp"}:
         return "mediated"
     if surface_name in {"sandbox"}:
