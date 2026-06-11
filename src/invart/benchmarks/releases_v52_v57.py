@@ -16,6 +16,7 @@ from invart.evaluation.product_control_matrix import run_product_control_matrix
 from invart.evaluation.real_agent_conformance import run_real_agent_conformance, validate_conformance_contract
 from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.claude_adapter import run_claude_code_adapter
+from invart.surfaces.live_adapter import run_live_agent_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
 
 
@@ -356,12 +357,65 @@ def run_conformance_contract_v2_benchmark() -> dict[str, object]:
         )
 
 
+def run_opencode_real_adapter_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0910_") as tmp:
+        root = Path(tmp)
+        (root / "opencode.json").write_text('{"plugin":["demo"],"mcp":{"fs":{}}}\n', encoding="utf-8")
+        fake = root / "fake-opencode"
+        marker = root / "opencode-marker.txt"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        run = run_live_agent_adapter(
+            agent="opencode",
+            target=root,
+            out_dir=root / "opencode",
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        risk_marker = root / "risk-marker.txt"
+        risk = run_live_agent_adapter(
+            agent="opencode",
+            target=root,
+            out_dir=root / "opencode-risk",
+            command=[str(fake), "--write-marker", str(risk_marker), "rm -rf ."],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="managed",
+        )
+        inventory = [item for item in run.get("native_inventory", {}).get("profiles", []) if item.get("agent") == "opencode"][0]
+        checks = {
+            "live_binary_backed": run.get("live_evidence", {}).get("binary", {}).get("status") == "found",
+            "managed_wrapper_artifacts": bool(run.get("managed_run", {}).get("ledger")) and bool(run.get("managed_run", {}).get("proof")) and bool(run.get("managed_run", {}).get("package")),
+            "plugin_config_inventory": bool(inventory.get("surfaces", {}).get("plugins", {}).get("matches")),
+            "mcp_config_inventory": bool(inventory.get("surfaces", {}).get("mcp", {}).get("matches")),
+            "benign_keeps_autonomy": run.get("status") == "passed" and marker.exists(),
+            "managed_risk_stopped_before_side_effect": risk.get("returncode") == 126 and not risk_marker.exists(),
+            "l5_workspace_present": run.get("evidence_workspace", {}).get("status") == "pass",
+        }
+        return _suite_result(
+            "v0.9.10-opencode-real-adapter",
+            checks,
+            artifacts=run.get("artifacts", {}),
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
     "run_conformance_contract_v2_benchmark",
     "run_evidence_workspace_gate_benchmark",
+    "run_opencode_real_adapter_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",
 ]

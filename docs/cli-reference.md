@@ -77,6 +77,7 @@ invart adapter profiles
 invart adapter profiles --track managed_wrapper
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
 invart real-agent run --agent claude-code --require-live --out-dir .invart/live-claude -- <claude-or-fixture-command>
+invart real-agent run --agent opencode --require-live --out-dir .invart/live-opencode -- <opencode-or-fixture-command>
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
 ```
 
@@ -112,5 +113,6 @@ invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart eval benchmark --suite v0.9.8-claude-full-live-adapter
 invart eval benchmark --suite v0.9.9-conformance-contract-v2
+invart eval benchmark --suite v0.9.10-opencode-real-adapter
 invart roadmap status --require-full
 ```

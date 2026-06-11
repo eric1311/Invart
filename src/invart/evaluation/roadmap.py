@@ -872,6 +872,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Use the contract for OpenCode, Gemini CLI, Aider, Codex, IDE bridge, and gateway/server-agent adapter tracks.",
     ),
+    RoadmapCapability(
+        version="v0.9.10",
+        capability_id="opencode_real_adapter_track",
+        title="OpenCode real adapter track",
+        target="Add OpenCode as the second product-specific local adapter track with binary discovery, managed wrapper execution, plugin/MCP config inventory, L5 artifacts, and managed risk blocking.",
+        status="implemented",
+        implementation=["src/invart/surfaces/live_adapter.py", "src/invart/surfaces/adapter_profiles.py", "src/invart/surfaces/native.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0910_opencode_profile_inventory_and_managed_wrapper", "test_v0910_opencode_managed_risk_blocks_before_side_effect_and_cli", "v0.9.10-opencode-real-adapter"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["OpenCode is Invart-mediated only when launched through the managed wrapper.", "Plugin, agent, MCP, and config inventory are pre-runtime evidence and do not by themselves prove mediation or enforcement.", "Local CI uses binary-shaped fixtures; installed OpenCode validation remains strict-live optional."],
+        claim_scope="local_opencode_managed_wrapper",
+        evidence_level="binary_backed_fixture_with_plugin_inventory",
+        external_validation="not_run_optional",
+        next_step="Extend the managed wrapper path to Gemini CLI and Aider with benign workflow compatibility metrics.",
+    ),
 )
 
 
