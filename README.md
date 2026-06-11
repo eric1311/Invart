@@ -154,6 +154,7 @@ Reference pages:
 - [Concepts](docs/concepts.md)
 - [Architecture](docs/architecture.md)
 - [Examples](docs/examples.md)
+- [Roadmap](docs/roadmap.md)
 - [Open-source boundary](docs/open-source-boundary.md)
 - [Brand assets](assets/brand/README.md)
 

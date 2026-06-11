@@ -261,8 +261,73 @@ def run_evidence_workspace_gate_benchmark() -> dict[str, object]:
         )
 
 
+def run_claude_full_live_adapter_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v098_") as tmp:
+        root = Path(tmp)
+        fake = root / "fake-claude"
+        marker = root / "benign-marker.txt"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    print('Claude Code fixture 0.9.8')\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        live = run_claude_code_adapter(
+            target=root,
+            command=[str(fake), "--write-marker", str(marker)],
+            out_dir=root / "live",
+            session_id="ks_v098_benchmark_live",
+            policy_mode="advisory",
+            binary=str(fake),
+            require_live=True,
+        )
+        missing = run_claude_code_adapter(
+            target=root,
+            command=[sys.executable, "-c", "pass"],
+            out_dir=root / "missing",
+            session_id="ks_v098_benchmark_missing",
+            binary=str(root / "missing-claude"),
+            require_live=True,
+        )
+        risk_marker = root / "risk-marker.txt"
+        risky = run_claude_code_adapter(
+            target=root,
+            command=[str(fake), "--write-marker", str(risk_marker), "rm -rf ."],
+            out_dir=root / "risky",
+            session_id="ks_v098_benchmark_risky",
+            policy_mode="managed",
+            binary=str(fake),
+            require_live=True,
+        )
+        checks = {
+            "strict_live_binary_backed": live.get("live_evidence", {}).get("binary", {}).get("status") == "found",
+            "fixture_not_masquerading_as_unqualified_live": live.get("live_evidence", {}).get("evidence_level") == "binary_backed_live_or_fixture",
+            "l5_package_present": live.get("adapter_package", {}).get("status") == "pass" and live.get("layer_runtime", {}).get("status") == "pass",
+            "evidence_workspace_answers": live.get("evidence_workspace", {}).get("status") == "pass",
+            "strict_missing_binary_fails": missing.get("status") == "blocked_missing_binary",
+            "managed_risk_stopped_before_side_effect": risky.get("returncode") == 126 and not risk_marker.exists(),
+            "benign_keeps_autonomy": live.get("status") == "passed" and marker.exists(),
+            "coverage_degraded_is_truthful": live.get("supervision", {}).get("coverage_grade") == "mediated_without_process_tree",
+        }
+        return _suite_result(
+            "v0.9.8-claude-full-live-adapter",
+            checks,
+            artifacts={
+                "adapter_package": live.get("adapter_package", {}).get("manifest_path"),
+                "layer_workflow": live.get("layer_runtime", {}).get("artifacts", {}).get("workflow_json"),
+                "workspace": live.get("evidence_workspace", {}).get("artifacts", {}).get("workspace_json"),
+            },
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
+    "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
     "run_evidence_workspace_gate_benchmark",
     "run_priority_agent_tracks_benchmark",

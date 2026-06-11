@@ -586,6 +586,8 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
     runtime_effect_markdown = docs_dir / "runtime-effect-demo.md"
     operator_doc = html_dir / "five-layer-operator-guide.html"
     operator_markdown = docs_dir / "five-layer-operator-guide.md"
+    roadmap_doc = html_dir / "roadmap.html"
+    roadmap_markdown = docs_dir / "roadmap.md"
 
     assert api_doc.exists()
     assert api_markdown.exists()
@@ -593,9 +595,12 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
     assert runtime_effect_markdown.exists()
     assert operator_doc.exists()
     assert operator_markdown.exists()
+    assert roadmap_doc.exists()
+    assert roadmap_markdown.exists()
     assert 'href="api-sdk.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="runtime-effect-demo.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
     assert 'href="five-layer-operator-guide.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
+    assert 'href="roadmap.html"' in (html_dir / "index.html").read_text(encoding="utf-8")
     docs_readme = (docs_dir / "README.md").read_text(encoding="utf-8")
     assert "[`api-sdk.md`](api-sdk.md)" in docs_readme
     assert "[`html/api-sdk.html`](html/api-sdk.html)" in docs_readme
@@ -603,12 +608,15 @@ def test_public_docs_include_api_sdk_page_and_valid_local_links() -> None:
     assert "[`html/runtime-effect-demo.html`](html/runtime-effect-demo.html)" in docs_readme
     assert "[`five-layer-operator-guide.md`](five-layer-operator-guide.md)" in docs_readme
     assert "[`html/five-layer-operator-guide.html`](html/five-layer-operator-guide.html)" in docs_readme
+    assert "[`roadmap.md`](roadmap.md)" in docs_readme
+    assert "[`html/roadmap.html`](html/roadmap.html)" in docs_readme
     readme = (root / "README.md").read_text(encoding="utf-8")
     for href in (
         "docs/api-sdk.md",
         "docs/runtime-effect-demo.md",
         "docs/five-layer-operator-guide.md",
         "docs/html/index.html",
+        "docs/roadmap.md",
     ):
         assert f"({href})" in readme
     assert sorted(path.name for path in docs_dir.glob("*.html")) == []
@@ -663,6 +671,7 @@ def test_readme_routes_users_into_documentation_journey() -> None:
         "docs/cli-reference.md",
         "docs/api-sdk.md",
         "docs/evaluation.md",
+        "docs/roadmap.md",
         "docs/index.md",
         "docs/html/index.html",
     ):
@@ -682,7 +691,37 @@ def test_public_docs_are_organized_by_user_journey() -> None:
     assert markdown_index.index("## Operate") < markdown_index.index("## Reference")
     assert "five-layer-operator-guide.md" in markdown_index
     assert "five-layer-operator-guide.html" in html_index
+    assert "roadmap.md" in markdown_index
+    assert "roadmap.html" in html_index
     assert "release-history.md" in markdown_index[markdown_index.index("## Reference") :]
+
+
+def test_public_roadmap_documents_product_work_without_private_paper_scope() -> None:
+    root = Path(__file__).resolve().parents[1]
+    markdown_page = (root / "docs" / "roadmap.md").read_text(encoding="utf-8")
+    html_page = (root / "docs" / "html" / "roadmap.html").read_text(encoding="utf-8")
+
+    for phrase in (
+        "v0.9.8 Claude Code Full Live Adapter",
+        "v0.9.15 Enterprise Registration Authority",
+        "v0.9.17 Benign Coding Friction",
+        "Development:",
+        "Tests:",
+        "Validation:",
+        "Experiments:",
+        "full_live_adapter",
+        "managed_wrapper",
+        "vendor_evidence_import",
+    ):
+        assert phrase in markdown_page
+
+    for phrase in ("v0.9.8", "v0.9.15", "v0.9.17", "Strict live validation"):
+        assert phrase in html_page
+
+    forbidden_public_scope = ("NDSS", "v0.9.18", "paper-submission", "private experiment freezes")
+    for phrase in forbidden_public_scope:
+        assert phrase not in markdown_page
+        assert phrase not in html_page
 
 
 def test_five_layer_operator_guide_documents_operational_path() -> None:
@@ -741,6 +780,8 @@ def test_api_sdk_page_documents_real_python_helpers() -> None:
     assert "docs/html/runtime-effect-demo.html" in DEFAULT_REQUIRED_DOCS
     assert "docs/five-layer-operator-guide.md" in DEFAULT_REQUIRED_DOCS
     assert "docs/html/five-layer-operator-guide.html" in DEFAULT_REQUIRED_DOCS
+    assert "docs/roadmap.md" in DEFAULT_REQUIRED_DOCS
+    assert "docs/html/roadmap.html" in DEFAULT_REQUIRED_DOCS
 
     assert callable(documented_load_ledger_entries)
     assert callable(documented_verify_ledger)

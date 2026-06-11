@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Invart Roadmap</title>
+  <link rel="icon" href="../../assets/brand/png-from-original/invart-mark-from-original-64x64.png" type="image/png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <span class="badge">Invart Roadmap</span>
+    <h1>Open-source path to 1.0 readiness</h1>
+    <p>This roadmap covers public product work: daemon, adapters, registration, policy, evidence, validation, and benchmark experiments. It excludes local-only planning artifacts.</p>
+    <nav class="nav">
+      <a href="index.html">Docs Home</a>
+      <a href="product.html">Product</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="cli-reference.html">CLI</a>
+      <a href="evaluation.html">Evaluation</a>
+      <a href="release-history.html">Release History</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>Roadmap Principles</h2>
+      <table>
+        <thead><tr><th>Principle</th><th>Meaning for development</th></tr></thead>
+        <tbody>
+          <tr><td>Ledger first</td><td>Runtime facts enter an append-only ledger. Proof, replay, graph, audit, and evidence are derived artifacts.</td></tr>
+          <tr><td>Coverage honesty</td><td>Observed, mediated, enforced, fail-open, degraded, imported, and discovered positions remain distinct.</td></tr>
+          <tr><td>Real agent evidence</td><td>Adapter claims need live or fixture-backed runtime artifacts, not only product documentation.</td></tr>
+          <tr><td>Low-friction governance</td><td>Benign coding workflows should continue with low approval noise and measured overhead.</td></tr>
+          <tr><td>Test-driven delivery</td><td>Each stage starts with product-level tests and ends with benchmark, docs, and release-gate validation.</td></tr>
+          <tr><td>No false enterprise claim</td><td>Enterprise control-plane language requires registration, enrollment, policy, and unmanaged-gap evidence.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Current Baseline</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Available Now</h3>
+          <ul>
+            <li>CLI-first managed sessions, ledger, proof, replay, graph, coverage, audit, evidence bundles, and RC checks.</li>
+            <li>Generic adapter wrapper and Claude Code reference adapter.</li>
+            <li>Adapter profiles with truthful coverage grades.</li>
+            <li>L1-L5 runtime workflow and L5 evidence workspace.</li>
+            <li>Local benchmark suites and progressive external evidence attachment.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Not Yet Claimed</h3>
+          <ul>
+            <li>Hosted enterprise admin console.</li>
+            <li>IdP or SCIM-backed organization service.</li>
+            <li>OS or kernel-level sandbox.</li>
+            <li>Guaranteed control over unmanaged agents that bypass Invart.</li>
+            <li>Full live adapter for every agent product.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Coverage Grade Vocabulary</h2>
+      <table>
+        <thead><tr><th>Grade</th><th>Meaning</th><th>Cannot claim</th></tr></thead>
+        <tbody>
+          <tr><td><code>full_live_adapter</code></td><td>Real installed agent enters Invart through managed launch, daemon session registration, mediation, and L5 artifact export.</td><td>Universal OS-level containment or complete vendor-private visibility.</td></tr>
+          <tr><td><code>managed_wrapper</code></td><td>Invart controls launch and visible command/file/network-shaped workflow boundaries.</td><td>Fine-grained native hook coverage unless real native events enter Invart.</td></tr>
+          <tr><td><code>native_bridge</code></td><td>Vendor hook, plugin, extension, MCP, or SDK events enter Invart and can receive normalized decisions.</td><td>Full runtime enforcement beyond the covered native event surface.</td></tr>
+          <tr><td><code>vendor_evidence_import</code></td><td>Invart imports vendor logs, sandbox facts, approval records, traces, PRs, or backend reports.</td><td>Invart mediation or enforcement of the original side effect.</td></tr>
+          <tr><td><code>discovery_inventory</code></td><td>Invart discovers binaries, configs, plugins, skills, MCP servers, or unmanaged surfaces.</td><td>Runtime control.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Version Timeline</h2>
+      <table>
+        <thead><tr><th>Version</th><th>Theme</th><th>Primary outcome</th></tr></thead>
+        <tbody>
+          <tr><td>v0.9.8</td><td>Claude Code full live adapter</td><td>First real installed agent runs through the full Invart loop.</td></tr>
+          <tr><td>v0.9.9</td><td>Live adapter conformance contract v2</td><td>Comparable live, fixture, imported, and discovered evidence grades.</td></tr>
+          <tr><td>v0.9.10</td><td>OpenCode real adapter track</td><td>Second real product track with open-source reproducibility.</td></tr>
+          <tr><td>v0.9.11</td><td>Terminal agent managed wrappers</td><td>Gemini CLI and Aider wrapper validation with benign friction metrics.</td></tr>
+          <tr><td>v0.9.12</td><td>Codex deep adapter</td><td>Codex integration with native sandbox boundaries kept honest.</td></tr>
+          <tr><td>v0.9.13</td><td>IDE extension bridge and inventory</td><td>Cline, Roo, and Cursor enter the coverage vocabulary without overclaiming.</td></tr>
+          <tr><td>v0.9.14</td><td>Gateway and server-agent evidence</td><td>OpenClaw and Hermes-style evidence imported or mediated at the right grade.</td></tr>
+          <tr><td>v0.9.15</td><td>Enterprise registration authority</td><td>Agent enrollment, launcher registry, adapter registry, and unmanaged-gap reports.</td></tr>
+          <tr><td>v0.9.16</td><td>Public benchmark slice</td><td>Small benchmark slice measured with control-plane metrics.</td></tr>
+          <tr><td>v0.9.17</td><td>Benign coding friction study</td><td>Paired baseline versus Invart-managed workflow compatibility evidence.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Detailed Stage Work</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>v0.9.8 Claude Code Full Live Adapter</h3>
+          <p><strong>Development:</strong> real binary detection, daemon-backed session creation, principal and agent identity binding, managed launch, hook/tool event normalization, mediation, approval or deny, outcome capture, and full L5 export.</p>
+          <p><strong>Tests:</strong> strict live failure on missing binary, fixture mode distinction, benign autonomy, risk intervention, degraded coverage reporting.</p>
+          <p><strong>Validation:</strong> adapter package inspection, evidence workspace verification, live run artifact completeness.</p>
+          <p><strong>Experiments:</strong> baseline versus managed benign run, dummy secret egress or unsafe deletion, hook-mediated versus wrapper-mediated comparison.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.9 Conformance Contract v2</h3>
+          <p><strong>Development:</strong> evidence level, control position, side-effect timing, required artifacts, source citation, and gate rules for every adapter profile.</p>
+          <p><strong>Tests:</strong> grade-specific artifacts, imported evidence cannot satisfy mediated/enforced claims, coverage label failure on missing evidence.</p>
+          <p><strong>Validation:</strong> conformance reports feed CLI, benchmark, product matrix, and release gate.</p>
+          <p><strong>Experiments:</strong> same-action raw, trace-only, wrapper, bridge, shim, and vendor-import comparison.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.10 OpenCode Real Adapter Track</h3>
+          <p><strong>Development:</strong> OpenCode binary detection, plugin/config inventory, managed wrapper, mediation for visible actions, full adapter artifacts where possible.</p>
+          <p><strong>Tests:</strong> truthful profile grade, fixture run, pre-runtime plugin inventory, managed risk action.</p>
+          <p><strong>Validation:</strong> live run when installed, blocked/pending when missing, product matrix artifact links.</p>
+          <p><strong>Experiments:</strong> benign repo task, plugin or skill scan, risk-equivalent command/file action.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.11 Terminal Agent Managed Wrapper Track</h3>
+          <p><strong>Development:</strong> Gemini CLI and Aider profiles, binary probes, config/MCP/context inventory, direct versus managed artifact comparison.</p>
+          <p><strong>Tests:</strong> managed-wrapper or lower grade unless hook evidence exists, exit-code and artifact parity, approval noise measurement.</p>
+          <p><strong>Validation:</strong> compatibility report for installed or fixture-backed agents.</p>
+          <p><strong>Experiments:</strong> Gemini MCP/config run, Aider edit/test workflow, paired benign friction runs.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.12 Codex Deep Adapter</h3>
+          <p><strong>Development:</strong> Codex detection, managed wrapper, vendor-native sandbox/approval/network evidence import, non-inflation gate checks.</p>
+          <p><strong>Tests:</strong> Codex-native controls stay vendor evidence, managed wrapper actions produce Invart decisions, gate catches upgraded claims.</p>
+          <p><strong>Validation:</strong> direct versus managed comparison and honest strict-mode failures.</p>
+          <p><strong>Experiments:</strong> benign compatibility, risk-equivalent managed run, vendor-native evidence import row.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.13 IDE Bridge And Inventory</h3>
+          <p><strong>Development:</strong> Cline, Roo, and Cursor profiles for extension, rule, MCP, and settings surfaces with optional bridged/imported events.</p>
+          <p><strong>Tests:</strong> discovery-only cannot satisfy mediation, imported events preserve source and limitation, blind spots remain visible.</p>
+          <p><strong>Validation:</strong> IDE inventory report and evidence bundle import.</p>
+          <p><strong>Experiments:</strong> config/MCP/rules inventory, event sample import, discovery-only negative gate.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.14 Gateway And Server-Agent Evidence</h3>
+          <p><strong>Development:</strong> OpenClaw and Hermes profiles for gateway, security, skill, container, backend, and command evidence fields.</p>
+          <p><strong>Tests:</strong> vendor-owned evidence stays audit/import coverage, source hash and limitation are preserved, managed mode emits normal artifacts when available.</p>
+          <p><strong>Validation:</strong> report shows managed, imported, or discovery-only grade per row.</p>
+          <p><strong>Experiments:</strong> security posture inventory, safe-equivalent risk case, vendor evidence import case.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.15 Enterprise Registration Authority</h3>
+          <p><strong>Development:</strong> agent catalog, launcher registry, adapter registry, registration policy, declared identity checks, unmanaged discovery reports.</p>
+          <p><strong>Tests:</strong> registered launch accepted, identity mismatch rejected, unregistered agent reported as gap, full-control claim requires launcher or adapter evidence.</p>
+          <p><strong>Validation:</strong> daemon status and release gate can require registration evidence.</p>
+          <p><strong>Experiments:</strong> registered versus unregistered comparison, mismatched identity, mixed workspace coverage-gap scan.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.16 Public Benchmark Slice</h3>
+          <p><strong>Development:</strong> small reproducible public benchmark slice mapped to control-plane metrics.</p>
+          <p><strong>Tests:</strong> every case emits full L5 artifacts, pinned fixtures are stable, external dependencies skip cleanly unless strict.</p>
+          <p><strong>Validation:</strong> benchmark reports block rate, approval rate, false-positive proxy, proof completeness, coverage distribution, and reconstruction status.</p>
+          <p><strong>Experiments:</strong> indirect instruction, risky tool/code action, skill/plugin poisoning, benign control.</p>
+        </div>
+        <div class="card">
+          <h3>v0.9.17 Benign Coding Friction</h3>
+          <p><strong>Development:</strong> paired baseline versus managed workflow runner across priority agents where installed or fixture-backed.</p>
+          <p><strong>Tests:</strong> separate baseline and managed artifacts, approval noise from ledger decisions, compatibility fails on unexplained artifact divergence.</p>
+          <p><strong>Validation:</strong> compatibility report with exit code, artifact, grading result, metadata differences, approval count, overhead, and evidence completeness.</p>
+          <p><strong>Experiments:</strong> repo inspection, test command, small edit/test workflow, SWE-Bench-Lite-shaped sample when available.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cross-Cutting Test Strategy</h2>
+      <table>
+        <thead><tr><th>Test family</th><th>Product question</th></tr></thead>
+        <tbody>
+          <tr><td>Profile contract tests</td><td>What does Invart claim for this product, and what evidence is required?</td></tr>
+          <tr><td>Adapter workflow tests</td><td>Can a real or fixture agent enter Invart and produce ledger/proof/evidence?</td></tr>
+          <tr><td>Risk intervention tests</td><td>Does Invart block or pause risky side effects before they happen on covered surfaces?</td></tr>
+          <tr><td>Benign autonomy tests</td><td>Does Invart avoid excessive approval noise for ordinary work?</td></tr>
+          <tr><td>Coverage truthfulness tests</td><td>Are observed, mediated, enforced, imported, and discovered positions kept distinct?</td></tr>
+          <tr><td>Evidence integrity tests</td><td>Can a reviewer trust the bundle and detect missing or tampered artifacts?</td></tr>
+          <tr><td>Release gate tests</td><td>Do missing docs, tests, benchmarks, registration, or evidence fail the right gate?</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Validation Commands</h2>
+      <pre>PYTHONPATH=src uv run --with pytest pytest -q
+PYTHONPATH=src python -m invart.cli roadmap status --require-full
+PYTHONPATH=src python -m invart.cli eval benchmark --suite full-product-readiness
+PYTHONPATH=src python -m invart.cli release-candidate verify --out-dir .invart/rc --skip-pytest</pre>
+      <p>Strict live validation must fail when required live evidence is absent. Missing local binaries are never reported as a successful live run.</p>
+      <pre>PYTHONPATH=src python -m invart.cli real-agent check --require-live --out-dir .invart/live-agent-check
+PYTHONPATH=src python -m invart.cli real-agent run --agent claude-code --require-live --out-dir .invart/live-claude</pre>
+    </section>
+
+    <section>
+      <h2>Deferred Beyond This Roadmap</h2>
+      <div class="card">
+        <p>Hosted enterprise admin console, IdP/SCIM/SAML integration, production SIEM or OTel export, kernel-level enforcement, graph database backend, full signoff workflow, and local-only planning artifacts remain outside this open-source roadmap slice.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
