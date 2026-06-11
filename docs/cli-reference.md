@@ -50,11 +50,25 @@ invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/r
 
 Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
 
+### Claude Code reference adapter
+
+```bash
+invart adapter claude-code \
+  --target . \
+  --out-dir .invart/claude-reference \
+  --hook-events .invart/claude-hooks.jsonl \
+  --policy-mode managed \
+  -- <claude-or-harness-command>
+```
+
+This reference adapter records Claude-style hook events, mediates the child command, and exports an adapter package containing ledger, proof, replay, path graph, coverage, audit, and evidence manifest. In managed/ci mode, deterministic risky actions pause or block before the child command is launched; advisory mode preserves autonomy and records evidence. Portable subprocess supervision is explicitly marked as degraded process-tree coverage unless native supervision is enabled.
+
 ### Evaluation
 
 ```bash
 invart eval list
 invart eval benchmark --suite full-product-readiness
 invart eval benchmark --suite v0.9.3-agent-adapter-contract
+invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart roadmap status --require-full
 ```
