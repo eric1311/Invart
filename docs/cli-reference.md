@@ -87,6 +87,26 @@ invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/r
 Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
 The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation. `real-agent check` emits a conformance contract row for each product so imported, discovered, fixture-backed, and live evidence cannot be mixed into a stronger claim.
 
+### Enterprise agent registration
+
+```bash
+invart launcher install --target . --agent claude-code
+invart real-agent registry \
+  --target . \
+  --agent claude-code \
+  --owner platform-security \
+  --out .invart/agent-registry.json
+invart real-agent registration-gate \
+  --registry .invart/agent-registry.json \
+  --agent claude-code \
+  --declared-agent claude-code \
+  --principal alice@example.com \
+  --enterprise
+invart real-agent registration-gaps --target . --registry .invart/agent-registry.json
+```
+
+The registry records enrolled agent, adapter profile, profile hash, launcher state, owner, scope, and verification state. In enterprise mode, the registration gate rejects unregistered agents, declared-agent mismatches, and missing managed launchers. `registration-gaps` turns discovered but unmanaged native surfaces into coverage gaps instead of treating them as controlled.
+
 ### Claude Code reference adapter
 
 ```bash
@@ -121,5 +141,6 @@ invart eval benchmark --suite v0.9.11-terminal-agent-managed-wrappers
 invart eval benchmark --suite v0.9.12-codex-boundary
 invart eval benchmark --suite v0.9.13-ide-bridge-inventory
 invart eval benchmark --suite v0.9.14-gateway-server-evidence
+invart eval benchmark --suite v0.9.15-enterprise-registration-authority
 invart roadmap status --require-full
 ```

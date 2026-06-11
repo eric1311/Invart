@@ -947,6 +947,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add enterprise registration authority for enrolled agents, launchers, adapter evidence, and unmanaged gaps.",
     ),
+    RoadmapCapability(
+        version="v0.9.15",
+        capability_id="enterprise_registration_authority",
+        title="Enterprise registration authority",
+        target="Bind enrolled agents, adapter profiles, launcher verification, principal accountability, and unmanaged discovery gaps into a local enterprise registration gate.",
+        status="implemented",
+        implementation=["src/invart/governance/registration.py", "src/invart/commands/integrations.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0915_registration_authority_enforces_enterprise_launch_contract", "test_v0915_unregistered_agent_gaps_cli_and_benchmark", "v0.9.15-enterprise-registration-authority"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Local registry-backed enterprise authority records enrolled agent/profile/launcher facts with stable hashes.", "Enterprise registration gate can deny unregistered agents, declared-agent mismatches, and missing managed launchers.", "Unregistered-agent coverage remains discovery/gap evidence until the agent enters an Invart launch, wrapper, bridge, or proxy boundary."],
+        claim_scope="enterprise_registration_authority",
+        evidence_level="local_registry_launcher_and_inventory_fixture",
+        external_validation="not_run_optional",
+        next_step="Add a public benchmark slice that reports product-effect metrics across attack, benign, compatibility, and evidence cases.",
+    ),
 )
 
 

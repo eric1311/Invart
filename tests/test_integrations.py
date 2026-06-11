@@ -1341,6 +1341,68 @@ def test_v0914_gateway_managed_launcher_when_local_boundary_exists(tmp_path: Pat
     assert main(["eval", "benchmark", "--suite", "v0.9.14-gateway-server-evidence"]) == 0
 
 
+def test_v0915_registration_authority_enforces_enterprise_launch_contract(tmp_path: Path) -> None:
+    from invart.governance.registration import export_agent_registry, verify_registered_launch
+    from invart.surfaces.launcher import install_managed_launcher
+
+    install_managed_launcher(tmp_path, agent="claude-code")
+    registry = export_agent_registry(tmp_path, agents=["claude-code"], owner="platform-security", scope="repo")
+    entry = registry["agents"][0]
+    assert registry["schema_version"] == "invart.enterprise_agent_registry.v0.9.15"
+    assert entry["agent"] == "claude-code"
+    assert entry["owner"] == "platform-security"
+    assert entry["launcher"]["status"] == "pass"
+    assert entry["profile_hash"].startswith("sha256:")
+
+    allowed = verify_registered_launch(
+        registry,
+        agent="claude-code",
+        declared_agent="claude-code",
+        principal_id="alice@example.com",
+        profile={"mode": "enterprise", "registration": {"required": True, "require_managed_launcher": True}},
+    )
+    assert allowed["status"] == "pass"
+    assert allowed["coverage"]["runtime_enforcement"] == "mediated"
+    assert allowed["accountability"]["principal_id"] == "alice@example.com"
+
+    mismatch = verify_registered_launch(
+        registry,
+        agent="claude-code",
+        declared_agent="codex",
+        principal_id="alice@example.com",
+        profile={"mode": "enterprise", "registration": {"required": True}},
+    )
+    assert mismatch["status"] == "fail"
+    assert any(finding["check_id"] == "registration.agent_mismatch" for finding in mismatch["findings"])
+
+    missing = verify_registered_launch(
+        registry,
+        agent="opencode",
+        declared_agent="opencode",
+        principal_id="alice@example.com",
+        profile={"mode": "enterprise", "registration": {"required": True}},
+    )
+    assert missing["status"] == "fail"
+    assert any(finding["check_id"] == "registration.unregistered_agent" for finding in missing["findings"])
+
+
+def test_v0915_unregistered_agent_gaps_cli_and_benchmark(tmp_path: Path) -> None:
+    from invart.governance.registration import export_agent_registry, unmanaged_registration_gaps
+
+    (tmp_path / ".hermes").mkdir()
+    (tmp_path / ".hermes" / "mcp.json").write_text(json.dumps({"mcpServers": {"fs": {}}}), encoding="utf-8")
+    registry_path = tmp_path / "agent-registry.json"
+    registry = export_agent_registry(tmp_path, agents=["claude-code"], owner="platform-security", output_path=registry_path)
+    gaps = unmanaged_registration_gaps(tmp_path, registry)
+    assert gaps["schema_version"] == "invart.enterprise_registration_gaps.v0.9.15"
+    assert any(item["agent"] == "hermes" for item in gaps["findings"])
+    assert "does not claim runtime enforcement" in gaps["claim_boundary"]
+
+    assert main(["real-agent", "registry", "--target", str(tmp_path), "--agent", "claude-code", "--owner", "platform-security", "--out", str(tmp_path / "cli-registry.json")]) == 0
+    assert main(["real-agent", "registration-gate", "--registry", str(registry_path), "--agent", "claude-code", "--declared-agent", "claude-code", "--principal", "alice@example.com", "--enterprise"]) == 1
+    assert main(["eval", "benchmark", "--suite", "v0.9.15-enterprise-registration-authority"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

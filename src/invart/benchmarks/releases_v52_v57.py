@@ -21,6 +21,8 @@ from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_
 from invart.surfaces.vendor_evidence import import_gateway_server_evidence, import_vendor_native_evidence, validate_vendor_claim_boundary
 from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inventory
 from invart.surfaces.native_bridge import bridge_conformance_matrix, normalize_native_event
+from invart.governance.registration import export_agent_registry, unmanaged_registration_gaps, verify_registered_launch
+from invart.surfaces.launcher import install_managed_launcher
 
 
 def run_agent_adapter_contract_benchmark() -> dict[str, object]:
@@ -591,6 +593,49 @@ def run_gateway_server_evidence_benchmark() -> dict[str, object]:
         )
 
 
+def run_enterprise_registration_authority_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0915_") as tmp:
+        root = Path(tmp)
+        install_managed_launcher(root, agent="claude-code")
+        (root / ".hermes").mkdir()
+        (root / ".hermes" / "mcp.json").write_text('{"mcpServers":{"fs":{}}}\n', encoding="utf-8")
+        registry = export_agent_registry(root, agents=["claude-code", "opencode"], owner="platform-security", scope="repo", output_path=root / "agent-registry.json")
+        allowed = verify_registered_launch(
+            registry,
+            agent="claude-code",
+            declared_agent="claude-code",
+            principal_id="alice@example.com",
+            profile={"mode": "enterprise", "registration": {"required": True, "require_managed_launcher": True}},
+        )
+        missing_launcher = verify_registered_launch(
+            registry,
+            agent="opencode",
+            declared_agent="opencode",
+            principal_id="alice@example.com",
+            profile={"mode": "enterprise", "registration": {"required": True, "require_managed_launcher": True}},
+        )
+        mismatch = verify_registered_launch(
+            registry,
+            agent="claude-code",
+            declared_agent="codex",
+            principal_id="alice@example.com",
+            profile={"mode": "enterprise", "registration": {"required": True}},
+        )
+        gaps = unmanaged_registration_gaps(root, registry)
+        checks = {
+            "registry_manifest_hashed": bool(registry.get("registry_hash")) and registry.get("schema_version") == "invart.enterprise_agent_registry.v0.9.15",
+            "registered_managed_launch_passes": allowed.get("status") == "pass" and allowed.get("coverage", {}).get("runtime_enforcement") == "mediated",
+            "registered_without_launcher_fails_enterprise": missing_launcher.get("status") == "fail" and any(item.get("check_id") == "registration.managed_launcher_missing" for item in missing_launcher.get("findings", [])),
+            "declared_agent_mismatch_fails": mismatch.get("status") == "fail" and any(item.get("check_id") == "registration.agent_mismatch" for item in mismatch.get("findings", [])),
+            "unregistered_native_gap_reported": any(item.get("agent") == "hermes" for item in gaps.get("findings", [])),
+        }
+        return _suite_result(
+            "v0.9.15-enterprise-registration-authority",
+            checks,
+            artifacts={"registry": str(root / "agent-registry.json"), "gaps": gaps, "allowed": allowed, "missing_launcher": missing_launcher},
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
@@ -598,6 +643,7 @@ __all__ = [
     "run_conformance_contract_v2_benchmark",
     "run_codex_boundary_benchmark",
     "run_evidence_workspace_gate_benchmark",
+    "run_enterprise_registration_authority_benchmark",
     "run_gateway_server_evidence_benchmark",
     "run_ide_bridge_inventory_benchmark",
     "run_opencode_real_adapter_benchmark",

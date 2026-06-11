@@ -44,6 +44,7 @@ This page is a reference, not the first-run learning path. Start with [Product O
 | v0.9.12 | Implemented | Codex deep adapter boundary: Codex managed-wrapper runs remain Invart-mediated, while Codex-native sandbox, approval, network, and credential-boundary facts are imported as vendor-owned evidence and rejected if inflated into Invart enforcement. |
 | v0.9.13 | Implemented | IDE extension bridge and inventory track for Cursor, Cline, and Roo: config/MCP/extension discovery is reported as a coverage gap, while explicit native bridge events preserve source metadata and can receive normalized decisions. |
 | v0.9.14 | Implemented | Gateway/server-agent evidence track for OpenClaw and Hermes: backend/container/security logs preserve source hash, timestamp, limitation, and vendor-owned coverage, while local managed launcher runs can still emit Invart ledger/proof artifacts for controlled boundaries. |
+| v0.9.15 | Implemented | Enterprise registration authority: enrolled agent/profile/launcher facts are exported with stable hashes, launch requests can be denied for unregistered agents, declared-agent mismatches, or missing managed launchers, and unmanaged native surfaces become explicit coverage gaps. |
 
 ## Internal History
 

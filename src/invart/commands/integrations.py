@@ -19,6 +19,7 @@ from invart.evaluation.harness import (
     run_swe_bench_lite_check,
 )
 from invart.evaluation.real_agent_conformance import export_real_agent_report_html, run_real_agent_conformance
+from invart.governance.registration import export_agent_registry, load_agent_registry, unmanaged_registration_gaps, verify_registered_launch
 from invart.surfaces.adapter_profiles import adapter_track_matrix, build_adapter_profile
 from invart.surfaces.enforcement import check_enforcement, run_enforced_command, run_file_write_intercepted, rust_build_check, rust_shim_decision, rust_shim_spec
 from invart.surfaces.native import install_native_integration, inventory_native_integrations, native_capability_matrix, native_conformance_report, unmanaged_agent_inventory
@@ -238,6 +239,42 @@ def handle_real_agent(args: argparse.Namespace) -> int:
         result = export_real_agent_report_html(Path(args.run_dir), Path(args.out))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
+    if args.real_agent_command == "registry":
+        agents = args.agent or ["claude-code", "codex", "gemini-cli", "opencode", "aider"]
+        result = export_agent_registry(
+            Path(args.target),
+            agents=agents,
+            owner=args.owner,
+            scope=args.scope,
+            output_path=Path(args.out) if args.out else None,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
+    if args.real_agent_command == "registration-gate":
+        profile = {
+            "mode": "enterprise" if args.enterprise else "managed",
+            "registration": {
+                "required": bool(args.enterprise),
+                "require_managed_launcher": bool(args.require_managed_launcher or args.enterprise),
+            },
+        }
+        result = verify_registered_launch(
+            load_agent_registry(Path(args.registry)),
+            agent=args.agent,
+            declared_agent=args.declared_agent,
+            principal_id=args.principal,
+            profile=profile,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.real_agent_command == "registration-gaps":
+        result = unmanaged_registration_gaps(
+            Path(args.target),
+            load_agent_registry(Path(args.registry)),
+            include_global_config=args.include_global_config,
+        )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0
     return 2
 
 
