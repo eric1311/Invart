@@ -812,6 +812,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add L1-L5 runtime operation commands and evidence views so users can operate each layer explicitly.",
     ),
+    RoadmapCapability(
+        version="v0.9.6",
+        capability_id="layer_runtime_workflow",
+        title="L1-L5 runtime operation workflow",
+        target="Generate a ledger-derived runtime workflow that maps before-runtime, during-runtime, and after-runtime operations across L1-L5 with linked proof, replay, graph, coverage, audit, and evidence artifacts.",
+        status="implemented",
+        implementation=["src/invart/assurance/layer_runtime.py", "src/invart/commands/parser_foundation.py", "src/invart/commands/foundation.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v096_layer_runtime_workflow_exports_stage_layer_artifacts", "test_v096_runtime_layers_cli_and_benchmark_are_registered", "v0.9.6-layer-runtime-workflow"],
+        docs=["docs/runtime-effect-demo.md", "docs/html/runtime-effect-demo.html", "docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html"],
+        product_boundaries=["Local ledger-derived runtime fixture validates the L1-L5 operation workflow; it does not create facts outside the ledger source of truth.", "The workflow distinguishes observed, mediated, and enforced coverage and does not upgrade weak coverage labels.", "The command is an operator/reporting surface, not a hosted UI."],
+        claim_scope="local_layer_runtime_workflow",
+        evidence_level="ledger_derived_runtime_fixture",
+        external_validation="not_run_optional",
+        next_step="Harden L5 evidence workspace and release gate checks so missing or inconsistent artifacts fail clearly.",
+    ),
 )
 
 

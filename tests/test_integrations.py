@@ -722,6 +722,42 @@ def test_v095_cli_and_benchmark_are_registered() -> None:
     assert main(["eval", "benchmark", "--suite", "v0.9.5-priority-agent-tracks"]) == 0
 
 
+def test_v096_layer_runtime_workflow_exports_stage_layer_artifacts(tmp_path: Path) -> None:
+    from invart.assurance.layer_runtime import export_layer_runtime_workflow
+
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="claude-code", goal="v0.9.6 layer workflow", create_preflight=False)
+    record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(tmp_path / ".env"), metadata={"coverage_layer": "native_hook"}), ledger)
+    record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://example.com/upload", metadata={"coverage_layer": "native_hook"}), ledger)
+    close_session(ledger)
+
+    report = export_layer_runtime_workflow(ledger, tmp_path / "layers")
+    assert report["schema_version"] == "invart.layer_runtime_workflow.v0.9.6"
+    assert report["status"] == "pass"
+    assert {item["stage"] for item in report["runtime_effect_matrix"]} == {"before-runtime", "during-runtime", "after-runtime"}
+    assert {item["layer"] for item in report["runtime_effect_matrix"]} == {"L1", "L2", "L3", "L4", "L5"}
+    assert {item["layer"] for item in report["layer_timeline"]} == {"L1", "L2", "L3", "L4", "L5"}
+    for artifact in ("proof", "replay", "path_graph_json", "path_graph_html", "coverage", "audit_html", "evidence_manifest", "workflow_json", "workflow_html"):
+        assert Path(report["artifacts"][artifact]).exists()
+    html = Path(report["artifacts"]["workflow_html"]).read_text(encoding="utf-8")
+    assert "L1 Execution Surface" in html
+    assert "before-runtime" in html
+    assert "Observed, mediated, and enforced are not interchangeable" in html
+
+
+def test_v096_runtime_layers_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger.jsonl"
+    session = start_session(tmp_path, ledger, agent="codex", goal="v0.9.6 cli", create_preflight=False)
+    record_action(RuntimeEvent(type="shell", session_id=session.session_id, command="echo ok", metadata={"coverage_layer": "shell_wrapper"}), ledger)
+    close_session(ledger)
+    out_dir = tmp_path / "cli-layers"
+
+    assert main(["runtime", "layers", "--ledger", str(ledger), "--out-dir", str(out_dir)]) == 0
+    assert (out_dir / "layer-runtime-workflow.json").exists()
+    assert (out_dir / "layer-runtime-workflow.html").exists()
+    assert main(["eval", "benchmark", "--suite", "v0.9.6-layer-runtime-workflow"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

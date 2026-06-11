@@ -19,6 +19,16 @@ For isolated per-risk-case runs:
 scripts/container-demo.sh all .invart/container-risk-demo
 ```
 
+For any existing Invart ledger:
+
+```bash
+PYTHONPATH=src python -m invart.cli runtime layers \
+  --ledger .invart/session.jsonl \
+  --out-dir .invart/layer-workflow
+```
+
+Open `.invart/layer-workflow/layer-runtime-workflow.html`. This report is derived from the ledger and links the proof, replay, path graph, coverage, audit, and evidence manifest produced for that run.
+
 ## What To Look For
 
 | View | What it proves | Main artifact |
@@ -28,6 +38,7 @@ scripts/container-demo.sh all .invart/container-risk-demo
 | Path Graph | Risk chains such as secret read to external network sink can be traced. | `path-graph.html` |
 | Coverage Report | Observed, mediated, and enforced are reported as different claims. | `coverage.html` |
 | Audit Report | A reviewer can answer who, what, why, policy, approval, outcome, and coverage. | `audit-report.html` |
+| Layer Runtime Workflow | A command-level way to operate L1-L5 for a single ledger. | `layer-runtime-workflow.html` |
 
 ## Three Runtime Stages
 
@@ -46,6 +57,16 @@ scripts/container-demo.sh all .invart/container-risk-demo
 | L3 Decision Plane | Shows deterministic rules, path-aware policy, and non-downgradable critical findings. |
 | L4 Mediation Plane | Shows allow, audit, require approval, deny, enforced block, and fail-open alert semantics. |
 | L5 Evidence Plane | Shows proof, replay, graph, coverage, audit, evidence bundle, and release gate outputs. |
+
+## Layer Operation Flow
+
+| Layer | Practical command | What the user gets |
+| --- | --- | --- |
+| L1 Execution Surface | `invart pre-runtime --target . --save` | Surface inventory and unmanaged coverage gaps. |
+| L2 Runtime Fact Model | `invart runtime record-event --ledger ledger.jsonl --event '{...}'` | Normalized invocation, resource, taint, identity, and outcome facts. |
+| L3 Decision Plane | `invart policy check-path --ledger ledger.jsonl --out path-policy.json` | Deterministic and path-aware reasons for allow, approval, or deny. |
+| L4 Mediation Plane | `invart mediation inspect --ledger ledger.jsonl` | Pause, block, fail-open, approval, and mediation outcome state. |
+| L5 Evidence Plane | `invart runtime layers --ledger ledger.jsonl --out-dir .invart/layers` | A reviewable stage x layer matrix with proof/replay/graph/coverage/audit links. |
 
 ## Boundaries
 

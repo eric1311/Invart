@@ -23,7 +23,10 @@ invart run --target . --agent codex --goal "..." -- <command>
 ```bash
 invart runtime analyze-event --event '{"type":"shell","command":"rm -rf ."}'
 invart runtime shell --session demo --ledger .invart/demo.jsonl -- <command>
+invart runtime layers --ledger .invart/demo.jsonl --out-dir .invart/layers
 ```
+
+`runtime layers` exports a L1-L5 operation workflow for an existing ledger. It writes JSON and HTML that link proof, replay, path graph, coverage, audit, and evidence manifest artifacts.
 
 ### Proof and gate
 
@@ -74,5 +77,6 @@ invart eval benchmark --suite full-product-readiness
 invart eval benchmark --suite v0.9.3-agent-adapter-contract
 invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart eval benchmark --suite v0.9.5-priority-agent-tracks
+invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart roadmap status --require-full
 ```

@@ -50,6 +50,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.3-agent-adapter-contract",
     "v0.9.4-claude-reference-adapter",
     "v0.9.5-priority-agent-tracks",
+    "v0.9.6-layer-runtime-workflow",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

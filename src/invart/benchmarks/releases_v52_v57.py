@@ -6,7 +6,10 @@ from pathlib import Path
 
 from .common import _suite_result
 from invart.assurance.evidence_bundle import verify_evidence_bundle
+from invart.assurance.layer_runtime import export_layer_runtime_workflow
 from invart.core.ledger import load_ledger_entries
+from invart.core.models import RuntimeEvent
+from invart.control.runtime import close_session, record_action, start_session
 from invart.evaluation.product_control_matrix import run_product_control_matrix
 from invart.evaluation.real_agent_conformance import run_real_agent_conformance
 from invart.surfaces.adapter import run_adapter_command
@@ -167,4 +170,37 @@ def run_priority_agent_tracks_benchmark() -> dict[str, object]:
         )
 
 
-__all__ = ["run_agent_adapter_contract_benchmark", "run_claude_reference_adapter_benchmark", "run_priority_agent_tracks_benchmark"]
+def run_layer_runtime_workflow_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v096_") as tmp:
+        root = Path(tmp)
+        ledger = root / "ledger.jsonl"
+        session = start_session(root, ledger, agent="claude-code", goal="v0.9.6 layer runtime benchmark", create_preflight=False)
+        record_action(RuntimeEvent(type="file_read", session_id=session.session_id, path=str(root / ".env"), metadata={"coverage_layer": "native_hook"}), ledger)
+        record_action(RuntimeEvent(type="network", session_id=session.session_id, url="https://example.com/upload", metadata={"coverage_layer": "native_hook"}), ledger)
+        close_session(ledger)
+        workflow = export_layer_runtime_workflow(ledger, root / "layers")
+        checks = {
+            "workflow_passes": workflow.get("status") == "pass",
+            "matrix_has_all_stages": {item["stage"] for item in workflow["runtime_effect_matrix"]} == {"before-runtime", "during-runtime", "after-runtime"},
+            "matrix_has_all_layers": {item["layer"] for item in workflow["runtime_effect_matrix"]} == {"L1", "L2", "L3", "L4", "L5"},
+            "timeline_has_all_layers": {item["layer"] for item in workflow["layer_timeline"]} == {"L1", "L2", "L3", "L4", "L5"},
+            "l5_artifacts_exist": all(Path(workflow["artifacts"][key]).exists() for key in ["proof", "replay", "path_graph_json", "path_graph_html", "coverage", "audit_html", "evidence_manifest", "workflow_json", "workflow_html"]),
+            "operation_guide_has_cli": any("runtime layers" in item["command"] for item in workflow["operations"]),
+        }
+        return _suite_result(
+            "v0.9.6-layer-runtime-workflow",
+            checks,
+            artifacts={
+                "workflow_json": workflow["artifacts"]["workflow_json"],
+                "workflow_html": workflow["artifacts"]["workflow_html"],
+                "evidence_manifest": workflow["artifacts"]["evidence_manifest"],
+            },
+        )
+
+
+__all__ = [
+    "run_agent_adapter_contract_benchmark",
+    "run_claude_reference_adapter_benchmark",
+    "run_priority_agent_tracks_benchmark",
+    "run_layer_runtime_workflow_benchmark",
+]
