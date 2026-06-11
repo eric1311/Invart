@@ -77,11 +77,14 @@ invart adapter profiles
 invart adapter profiles --track managed_wrapper
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
 invart real-agent run --agent claude-code --require-live --out-dir .invart/live-claude -- <claude-or-fixture-command>
+invart real-agent run --agent opencode --require-live --out-dir .invart/live-opencode -- <opencode-or-fixture-command>
+invart real-agent run --agent gemini-cli --require-live --out-dir .invart/live-gemini -- <gemini-or-fixture-command>
+invart real-agent run --agent aider --require-live --out-dir .invart/live-aider -- <aider-or-fixture-command>
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
 ```
 
 Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
-The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation.
+The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation. `real-agent check` emits a conformance contract row for each product so imported, discovered, fixture-backed, and live evidence cannot be mixed into a stronger claim.
 
 ### Claude Code reference adapter
 
@@ -111,5 +114,8 @@ invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart eval benchmark --suite v0.9.8-claude-full-live-adapter
+invart eval benchmark --suite v0.9.9-conformance-contract-v2
+invart eval benchmark --suite v0.9.10-opencode-real-adapter
+invart eval benchmark --suite v0.9.11-terminal-agent-managed-wrappers
 invart roadmap status --require-full
 ```

@@ -403,11 +403,14 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
         binary_overrides={"claude-code": str(fake), "codex": str(fake)},
         require_live=True,
     )
-    assert report["schema_version"] == "invart.real_agent_conformance.v0.9.3"
+    assert report["schema_version"] == "invart.real_agent_conformance.v0.9.9"
     assert report["status"] == "pass"
+    assert report["conformance_contract"]["schema_version"] == "invart.adapter_conformance_contract.v0.9.9"
+    assert report["conformance_contract"]["status"] == "pass"
     assert report["summary"]["passed_agents"] == 2
     assert all(agent["binary"]["status"] == "found" for agent in report["agents"])
     assert all(agent["managed_run"]["status"] == "pass" for agent in report["agents"])
+    assert all(agent["contract"]["claimable_coverage"] == "managed_wrapper" for agent in report["agents"])
     assert Path(report["artifacts"]["report_json"]).exists()
     assert Path(report["artifacts"]["report_html"]).exists()
 
@@ -429,6 +432,56 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
     )
     assert strict_missing["status"] == "fail"
     assert strict_missing["agents"][0]["status"] == "blocked_missing_binary"
+
+
+def test_v099_conformance_contract_v2_blocks_claim_inflation(tmp_path: Path) -> None:
+    from invart.evaluation.real_agent_conformance import run_real_agent_conformance, validate_conformance_contract
+
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nprint('fixture'); sys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    report = run_real_agent_conformance(
+        out_dir=tmp_path / "v099",
+        agents=["claude-code", "openclaw"],
+        binary_overrides={"claude-code": str(fake), "openclaw": str(fake)},
+        require_live=True,
+    )
+    by_agent = {row["agent"]: row for row in report["agents"]}
+    assert by_agent["claude-code"]["contract"]["claimable_coverage"] == "managed_wrapper"
+    assert by_agent["claude-code"]["contract"]["side_effect_timing"] == "pre_side_effect"
+    assert by_agent["openclaw"]["contract"]["control_position"] == "vendor_owned_import"
+    assert by_agent["openclaw"]["contract"]["claimable_coverage"] == "vendor_import"
+    assert "invart_pre_side_effect_mediation" in by_agent["openclaw"]["contract"]["cannot_claim"]
+    inflated = dict(by_agent["openclaw"])
+    inflated["contract"] = {**inflated["contract"], "claimable_coverage": "managed_wrapper"}
+    gate = validate_conformance_contract([inflated])
+    assert gate["status"] == "fail"
+    assert any(finding["check_id"] == "claim.vendor_import_inflation" for finding in gate["findings"])
+
+
+def test_v099_conformance_contract_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nprint('fixture'); sys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    out = tmp_path / "v099-cli"
+    assert main([
+        "real-agent",
+        "check",
+        "--agent",
+        "claude-code",
+        "--agent",
+        "openclaw",
+        "--binary",
+        f"claude-code={fake}",
+        "--binary",
+        f"openclaw={fake}",
+        "--require-live",
+        "--out-dir",
+        str(out),
+    ]) == 0
+    report = json.loads((out / "real-agent-conformance.json").read_text(encoding="utf-8"))
+    assert report["conformance_contract"]["claim_gate"]["status"] == "pass"
+    assert main(["eval", "benchmark", "--suite", "v0.9.9-conformance-contract-v2"]) == 0
 
 
 def test_v093_real_agent_cli_and_benchmark(tmp_path: Path) -> None:
@@ -650,7 +703,7 @@ def test_v095_priority_agent_profiles_emit_tracks_and_control_positions() -> Non
         "codex": ("managed_wrapper", "invart_mediated"),
         "gemini-cli": ("managed_wrapper", "invart_mediated"),
         "cursor": ("native_bridge", "bridge_mediated_when_configured"),
-        "opencode": ("native_bridge", "bridge_mediated_when_configured"),
+        "opencode": ("managed_wrapper", "invart_mediated"),
         "openclaw": ("vendor_evidence_import", "vendor_owned_import"),
         "hermes": ("vendor_evidence_import", "vendor_owned_import"),
         "github-copilot-cloud-agent": ("cloud_evidence_import", "vendor_owned_import"),
@@ -975,6 +1028,168 @@ def test_v098_claude_live_adapter_cli_real_agent_run_and_benchmark(tmp_path: Pat
         "--version",
     ]) == 0
     assert main(["eval", "benchmark", "--suite", "v0.9.8-claude-full-live-adapter"]) == 0
+
+
+def test_v0910_opencode_profile_inventory_and_managed_wrapper(tmp_path: Path) -> None:
+    from invart.surfaces.adapter_profiles import get_adapter_profile
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    profile = get_adapter_profile("opencode")
+    assert profile["integration_track"] == "managed_wrapper"
+    assert profile["control_position"] == "invart_mediated"
+    assert profile["coverage_grade"] == "managed_wrapper_adapter"
+
+    (tmp_path / "opencode.json").write_text(json.dumps({"plugin": ["lint"], "mcp": {"fs": {}}}), encoding="utf-8")
+    fake = tmp_path / "fake-opencode"
+    marker = tmp_path / "opencode-ran.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    result = run_live_agent_adapter(
+        agent="opencode",
+        target=tmp_path,
+        out_dir=tmp_path / "opencode-live",
+        command=[str(fake), "--write-marker", str(marker)],
+        binary=str(fake),
+        require_live=True,
+        policy_mode="advisory",
+    )
+    assert result["schema_version"] == "invart.live_agent_adapter.v0.9.10"
+    assert result["status"] == "passed"
+    assert marker.read_text(encoding="utf-8") == "ran"
+    assert result["live_evidence"]["binary"]["status"] == "found"
+    assert result["managed_run"]["package"]
+    assert result["layer_runtime"]["status"] == "pass"
+    assert result["evidence_workspace"]["status"] == "pass"
+    opencode_inventory = [item for item in result["native_inventory"]["profiles"] if item["agent"] == "opencode"][0]
+    assert opencode_inventory["surfaces"]["plugins"]["matches"]
+    assert opencode_inventory["surfaces"]["mcp"]["matches"]
+
+
+def test_v0910_opencode_managed_risk_blocks_before_side_effect_and_cli(tmp_path: Path) -> None:
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    fake = tmp_path / "fake-opencode"
+    marker = tmp_path / "should-not-exist.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    risky = run_live_agent_adapter(
+        agent="opencode",
+        target=tmp_path,
+        out_dir=tmp_path / "opencode-risk",
+        command=[str(fake), "--write-marker", str(marker), "rm -rf ."],
+        binary=str(fake),
+        require_live=True,
+        policy_mode="managed",
+    )
+    assert risky["status"] == "blocked"
+    assert risky["returncode"] == 126
+    assert marker.exists() is False
+
+    assert main([
+        "real-agent",
+        "run",
+        "--agent",
+        "opencode",
+        "--binary",
+        str(fake),
+        "--require-live",
+        "--target",
+        str(tmp_path),
+        "--out-dir",
+        str(tmp_path / "opencode-cli"),
+        "--",
+        str(fake),
+        "--version",
+    ]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.10-opencode-real-adapter"]) == 0
+
+
+def test_v0911_gemini_and_aider_managed_wrappers_emit_inventory_and_low_noise(tmp_path: Path) -> None:
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    (tmp_path / ".gemini").mkdir()
+    (tmp_path / ".gemini" / "settings.json").write_text(json.dumps({"mcpServers": {"fs": {}}}), encoding="utf-8")
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".aider.conf.yml").write_text("auto-commits: false\n", encoding="utf-8")
+    fake = tmp_path / "fake-terminal-agent"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    results = {}
+    for agent in ("gemini-cli", "aider"):
+        marker = tmp_path / f"{agent}.txt"
+        results[agent] = run_live_agent_adapter(
+            agent=agent,
+            target=tmp_path,
+            out_dir=tmp_path / agent,
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        assert results[agent]["status"] == "passed"
+        assert marker.read_text(encoding="utf-8") == "ran"
+        assert results[agent]["managed_run"]["returncode"] == 0
+        assert results[agent]["evidence_workspace"]["status"] == "pass"
+        entries, _warnings = load_ledger_entries(Path(results[agent]["managed_run"]["ledger"]))
+        approval_effects = [
+            entry.decision.get("effect")
+            for entry in entries
+            if entry.decision and entry.entry_type == "action"
+        ]
+        assert approval_effects.count("require_approval") == 0
+    gemini_inventory = [item for item in results["gemini-cli"]["native_inventory"]["profiles"] if item["agent"] == "gemini-cli"][0]
+    aider_inventory = [item for item in results["aider"]["native_inventory"]["profiles"] if item["agent"] == "aider"][0]
+    assert gemini_inventory["surfaces"]["mcp"]["matches"]
+    assert aider_inventory["surfaces"]["config"]["matches"]
+    assert aider_inventory["surfaces"]["repo_map"]["matches"]
+
+
+def test_v0911_terminal_agent_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-terminal-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    for agent in ("gemini-cli", "aider"):
+        assert main([
+            "real-agent",
+            "run",
+            "--agent",
+            agent,
+            "--binary",
+            str(fake),
+            "--require-live",
+            "--target",
+            str(tmp_path),
+            "--out-dir",
+            str(tmp_path / f"{agent}-cli"),
+            "--",
+            str(fake),
+            "--version",
+        ]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.11-terminal-agent-managed-wrappers"]) == 0
 
 
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:

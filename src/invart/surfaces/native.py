@@ -41,6 +41,10 @@ AGENT_SURFACE_PATHS: dict[str, dict[str, list[str]]] = {
         "config": [".hermes", "hermes.json"],
         "mcp": [".hermes/mcp.json"],
     },
+    "aider": {
+        "config": [".aider.conf.yml", ".aider.conf.yaml", "aider.conf.yml"],
+        "repo_map": [".aider.tags.cache.v3", ".git"],
+    },
 }
 
 

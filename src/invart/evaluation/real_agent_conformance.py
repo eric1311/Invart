@@ -13,7 +13,8 @@ from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.adapter_profiles import get_adapter_profile, list_adapter_profiles, validate_adapter_profile_truthfulness
 
 
-SCHEMA_VERSION = "invart.real_agent_conformance.v0.9.3"
+SCHEMA_VERSION = "invart.real_agent_conformance.v0.9.9"
+CONTRACT_SCHEMA_VERSION = "invart.adapter_conformance_contract.v0.9.9"
 DEFAULT_REQUIRED_AGENTS = ("claude-code", "codex", "hermes", "openclaw")
 
 
@@ -41,12 +42,13 @@ def run_real_agent_conformance(
         )
         for agent in selected_agents
     ]
+    claim_gate = validate_conformance_contract(rows)
     failed_rows = [
         row
         for row in rows
         if row["status"] == "failed_run" or (require_live and row["status"] == "blocked_missing_binary")
     ]
-    status = "fail" if failed_rows or profile_validation["status"] != "pass" else "pass"
+    status = "fail" if failed_rows or profile_validation["status"] != "pass" or claim_gate["status"] != "pass" else "pass"
     report_json = root / "real-agent-conformance.json"
     report_html = root / "real-agent-conformance.html"
     report: dict[str, Any] = {
@@ -56,16 +58,24 @@ def run_real_agent_conformance(
         "required_live": require_live,
         "required_agents": selected_agents,
         "profile_validation": profile_validation,
+        "conformance_contract": {
+            "schema_version": CONTRACT_SCHEMA_VERSION,
+            "status": claim_gate["status"],
+            "claim_gate": claim_gate,
+            "levels": ["live", "binary_backed_fixture", "managed_wrapper", "native_bridge", "vendor_import", "discovery_only", "missing_binary"],
+            "rule": "Invart-mediated or enforced claims require ledger-backed mediation artifacts; vendor/import/discovery evidence cannot satisfy those claims.",
+        },
         "summary": {
             "agents": len(rows),
             "passed_agents": sum(1 for row in rows if row["status"] == "pass"),
             "blocked_missing_binary": sum(1 for row in rows if row["status"] == "blocked_missing_binary"),
             "failed_agents": len(failed_rows),
+            "claim_gate_status": claim_gate["status"],
             "claim_boundary": "Fixture-backed checks validate Invart's conformance harness. Strict live mode fails when requested real binaries are unavailable or do not produce managed-run evidence.",
         },
         "agents": rows,
         "artifacts": {"report_json": str(report_json), "report_html": str(report_html)},
-        "evidence_hash": stable_json_hash({"agents": rows, "required_live": require_live}),
+        "evidence_hash": stable_json_hash({"agents": rows, "required_live": require_live, "claim_gate": claim_gate}),
     }
     write_json_artifact(report_json, report)
     write_html_artifact(report_html, render_real_agent_conformance_html(report))
@@ -94,6 +104,7 @@ def render_real_agent_conformance_html(report: dict[str, Any]) -> str:
             f"<td>{html.escape(str(agent.get('coverage', {}).get('coverage_grade')))}</td>"
             f"<td>{html.escape(str(agent.get('binary', {}).get('status')))}</td>"
             f"<td>{html.escape(str(agent.get('managed_run', {}).get('status')))}</td>"
+            f"<td>{html.escape(str(agent.get('contract', {}).get('claimable_coverage')))}</td>"
             f"<td>{html.escape(str(agent.get('claim_boundary')))}</td>"
             "</tr>"
         )
@@ -104,7 +115,7 @@ def render_real_agent_conformance_html(report: dict[str, Any]) -> str:
         "td,th{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;vertical-align:top}</style></head><body><main>"
         f"<h1>Real Agent Conformance</h1><p>Status: <strong>{html.escape(str(report.get('status')))}</strong></p>"
         f"<p>{html.escape(str(report.get('summary', {}).get('claim_boundary', '')))}</p>"
-        "<table><tr><th>Agent</th><th>Status</th><th>Coverage Grade</th><th>Binary</th><th>Managed Run</th><th>Claim Boundary</th></tr>"
+        "<table><tr><th>Agent</th><th>Status</th><th>Coverage Grade</th><th>Binary</th><th>Managed Run</th><th>Claimable Coverage</th><th>Claim Boundary</th></tr>"
         f"{''.join(rows)}</table></main></body></html>"
     )
 
@@ -132,6 +143,7 @@ def _run_agent_check(*, agent: str, out_dir: Path, target: Path, binary_override
         "source_urls": profile["source_urls"],
     }
     if binary["status"] != "found":
+        row["contract"] = _row_contract(profile=profile, row=row, binary=binary)
         return row
 
     run = run_adapter_command(
@@ -150,10 +162,113 @@ def _run_agent_check(*, agent: str, out_dir: Path, target: Path, binary_override
         "returncode": run.returncode,
         "ledger": run.ledger,
         "proof": run.proof,
+        "package": run.package,
     }
-    row["evidence"] = {"ledger": run.ledger, "proof": run.proof}
+    row["evidence"] = {"ledger": run.ledger, "proof": run.proof, "package": run.package}
     row["status"] = "pass" if run.status == "passed" else "failed_run"
+    row["contract"] = _row_contract(profile=profile, row=row, binary=binary)
     return row
+
+
+def validate_conformance_contract(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    findings: list[dict[str, Any]] = []
+    for row in rows:
+        contract = row.get("contract", {}) if isinstance(row.get("contract"), dict) else {}
+        profile = row.get("coverage", {}) if isinstance(row.get("coverage"), dict) else {}
+        control_position = str(contract.get("control_position") or "")
+        claimable = str(contract.get("claimable_coverage") or "")
+        required_ok = contract.get("artifact_completeness", {}).get("status") in {"pass", "not_required"}
+        if claimable in {"full_live_adapter", "managed_wrapper"} and not required_ok:
+            findings.append(_contract_finding(row, "artifact.missing_for_mediated_claim", "Invart-mediated claims require ledger/proof evidence."))
+        if control_position == "vendor_owned_import" and claimable in {"managed_wrapper", "full_live_adapter", "enforced"}:
+            findings.append(_contract_finding(row, "claim.vendor_import_inflation", "Vendor-owned import evidence cannot satisfy Invart-mediated or enforced coverage."))
+        if control_position == "discovery_only" and claimable != "discovery_only":
+            findings.append(_contract_finding(row, "claim.discovery_inflation", "Discovery-only evidence cannot satisfy runtime mediation claims."))
+        if profile.get("coverage_grade") == "vendor_evidence_import" and bool(profile.get("supports_mediation")):
+            findings.append(_contract_finding(row, "profile.vendor_import_supports_mediation", "Vendor import profiles must not be marked as Invart-mediated."))
+    return {
+        "schema_version": "invart.adapter_conformance_claim_gate.v0.9.9",
+        "status": "pass" if not findings else "fail",
+        "summary": {"rows": len(rows), "findings": len(findings)},
+        "findings": findings,
+    }
+
+
+def _row_contract(*, profile: dict[str, Any], row: dict[str, Any], binary: dict[str, Any]) -> dict[str, Any]:
+    evidence = row.get("evidence", {}) if isinstance(row.get("evidence"), dict) else {}
+    artifacts = {
+        "binary": binary.get("status") == "found",
+        "ledger": bool(evidence.get("ledger") and Path(str(evidence["ledger"])).exists()),
+        "proof": bool(evidence.get("proof") and Path(str(evidence["proof"])).exists()),
+        "package": bool(evidence.get("package") and Path(str(evidence["package"])).exists()) if evidence.get("package") else False,
+    }
+    artifact_required = _required_for_claim(profile, binary)
+    missing = [name for name in artifact_required if not artifacts.get(name)]
+    control_position = str(profile.get("control_position"))
+    if binary.get("status") != "found":
+        evidence_level = "missing_binary"
+        claimable = "missing_binary"
+    elif control_position == "vendor_owned_import":
+        evidence_level = "vendor_import"
+        claimable = "vendor_import"
+    elif control_position == "bridge_mediated_when_configured":
+        evidence_level = "native_bridge_fixture"
+        claimable = "native_bridge" if not missing else "discovery_only"
+    elif control_position == "invart_mediated" and artifacts["ledger"] and artifacts["proof"]:
+        evidence_level = "binary_backed_fixture"
+        claimable = "managed_wrapper"
+    else:
+        evidence_level = "discovery_only"
+        claimable = "discovery_only"
+    return {
+        "schema_version": CONTRACT_SCHEMA_VERSION,
+        "agent": profile.get("agent_id"),
+        "evidence_level": evidence_level,
+        "control_position": control_position,
+        "side_effect_timing": "pre_side_effect" if claimable in {"managed_wrapper", "native_bridge"} else "after_the_fact_or_discovery",
+        "required_artifacts": artifact_required,
+        "profile_required_artifacts": list(profile.get("required_artifacts", [])),
+        "artifact_completeness": {
+            "status": "pass" if not missing else "fail" if artifact_required else "not_required",
+            "present": artifacts,
+            "missing": missing,
+        },
+        "claimable_coverage": claimable,
+        "cannot_claim": _cannot_claim(profile, claimable),
+        "source_urls": profile.get("source_urls", []),
+        "last_reviewed": profile.get("last_reviewed"),
+    }
+
+
+def _required_for_claim(profile: dict[str, Any], binary: dict[str, Any]) -> list[str]:
+    if binary.get("status") != "found":
+        return ["binary"]
+    if profile.get("control_position") == "invart_mediated":
+        return ["binary", "ledger", "proof"]
+    if profile.get("control_position") == "bridge_mediated_when_configured":
+        return ["binary"]
+    return []
+
+
+def _cannot_claim(profile: dict[str, Any], claimable: str) -> list[str]:
+    claims = []
+    if claimable not in {"managed_wrapper", "full_live_adapter"}:
+        claims.append("invart_mediated")
+    if claimable != "full_live_adapter":
+        claims.append("full_live_adapter")
+    claims.append("invart_enforced_without_enforcement_artifact")
+    if profile.get("control_position") == "vendor_owned_import":
+        claims.append("invart_pre_side_effect_mediation")
+    return sorted(set(claims))
+
+
+def _contract_finding(row: dict[str, Any], check_id: str, message: str) -> dict[str, Any]:
+    return {
+        "check_id": check_id,
+        "severity": "high",
+        "agent": row.get("agent"),
+        "message": message,
+    }
 
 
 def _resolve_binary(profile: dict[str, Any], override: str | None) -> dict[str, Any]:
@@ -202,7 +317,9 @@ def _safe_id(value: str) -> str:
 __all__ = [
     "DEFAULT_REQUIRED_AGENTS",
     "SCHEMA_VERSION",
+    "CONTRACT_SCHEMA_VERSION",
     "export_real_agent_report_html",
     "render_real_agent_conformance_html",
     "run_real_agent_conformance",
+    "validate_conformance_contract",
 ]

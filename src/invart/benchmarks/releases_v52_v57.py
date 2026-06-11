@@ -13,9 +13,10 @@ from invart.core.models import RuntimeEvent
 from invart.control.runtime import close_session, record_action, start_session
 from invart.evaluation.release_candidate import verify_release_candidate
 from invart.evaluation.product_control_matrix import run_product_control_matrix
-from invart.evaluation.real_agent_conformance import run_real_agent_conformance
+from invart.evaluation.real_agent_conformance import run_real_agent_conformance, validate_conformance_contract
 from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.claude_adapter import run_claude_code_adapter
+from invart.surfaces.live_adapter import run_live_agent_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
 
 
@@ -325,11 +326,154 @@ def run_claude_full_live_adapter_benchmark() -> dict[str, object]:
         )
 
 
+def run_conformance_contract_v2_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v099_") as tmp:
+        root = Path(tmp)
+        fake = root / "fake-agent"
+        fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+        fake.chmod(0o755)
+        report = run_real_agent_conformance(
+            out_dir=root / "conformance",
+            agents=["claude-code", "openclaw"],
+            binary_overrides={"claude-code": str(fake), "openclaw": str(fake)},
+            require_live=True,
+        )
+        by_agent = {row["agent"]: row for row in report["agents"]}
+        inflated = dict(by_agent["openclaw"])
+        inflated["contract"] = {**dict(inflated["contract"]), "claimable_coverage": "managed_wrapper"}
+        inflated_gate = validate_conformance_contract([inflated])
+        checks = {
+            "contract_schema_present": report.get("conformance_contract", {}).get("schema_version") == "invart.adapter_conformance_contract.v0.9.9",
+            "managed_wrapper_claim_has_artifacts": by_agent["claude-code"]["contract"]["artifact_completeness"]["status"] == "pass",
+            "vendor_import_not_mediated": by_agent["openclaw"]["contract"]["claimable_coverage"] == "vendor_import",
+            "vendor_cannot_claim_pre_side_effect_mediation": "invart_pre_side_effect_mediation" in by_agent["openclaw"]["contract"]["cannot_claim"],
+            "claim_gate_passes_truthful_rows": report.get("conformance_contract", {}).get("claim_gate", {}).get("status") == "pass",
+            "claim_gate_fails_inflated_row": inflated_gate.get("status") == "fail",
+        }
+        return _suite_result(
+            "v0.9.9-conformance-contract-v2",
+            checks,
+            artifacts=report.get("artifacts", {}),
+        )
+
+
+def run_opencode_real_adapter_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0910_") as tmp:
+        root = Path(tmp)
+        (root / "opencode.json").write_text('{"plugin":["demo"],"mcp":{"fs":{}}}\n', encoding="utf-8")
+        fake = root / "fake-opencode"
+        marker = root / "opencode-marker.txt"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        run = run_live_agent_adapter(
+            agent="opencode",
+            target=root,
+            out_dir=root / "opencode",
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        risk_marker = root / "risk-marker.txt"
+        risk = run_live_agent_adapter(
+            agent="opencode",
+            target=root,
+            out_dir=root / "opencode-risk",
+            command=[str(fake), "--write-marker", str(risk_marker), "rm -rf ."],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="managed",
+        )
+        inventory = [item for item in run.get("native_inventory", {}).get("profiles", []) if item.get("agent") == "opencode"][0]
+        checks = {
+            "live_binary_backed": run.get("live_evidence", {}).get("binary", {}).get("status") == "found",
+            "managed_wrapper_artifacts": bool(run.get("managed_run", {}).get("ledger")) and bool(run.get("managed_run", {}).get("proof")) and bool(run.get("managed_run", {}).get("package")),
+            "plugin_config_inventory": bool(inventory.get("surfaces", {}).get("plugins", {}).get("matches")),
+            "mcp_config_inventory": bool(inventory.get("surfaces", {}).get("mcp", {}).get("matches")),
+            "benign_keeps_autonomy": run.get("status") == "passed" and marker.exists(),
+            "managed_risk_stopped_before_side_effect": risk.get("returncode") == 126 and not risk_marker.exists(),
+            "l5_workspace_present": run.get("evidence_workspace", {}).get("status") == "pass",
+        }
+        return _suite_result(
+            "v0.9.10-opencode-real-adapter",
+            checks,
+            artifacts=run.get("artifacts", {}),
+        )
+
+
+def run_terminal_agent_managed_wrappers_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0911_") as tmp:
+        root = Path(tmp)
+        (root / ".gemini").mkdir()
+        (root / ".gemini" / "settings.json").write_text('{"mcpServers":{"fs":{}}}\n', encoding="utf-8")
+        (root / ".git").mkdir()
+        (root / ".aider.conf.yml").write_text("auto-commits: false\n", encoding="utf-8")
+        fake = root / "fake-terminal-agent"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        runs: dict[str, dict[str, object]] = {}
+        approval_counts: dict[str, int] = {}
+        for agent in ("gemini-cli", "aider"):
+            marker = root / f"{agent}.txt"
+            run = run_live_agent_adapter(
+                agent=agent,
+                target=root,
+                out_dir=root / agent,
+                command=[str(fake), "--write-marker", str(marker)],
+                binary=str(fake),
+                require_live=True,
+                policy_mode="advisory",
+            )
+            entries, _warnings = load_ledger_entries(Path(run["managed_run"]["ledger"]))
+            approval_counts[agent] = sum(
+                1
+                for entry in entries
+                if entry.entry_type == "action" and entry.decision and entry.decision.get("effect") == "require_approval"
+            )
+            run["marker_exists"] = marker.exists()
+            runs[agent] = run
+        gemini_inventory = [item for item in runs["gemini-cli"]["native_inventory"]["profiles"] if item["agent"] == "gemini-cli"][0]
+        aider_inventory = [item for item in runs["aider"]["native_inventory"]["profiles"] if item["agent"] == "aider"][0]
+        checks = {
+            "gemini_managed_run_passed": runs["gemini-cli"].get("status") == "passed" and runs["gemini-cli"].get("marker_exists") is True,
+            "aider_managed_run_passed": runs["aider"].get("status") == "passed" and runs["aider"].get("marker_exists") is True,
+            "gemini_mcp_inventory": bool(gemini_inventory.get("surfaces", {}).get("mcp", {}).get("matches")),
+            "aider_config_inventory": bool(aider_inventory.get("surfaces", {}).get("config", {}).get("matches")),
+            "aider_repo_context_inventory": bool(aider_inventory.get("surfaces", {}).get("repo_map", {}).get("matches")),
+            "approval_noise_zero": all(count == 0 for count in approval_counts.values()),
+            "artifact_parity_present": all(bool(runs[agent].get("managed_run", {}).get("ledger")) and bool(runs[agent].get("managed_run", {}).get("proof")) for agent in runs),
+        }
+        return _suite_result(
+            "v0.9.11-terminal-agent-managed-wrappers",
+            checks,
+            artifacts={agent: runs[agent].get("artifacts", {}).get("report_json") for agent in runs},
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
+    "run_conformance_contract_v2_benchmark",
     "run_evidence_workspace_gate_benchmark",
+    "run_opencode_real_adapter_benchmark",
+    "run_terminal_agent_managed_wrappers_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",
 ]

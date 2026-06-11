@@ -54,6 +54,9 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.6-layer-runtime-workflow",
     "v0.9.7-evidence-workspace-gate",
     "v0.9.8-claude-full-live-adapter",
+    "v0.9.9-conformance-contract-v2",
+    "v0.9.10-opencode-real-adapter",
+    "v0.9.11-terminal-agent-managed-wrappers",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )
