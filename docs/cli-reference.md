@@ -142,5 +142,6 @@ invart eval benchmark --suite v0.9.12-codex-boundary
 invart eval benchmark --suite v0.9.13-ide-bridge-inventory
 invart eval benchmark --suite v0.9.14-gateway-server-evidence
 invart eval benchmark --suite v0.9.15-enterprise-registration-authority
+invart eval benchmark --suite v0.9.16-public-control-plane-slice
 invart roadmap status --require-full
 ```

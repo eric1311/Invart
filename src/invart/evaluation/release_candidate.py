@@ -61,6 +61,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.13-ide-bridge-inventory",
     "v0.9.14-gateway-server-evidence",
     "v0.9.15-enterprise-registration-authority",
+    "v0.9.16-public-control-plane-slice",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

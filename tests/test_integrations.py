@@ -1403,6 +1403,36 @@ def test_v0915_unregistered_agent_gaps_cli_and_benchmark(tmp_path: Path) -> None
     assert main(["eval", "benchmark", "--suite", "v0.9.15-enterprise-registration-authority"]) == 0
 
 
+def test_v0916_public_benchmark_slice_outputs_product_metrics_and_artifacts(tmp_path: Path) -> None:
+    from invart.evaluation.public_benchmark_slice import run_public_control_plane_slice
+
+    result = run_public_control_plane_slice(tmp_path / "slice")
+    assert result["schema_version"] == "invart.public_control_plane_slice.v0.9.16"
+    assert result["status"] == "pass"
+    metrics = result["metrics"]
+    assert 0 < metrics["block_rate"] <= 1
+    assert metrics["approval_rate"] >= 0
+    assert metrics["benign_false_positive_proxy"] == 0
+    assert metrics["proof_completeness"] == 1
+    assert metrics["audit_reconstruction_success"] == 1
+    assert set(metrics["coverage_distribution"]).issuperset({"observed", "mediated"})
+
+    cases = {case["case_id"]: case for case in result["cases"]}
+    assert cases["secret_egress"]["risk_class"] == "attack"
+    assert cases["secret_egress"]["control_effect"] in {"require_approval", "deny"}
+    assert cases["benign_repo_inspection"]["risk_class"] == "benign"
+    assert cases["benign_repo_inspection"]["control_effect"] in {"allow", "audit"}
+    for case in cases.values():
+        for artifact in ("ledger", "proof", "replay", "path_graph_json", "path_graph_html", "coverage_report", "audit_json", "audit_html", "evidence_manifest"):
+            assert Path(case["artifacts"][artifact]).exists(), artifact
+
+
+def test_v0916_public_benchmark_slice_cli_and_roadmap() -> None:
+    assert main(["eval", "benchmark", "--suite", "v0.9.16-public-control-plane-slice"]) == 0
+    statuses = {item["capability_id"]: item["status"] for item in roadmap_capabilities()}
+    assert statuses["public_control_plane_benchmark_slice"] == "implemented"
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

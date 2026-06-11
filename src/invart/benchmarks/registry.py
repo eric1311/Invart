@@ -68,6 +68,7 @@ from .releases_v52_v57 import (
     run_layer_runtime_workflow_benchmark,
     run_opencode_real_adapter_benchmark,
     run_priority_agent_tracks_benchmark,
+    run_public_control_plane_slice_benchmark,
     run_terminal_agent_managed_wrappers_benchmark,
 )
 
@@ -137,6 +138,7 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.9.13-ide-bridge-inventory": run_ide_bridge_inventory_benchmark,
         "v0.9.14-gateway-server-evidence": run_gateway_server_evidence_benchmark,
         "v0.9.15-enterprise-registration-authority": run_enterprise_registration_authority_benchmark,
+        "v0.9.16-public-control-plane-slice": run_public_control_plane_slice_benchmark,
         "progressive-external-validation": run_progressive_external_validation_benchmark,
         "real-world-agent-risk-demo": run_real_world_risk_benchmark,
         "containerized-risk-demo": run_container_risk_demo_benchmark,

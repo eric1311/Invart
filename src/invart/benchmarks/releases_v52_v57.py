@@ -23,6 +23,7 @@ from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inv
 from invart.surfaces.native_bridge import bridge_conformance_matrix, normalize_native_event
 from invart.governance.registration import export_agent_registry, unmanaged_registration_gaps, verify_registered_launch
 from invart.surfaces.launcher import install_managed_launcher
+from invart.evaluation.public_benchmark_slice import run_public_control_plane_slice
 
 
 def run_agent_adapter_contract_benchmark() -> dict[str, object]:
@@ -636,6 +637,22 @@ def run_enterprise_registration_authority_benchmark() -> dict[str, object]:
         )
 
 
+def run_public_control_plane_slice_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0916_") as tmp:
+        result = run_public_control_plane_slice(Path(tmp) / "slice")
+        return {
+            "suite": "v0.9.16-public-control-plane-slice",
+            "passed": result.get("status") == "pass",
+            "summary": {
+                "total": len(result.get("cases", [])),
+                "passed": len(result.get("cases", [])) if result.get("status") == "pass" else 0,
+                "failed": 0 if result.get("status") == "pass" else 1,
+            },
+            "metrics": result.get("metrics", {}),
+            "result": result,
+        }
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
@@ -647,6 +664,7 @@ __all__ = [
     "run_gateway_server_evidence_benchmark",
     "run_ide_bridge_inventory_benchmark",
     "run_opencode_real_adapter_benchmark",
+    "run_public_control_plane_slice_benchmark",
     "run_terminal_agent_managed_wrappers_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",

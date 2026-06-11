@@ -45,6 +45,7 @@ This page is a reference, not the first-run learning path. Start with [Product O
 | v0.9.13 | Implemented | IDE extension bridge and inventory track for Cursor, Cline, and Roo: config/MCP/extension discovery is reported as a coverage gap, while explicit native bridge events preserve source metadata and can receive normalized decisions. |
 | v0.9.14 | Implemented | Gateway/server-agent evidence track for OpenClaw and Hermes: backend/container/security logs preserve source hash, timestamp, limitation, and vendor-owned coverage, while local managed launcher runs can still emit Invart ledger/proof artifacts for controlled boundaries. |
 | v0.9.15 | Implemented | Enterprise registration authority: enrolled agent/profile/launcher facts are exported with stable hashes, launch requests can be denied for unregistered agents, declared-agent mismatches, or missing managed launchers, and unmanaged native surfaces become explicit coverage gaps. |
+| v0.9.16 | Implemented | Public control-plane benchmark slice: safe-equivalent attack and benign agent workflows produce ledger/proof/replay/path graph/coverage/audit/evidence artifacts and report block rate, approval rate, benign false-positive proxy, proof completeness, coverage distribution, and reconstruction success. |
 
 ## Internal History
 

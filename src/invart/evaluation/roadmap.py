@@ -962,6 +962,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add a public benchmark slice that reports product-effect metrics across attack, benign, compatibility, and evidence cases.",
     ),
+    RoadmapCapability(
+        version="v0.9.16",
+        capability_id="public_control_plane_benchmark_slice",
+        title="Public control-plane benchmark slice",
+        target="Run a pinned local slice of attack and benign agent workflows and report control-plane metrics derived from ledger/proof/evidence artifacts.",
+        status="implemented",
+        implementation=["src/invart/evaluation/public_benchmark_slice.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0916_public_benchmark_slice_outputs_product_metrics_and_artifacts", "test_v0916_public_benchmark_slice_cli_and_roadmap", "v0.9.16-public-control-plane-slice"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Local pinned slice covers safe-equivalent attack and benign agent workflows; it is not a full public leaderboard run.", "Metrics are derived from ledger/proof/replay/path graph/coverage/audit/evidence artifacts.", "Task-solve performance and full upstream benchmark coverage remain external validation work."],
+        claim_scope="public_control_plane_slice",
+        evidence_level="local_pinned_agent_workflow_slice",
+        external_validation="not_run_optional",
+        next_step="Add paired baseline versus Invart-managed benign coding friction study with artifact and grading parity checks.",
+    ),
 )
 
 
