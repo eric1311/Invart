@@ -31,6 +31,7 @@ Invart has a long local implementation history. The public docs summarize capabi
 | Version | Status | Focus |
 | --- | --- | --- |
 | v0.9.3 | Implemented | Agent adapter contract registry and fixture-backed real-agent conformance foundation. The live mode can be strict, but missing local agent binaries are not reported as successful live validation. |
+| v0.9.4 | Implemented | Claude Code reference full adapter: hook events and child command mediation, managed risk pause/block before launch, full L5 evidence package, and truthful degraded process-tree coverage when only portable subprocess supervision is active. |
 
 ## Internal History
 

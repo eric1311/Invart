@@ -18,9 +18,16 @@ invart audit report --ledger ledger.jsonl --out-dir .invart/audit</pre></div>
       <div class="card"><h3>Real agent conformance</h3><pre>invart adapter profile --kind claude-code
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html</pre><p>Use <code>--require-live</code> when missing local binaries should fail instead of being recorded as blocked evidence.</p></div>
+      <div class="card"><h3>Claude Code reference adapter</h3><pre>invart adapter claude-code \
+  --target . \
+  --out-dir .invart/claude-reference \
+  --hook-events .invart/claude-hooks.jsonl \
+  --policy-mode managed \
+  -- &lt;claude-or-harness-command&gt;</pre><p>Records Claude-style hook events, mediates the child command, and exports ledger, proof, replay, path graph, coverage, audit, and evidence manifest. Portable subprocess supervision is marked as degraded process-tree coverage unless native supervision is enabled.</p></div>
       <div class="card"><h3>Evaluation</h3><pre>invart eval list
 invart eval benchmark --suite full-product-readiness
 invart eval benchmark --suite v0.9.3-agent-adapter-contract
+invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart roadmap status --require-full</pre></div>
     </section>
   </main>

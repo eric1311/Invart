@@ -40,6 +40,7 @@ def register_integration_commands(subparsers: argparse._SubParsersAction[argpars
     adapter_claude.add_argument("--hook-events", default=None)
     adapter_claude.add_argument("--session-id", default=None)
     adapter_claude.add_argument("--no-preflight", action="store_true")
+    adapter_claude.add_argument("--policy-mode", choices=("audit", "advisory", "managed", "ci"), default="advisory")
     adapter_claude.add_argument("--enforcement", choices=("off", "file-write"), default="off")
     adapter_claude.add_argument("cmd", nargs=argparse.REMAINDER)
 

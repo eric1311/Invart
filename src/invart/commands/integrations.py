@@ -64,6 +64,7 @@ def handle_adapter(args: argparse.Namespace) -> int:
             session_id=args.session_id,
             create_preflight=not args.no_preflight,
             enforcement=args.enforcement,
+            policy_mode=args.policy_mode,
         )
         print(json.dumps({"claude_code_adapter": result}, ensure_ascii=False, indent=2, sort_keys=True))
         return int(result.get("returncode", 1))

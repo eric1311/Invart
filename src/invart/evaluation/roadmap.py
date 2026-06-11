@@ -782,6 +782,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Harden Claude Code as the first full reference adapter and attach live conformance traces for each priority product.",
     ),
+    RoadmapCapability(
+        version="v0.9.4",
+        capability_id="claude_reference_full_adapter",
+        title="Claude Code reference full adapter",
+        target="Run Claude Code style wrapper and hook events through unified mediation, managed pause/block behavior, truthful degraded supervision evidence, and a full L5 artifact package.",
+        status="implemented",
+        implementation=["src/invart/surfaces/claude_adapter.py", "src/invart/control/mediation.py", "src/invart/assurance/evidence_bundle.py", "src/invart/commands/parser_integrations.py", "src/invart/commands/integrations.py"],
+        tests=["test_v094_claude_adapter_exports_full_package_and_mediates_hooks", "test_v094_claude_adapter_managed_risk_pauses_before_side_effect", "test_v094_claude_adapter_cli_and_benchmark_are_registered", "v0.9.4-claude-reference-adapter"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html"],
+        product_boundaries=["Local fixture-backed validation proves the Claude reference adapter contract, artifact package, and managed pause/block behavior; it is not a claim that every live Claude Code installation has been exercised.", "The reference adapter uses a portable subprocess wrapper plus Claude hook JSONL ingestion; process-tree coverage is explicitly degraded unless native supervision is enabled.", "Managed mode pauses or blocks risky actions before launching the child command, while advisory mode preserves autonomy and records evidence."],
+        claim_scope="local_claude_reference_adapter",
+        evidence_level="local_runtime_fixture",
+        external_validation="not_run_optional",
+        next_step="Add priority agent tracks and product-specific adapter coverage claims for Codex, Gemini CLI, Cursor, OpenClaw, Hermes, OpenCode, and related agent products.",
+    ),
 )
 
 

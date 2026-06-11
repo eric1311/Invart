@@ -48,6 +48,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.50-product-control-matrix",
     "v0.51-pre-1.0-research-ready-gate",
     "v0.9.3-agent-adapter-contract",
+    "v0.9.4-claude-reference-adapter",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )

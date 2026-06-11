@@ -17,6 +17,7 @@ from invart.control.review import LLMReviewer, StaticJSONProvider
 from invart.evaluation.harness import compare_harness_runs, run_official_swe_bench_full_validation, run_official_swe_bench_lite_check, run_swe_bench_lite_check
 from invart.surfaces.adapter_profiles import build_adapter_profile
 from invart.surfaces.claude_adapter import check_claude_code_environment, run_claude_code_adapter
+from invart.assurance.evidence_bundle import verify_evidence_bundle
 from invart.governance.profiles import resolve_profile
 from invart.governance.teamrun import create_handoff, create_teamrun, declare_agent_identity
 from invart.surfaces.enforcement import check_enforcement, run_file_write_intercepted, rust_shim_decision
@@ -540,6 +541,103 @@ def test_v10_claude_code_adapter_ingests_hook_events_and_runs_child(tmp_path: Pa
     assert any(event.get("metadata", {}).get("adapter") == "claude-code-hook" for event in action_events)
     assert any(event.get("metadata", {}).get("adapter") == "claude-code-process" for event in action_events)
     assert any(event.get("metadata", {}).get("process_supervision", {}).get("mode") == "subprocess" for event in action_events)
+
+
+def test_v094_claude_adapter_exports_full_package_and_mediates_hooks(tmp_path: Path) -> None:
+    hooks = tmp_path / "hooks.jsonl"
+    hooks.write_text(
+        json.dumps({"type": "file_read", "path": str(tmp_path / ".env"), "metadata": {"source": "claude_code_hook"}}) + "\n",
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "claude-v094"
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=[sys.executable, "-c", "print('ok')"],
+        hook_events=hooks,
+        out_dir=out_dir,
+        session_id="ks_v094_claude_package",
+        policy_mode="advisory",
+    )
+    assert result["status"] == "passed"
+    assert result["adapter_package"]["status"] == "pass"
+    assert result["adapter_package"]["manifest_path"].endswith("manifest.json")
+    verification = verify_evidence_bundle(Path(result["adapter_package"]["manifest_path"]))
+    assert verification["status"] == "pass"
+    for artifact in ("ledger", "proof", "replay", "path_graph_json", "path_graph_html", "coverage", "audit_html"):
+        assert Path(result["adapter_package"]["artifacts"][artifact]).exists()
+    assert result["supervision"]["strong_consistency"] is False
+    assert result["supervision"]["coverage_grade"] == "mediated_without_process_tree"
+    assert result["permission_inventory"]["status"] == "recorded"
+
+    entries, _warnings = load_ledger_entries(Path(result["ledger"]))
+    mediation_entries = [entry for entry in entries if entry.entry_type == "mediation"]
+    assert any(entry.result["request"]["surface"] == "file" for entry in mediation_entries)
+    assert any(entry.result["decision"]["effect"] in {"allow", "require_approval"} for entry in mediation_entries)
+
+
+def test_v094_claude_adapter_managed_risk_pauses_before_side_effect(tmp_path: Path) -> None:
+    marker = tmp_path / "should_not_exist.txt"
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=["sh", "-c", f"touch {marker}; rm -rf ."],
+        out_dir=tmp_path / "claude-managed",
+        session_id="ks_v094_claude_managed",
+        policy_mode="managed",
+    )
+    assert result["status"] in {"blocked", "requires_approval"}
+    assert result["returncode"] == 126
+    assert marker.exists() is False
+    entries, _warnings = load_ledger_entries(Path(result["ledger"]))
+    process_mediations = [
+        entry.result for entry in entries
+        if entry.entry_type == "mediation" and entry.result.get("request", {}).get("surface") == "command"
+    ]
+    assert process_mediations
+    assert process_mediations[-1]["decision"]["effect"] in {"deny", "require_approval"}
+    assert process_mediations[-1]["outcome"]["status"] in {"blocked", "paused"}
+
+
+def test_v094_claude_adapter_advisory_benign_keeps_autonomy(tmp_path: Path) -> None:
+    marker = tmp_path / "safe.txt"
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=[sys.executable, "-c", f"from pathlib import Path; Path({str(marker)!r}).write_text('ok')"],
+        out_dir=tmp_path / "claude-advisory",
+        session_id="ks_v094_claude_advisory",
+        policy_mode="advisory",
+    )
+    assert result["status"] == "passed"
+    assert result["returncode"] == 0
+    assert marker.read_text(encoding="utf-8") == "ok"
+    entries, _warnings = load_ledger_entries(Path(result["ledger"]))
+    action_events = [entry for entry in entries if entry.entry_type == "action" and entry.event]
+    process_actions = [entry for entry in action_events if entry.event.get("metadata", {}).get("adapter") == "claude-code-process"]
+    assert process_actions
+    assert process_actions[-1].decision["effect"] == "allow"
+
+
+def test_v094_claude_adapter_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    marker = tmp_path / "cli_should_not_exist.txt"
+    out_dir = tmp_path / "claude-cli"
+    assert main([
+        "adapter",
+        "claude-code",
+        "--target",
+        str(tmp_path),
+        "--out-dir",
+        str(out_dir),
+        "--session-id",
+        "ks_v094_claude_cli",
+        "--policy-mode",
+        "managed",
+        "--",
+        "sh",
+        "-c",
+        f"touch {marker}; rm -rf .",
+    ]) == 126
+    assert marker.exists() is False
+    assert (out_dir / "adapter-package.json").exists()
+    assert main(["eval", "benchmark", "--suite", "v0.9.4-claude-reference-adapter"]) == 0
 
 
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
