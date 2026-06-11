@@ -409,6 +409,63 @@ def run_opencode_real_adapter_benchmark() -> dict[str, object]:
         )
 
 
+def run_terminal_agent_managed_wrappers_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0911_") as tmp:
+        root = Path(tmp)
+        (root / ".gemini").mkdir()
+        (root / ".gemini" / "settings.json").write_text('{"mcpServers":{"fs":{}}}\n', encoding="utf-8")
+        (root / ".git").mkdir()
+        (root / ".aider.conf.yml").write_text("auto-commits: false\n", encoding="utf-8")
+        fake = root / "fake-terminal-agent"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import pathlib, sys\n"
+            "if '--version' in sys.argv:\n"
+            "    raise SystemExit(0)\n"
+            "if '--write-marker' in sys.argv:\n"
+            "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+            encoding="utf-8",
+        )
+        fake.chmod(0o755)
+        runs: dict[str, dict[str, object]] = {}
+        approval_counts: dict[str, int] = {}
+        for agent in ("gemini-cli", "aider"):
+            marker = root / f"{agent}.txt"
+            run = run_live_agent_adapter(
+                agent=agent,
+                target=root,
+                out_dir=root / agent,
+                command=[str(fake), "--write-marker", str(marker)],
+                binary=str(fake),
+                require_live=True,
+                policy_mode="advisory",
+            )
+            entries, _warnings = load_ledger_entries(Path(run["managed_run"]["ledger"]))
+            approval_counts[agent] = sum(
+                1
+                for entry in entries
+                if entry.entry_type == "action" and entry.decision and entry.decision.get("effect") == "require_approval"
+            )
+            run["marker_exists"] = marker.exists()
+            runs[agent] = run
+        gemini_inventory = [item for item in runs["gemini-cli"]["native_inventory"]["profiles"] if item["agent"] == "gemini-cli"][0]
+        aider_inventory = [item for item in runs["aider"]["native_inventory"]["profiles"] if item["agent"] == "aider"][0]
+        checks = {
+            "gemini_managed_run_passed": runs["gemini-cli"].get("status") == "passed" and runs["gemini-cli"].get("marker_exists") is True,
+            "aider_managed_run_passed": runs["aider"].get("status") == "passed" and runs["aider"].get("marker_exists") is True,
+            "gemini_mcp_inventory": bool(gemini_inventory.get("surfaces", {}).get("mcp", {}).get("matches")),
+            "aider_config_inventory": bool(aider_inventory.get("surfaces", {}).get("config", {}).get("matches")),
+            "aider_repo_context_inventory": bool(aider_inventory.get("surfaces", {}).get("repo_map", {}).get("matches")),
+            "approval_noise_zero": all(count == 0 for count in approval_counts.values()),
+            "artifact_parity_present": all(bool(runs[agent].get("managed_run", {}).get("ledger")) and bool(runs[agent].get("managed_run", {}).get("proof")) for agent in runs),
+        }
+        return _suite_result(
+            "v0.9.11-terminal-agent-managed-wrappers",
+            checks,
+            artifacts={agent: runs[agent].get("artifacts", {}).get("report_json") for agent in runs},
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
@@ -416,6 +473,7 @@ __all__ = [
     "run_conformance_contract_v2_benchmark",
     "run_evidence_workspace_gate_benchmark",
     "run_opencode_real_adapter_benchmark",
+    "run_terminal_agent_managed_wrappers_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",
 ]

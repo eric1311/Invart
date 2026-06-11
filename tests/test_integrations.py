@@ -1120,6 +1120,78 @@ def test_v0910_opencode_managed_risk_blocks_before_side_effect_and_cli(tmp_path:
     assert main(["eval", "benchmark", "--suite", "v0.9.10-opencode-real-adapter"]) == 0
 
 
+def test_v0911_gemini_and_aider_managed_wrappers_emit_inventory_and_low_noise(tmp_path: Path) -> None:
+    from invart.surfaces.live_adapter import run_live_agent_adapter
+
+    (tmp_path / ".gemini").mkdir()
+    (tmp_path / ".gemini" / "settings.json").write_text(json.dumps({"mcpServers": {"fs": {}}}), encoding="utf-8")
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".aider.conf.yml").write_text("auto-commits: false\n", encoding="utf-8")
+    fake = tmp_path / "fake-terminal-agent"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    results = {}
+    for agent in ("gemini-cli", "aider"):
+        marker = tmp_path / f"{agent}.txt"
+        results[agent] = run_live_agent_adapter(
+            agent=agent,
+            target=tmp_path,
+            out_dir=tmp_path / agent,
+            command=[str(fake), "--write-marker", str(marker)],
+            binary=str(fake),
+            require_live=True,
+            policy_mode="advisory",
+        )
+        assert results[agent]["status"] == "passed"
+        assert marker.read_text(encoding="utf-8") == "ran"
+        assert results[agent]["managed_run"]["returncode"] == 0
+        assert results[agent]["evidence_workspace"]["status"] == "pass"
+        entries, _warnings = load_ledger_entries(Path(results[agent]["managed_run"]["ledger"]))
+        approval_effects = [
+            entry.decision.get("effect")
+            for entry in entries
+            if entry.decision and entry.entry_type == "action"
+        ]
+        assert approval_effects.count("require_approval") == 0
+    gemini_inventory = [item for item in results["gemini-cli"]["native_inventory"]["profiles"] if item["agent"] == "gemini-cli"][0]
+    aider_inventory = [item for item in results["aider"]["native_inventory"]["profiles"] if item["agent"] == "aider"][0]
+    assert gemini_inventory["surfaces"]["mcp"]["matches"]
+    assert aider_inventory["surfaces"]["config"]["matches"]
+    assert aider_inventory["surfaces"]["repo_map"]["matches"]
+
+
+def test_v0911_terminal_agent_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-terminal-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    for agent in ("gemini-cli", "aider"):
+        assert main([
+            "real-agent",
+            "run",
+            "--agent",
+            agent,
+            "--binary",
+            str(fake),
+            "--require-live",
+            "--target",
+            str(tmp_path),
+            "--out-dir",
+            str(tmp_path / f"{agent}-cli"),
+            "--",
+            str(fake),
+            "--version",
+        ]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.11-terminal-agent-managed-wrappers"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

@@ -887,6 +887,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Extend the managed wrapper path to Gemini CLI and Aider with benign workflow compatibility metrics.",
     ),
+    RoadmapCapability(
+        version="v0.9.11",
+        capability_id="terminal_agent_managed_wrappers",
+        title="Terminal agent managed wrapper track",
+        target="Validate Gemini CLI and Aider through Invart managed wrappers with binary discovery, config/context inventory, artifact parity, and low approval noise for benign workflows.",
+        status="implemented",
+        implementation=["src/invart/surfaces/live_adapter.py", "src/invart/surfaces/native.py", "src/invart/surfaces/adapter_profiles.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0911_gemini_and_aider_managed_wrappers_emit_inventory_and_low_noise", "test_v0911_terminal_agent_cli_and_benchmark_are_registered", "v0.9.11-terminal-agent-managed-wrappers"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Gemini CLI and Aider are mediated only when launched through Invart's managed wrapper.", "Config, MCP, repo-map, and context discovery are observed evidence unless paired with runtime mediation.", "The local suite uses binary-shaped fixtures and measures approval noise on benign workflows."],
+        claim_scope="local_terminal_agent_wrappers",
+        evidence_level="binary_backed_fixture_with_config_inventory",
+        external_validation="not_run_optional",
+        next_step="Integrate Codex while keeping Codex-native sandbox and approval facts separate from Invart-owned enforcement.",
+    ),
 )
 
 

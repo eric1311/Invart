@@ -64,6 +64,7 @@ from .releases_v52_v57 import (
     run_layer_runtime_workflow_benchmark,
     run_opencode_real_adapter_benchmark,
     run_priority_agent_tracks_benchmark,
+    run_terminal_agent_managed_wrappers_benchmark,
 )
 
 BenchmarkRunner = Callable[[], dict[str, Any]]
@@ -127,6 +128,7 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.9.8-claude-full-live-adapter": run_claude_full_live_adapter_benchmark,
         "v0.9.9-conformance-contract-v2": run_conformance_contract_v2_benchmark,
         "v0.9.10-opencode-real-adapter": run_opencode_real_adapter_benchmark,
+        "v0.9.11-terminal-agent-managed-wrappers": run_terminal_agent_managed_wrappers_benchmark,
         "progressive-external-validation": run_progressive_external_validation_benchmark,
         "real-world-agent-risk-demo": run_real_world_risk_benchmark,
         "containerized-risk-demo": run_container_risk_demo_benchmark,
