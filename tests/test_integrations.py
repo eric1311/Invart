@@ -403,11 +403,14 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
         binary_overrides={"claude-code": str(fake), "codex": str(fake)},
         require_live=True,
     )
-    assert report["schema_version"] == "invart.real_agent_conformance.v0.9.3"
+    assert report["schema_version"] == "invart.real_agent_conformance.v0.9.9"
     assert report["status"] == "pass"
+    assert report["conformance_contract"]["schema_version"] == "invart.adapter_conformance_contract.v0.9.9"
+    assert report["conformance_contract"]["status"] == "pass"
     assert report["summary"]["passed_agents"] == 2
     assert all(agent["binary"]["status"] == "found" for agent in report["agents"])
     assert all(agent["managed_run"]["status"] == "pass" for agent in report["agents"])
+    assert all(agent["contract"]["claimable_coverage"] == "managed_wrapper" for agent in report["agents"])
     assert Path(report["artifacts"]["report_json"]).exists()
     assert Path(report["artifacts"]["report_html"]).exists()
 
@@ -429,6 +432,56 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
     )
     assert strict_missing["status"] == "fail"
     assert strict_missing["agents"][0]["status"] == "blocked_missing_binary"
+
+
+def test_v099_conformance_contract_v2_blocks_claim_inflation(tmp_path: Path) -> None:
+    from invart.evaluation.real_agent_conformance import run_real_agent_conformance, validate_conformance_contract
+
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nprint('fixture'); sys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    report = run_real_agent_conformance(
+        out_dir=tmp_path / "v099",
+        agents=["claude-code", "openclaw"],
+        binary_overrides={"claude-code": str(fake), "openclaw": str(fake)},
+        require_live=True,
+    )
+    by_agent = {row["agent"]: row for row in report["agents"]}
+    assert by_agent["claude-code"]["contract"]["claimable_coverage"] == "managed_wrapper"
+    assert by_agent["claude-code"]["contract"]["side_effect_timing"] == "pre_side_effect"
+    assert by_agent["openclaw"]["contract"]["control_position"] == "vendor_owned_import"
+    assert by_agent["openclaw"]["contract"]["claimable_coverage"] == "vendor_import"
+    assert "invart_pre_side_effect_mediation" in by_agent["openclaw"]["contract"]["cannot_claim"]
+    inflated = dict(by_agent["openclaw"])
+    inflated["contract"] = {**inflated["contract"], "claimable_coverage": "managed_wrapper"}
+    gate = validate_conformance_contract([inflated])
+    assert gate["status"] == "fail"
+    assert any(finding["check_id"] == "claim.vendor_import_inflation" for finding in gate["findings"])
+
+
+def test_v099_conformance_contract_cli_and_benchmark_are_registered(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-agent"
+    fake.write_text("#!/usr/bin/env python3\nimport sys\nprint('fixture'); sys.exit(0)\n", encoding="utf-8")
+    fake.chmod(0o755)
+    out = tmp_path / "v099-cli"
+    assert main([
+        "real-agent",
+        "check",
+        "--agent",
+        "claude-code",
+        "--agent",
+        "openclaw",
+        "--binary",
+        f"claude-code={fake}",
+        "--binary",
+        f"openclaw={fake}",
+        "--require-live",
+        "--out-dir",
+        str(out),
+    ]) == 0
+    report = json.loads((out / "real-agent-conformance.json").read_text(encoding="utf-8"))
+    assert report["conformance_contract"]["claim_gate"]["status"] == "pass"
+    assert main(["eval", "benchmark", "--suite", "v0.9.9-conformance-contract-v2"]) == 0
 
 
 def test_v093_real_agent_cli_and_benchmark(tmp_path: Path) -> None:

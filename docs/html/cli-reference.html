@@ -41,7 +41,7 @@ invart adapter profiles
 invart adapter profiles --track managed_wrapper
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
 invart real-agent run --agent claude-code --require-live --out-dir .invart/live-claude -- &lt;claude-or-fixture-command&gt;
-invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html</pre><p>Use <code>--require-live</code> when missing local binaries should fail instead of being recorded as blocked evidence. <code>adapter profiles</code> lists priority tracks and keeps vendor/cloud import separate from Invart-mediated control.</p></div>
+invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html</pre><p>Use <code>--require-live</code> when missing local binaries should fail instead of being recorded as blocked evidence. <code>adapter profiles</code> lists priority tracks and keeps vendor/cloud import separate from Invart-mediated control. <code>real-agent check</code> emits a conformance contract row so imported, discovered, fixture-backed, and live evidence cannot be mixed into stronger claims.</p></div>
       <div class="card"><h3>Claude Code reference adapter</h3><pre>invart adapter claude-code \
   --target . \
   --out-dir .invart/claude-reference \
@@ -58,6 +58,7 @@ invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart eval benchmark --suite v0.9.8-claude-full-live-adapter
+invart eval benchmark --suite v0.9.9-conformance-contract-v2
 invart roadmap status --require-full</pre></div>
     </section>
   </main>

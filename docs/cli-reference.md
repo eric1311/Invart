@@ -81,7 +81,7 @@ invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/r
 ```
 
 Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
-The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation.
+The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation. `real-agent check` emits a conformance contract row for each product so imported, discovered, fixture-backed, and live evidence cannot be mixed into a stronger claim.
 
 ### Claude Code reference adapter
 
@@ -111,5 +111,6 @@ invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart eval benchmark --suite v0.9.7-evidence-workspace-gate
 invart eval benchmark --suite v0.9.8-claude-full-live-adapter
+invart eval benchmark --suite v0.9.9-conformance-contract-v2
 invart roadmap status --require-full
 ```

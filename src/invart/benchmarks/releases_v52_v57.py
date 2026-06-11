@@ -13,7 +13,7 @@ from invart.core.models import RuntimeEvent
 from invart.control.runtime import close_session, record_action, start_session
 from invart.evaluation.release_candidate import verify_release_candidate
 from invart.evaluation.product_control_matrix import run_product_control_matrix
-from invart.evaluation.real_agent_conformance import run_real_agent_conformance
+from invart.evaluation.real_agent_conformance import run_real_agent_conformance, validate_conformance_contract
 from invart.surfaces.adapter import run_adapter_command
 from invart.surfaces.claude_adapter import run_claude_code_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
@@ -325,10 +325,42 @@ def run_claude_full_live_adapter_benchmark() -> dict[str, object]:
         )
 
 
+def run_conformance_contract_v2_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v099_") as tmp:
+        root = Path(tmp)
+        fake = root / "fake-agent"
+        fake.write_text("#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n", encoding="utf-8")
+        fake.chmod(0o755)
+        report = run_real_agent_conformance(
+            out_dir=root / "conformance",
+            agents=["claude-code", "openclaw"],
+            binary_overrides={"claude-code": str(fake), "openclaw": str(fake)},
+            require_live=True,
+        )
+        by_agent = {row["agent"]: row for row in report["agents"]}
+        inflated = dict(by_agent["openclaw"])
+        inflated["contract"] = {**dict(inflated["contract"]), "claimable_coverage": "managed_wrapper"}
+        inflated_gate = validate_conformance_contract([inflated])
+        checks = {
+            "contract_schema_present": report.get("conformance_contract", {}).get("schema_version") == "invart.adapter_conformance_contract.v0.9.9",
+            "managed_wrapper_claim_has_artifacts": by_agent["claude-code"]["contract"]["artifact_completeness"]["status"] == "pass",
+            "vendor_import_not_mediated": by_agent["openclaw"]["contract"]["claimable_coverage"] == "vendor_import",
+            "vendor_cannot_claim_pre_side_effect_mediation": "invart_pre_side_effect_mediation" in by_agent["openclaw"]["contract"]["cannot_claim"],
+            "claim_gate_passes_truthful_rows": report.get("conformance_contract", {}).get("claim_gate", {}).get("status") == "pass",
+            "claim_gate_fails_inflated_row": inflated_gate.get("status") == "fail",
+        }
+        return _suite_result(
+            "v0.9.9-conformance-contract-v2",
+            checks,
+            artifacts=report.get("artifacts", {}),
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
     "run_claude_reference_adapter_benchmark",
+    "run_conformance_contract_v2_benchmark",
     "run_evidence_workspace_gate_benchmark",
     "run_priority_agent_tracks_benchmark",
     "run_layer_runtime_workflow_benchmark",

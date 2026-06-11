@@ -857,6 +857,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Generalize live evidence contracts across OpenCode, Gemini CLI, Aider, Codex, IDE bridges, gateway/server-agent imports, registration, public benchmark slices, and benign-friction studies.",
     ),
+    RoadmapCapability(
+        version="v0.9.9",
+        capability_id="live_adapter_conformance_contract_v2",
+        title="Live adapter conformance contract v2",
+        target="Make live, fixture, imported, and discovered evidence comparable without inflating Invart-mediated or enforced coverage claims.",
+        status="implemented",
+        implementation=["src/invart/evaluation/real_agent_conformance.py", "src/invart/surfaces/adapter_profiles.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v099_conformance_contract_v2_blocks_claim_inflation", "test_v099_conformance_contract_cli_and_benchmark_are_registered", "v0.9.9-conformance-contract-v2"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Conformance contract v2 compares local binary-backed fixture, live, vendor import, bridge, and discovery rows without upgrading weak evidence.", "Vendor-owned import and discovery-only rows cannot satisfy Invart-mediated or enforced claims.", "Strict live validation remains optional unless explicitly required."],
+        claim_scope="adapter_conformance_claim_gate",
+        evidence_level="binary_backed_fixture_plus_vendor_import_negative_control",
+        external_validation="not_run_optional",
+        next_step="Use the contract for OpenCode, Gemini CLI, Aider, Codex, IDE bridge, and gateway/server-agent adapter tracks.",
+    ),
 )
 
 
