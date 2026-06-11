@@ -37,6 +37,7 @@ This page is a reference, not the first-run learning path. Start with [Product O
 | v0.9.5 | Implemented | Priority agent tracks for Claude Code, Codex, Gemini CLI, Cursor, OpenCode, OpenClaw, Hermes, cloud agents, and frameworks, with profile-derived product matrix rows and explicit vendor/import versus Invart-mediated control positions. |
 | v0.9.6 | Implemented | Ledger-derived L1-L5 runtime operation workflow via `runtime layers`, exporting a stage x layer matrix, layer timeline, operator command guide, and linked proof/replay/path graph/coverage/audit/evidence artifacts. |
 | v0.9.7 | Implemented | L5 evidence workspace and gate hardening via `evidence inspect`, verifying bundle hashes, required artifacts, layer workflow/adapter package links, and whether proof/audit evidence answers who, what, why, policy, approval, outcome, and coverage. |
+| v0.9.8 | Implemented | Claude Code strict-live adapter: binary probing, missing-binary failure, pre-side-effect managed risk block, full adapter package, layer-runtime workflow, evidence workspace, and explicit degraded process-tree coverage when only portable subprocess supervision is active. |
 
 ## Internal History
 

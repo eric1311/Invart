@@ -53,6 +53,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.5-priority-agent-tracks",
     "v0.9.6-layer-runtime-workflow",
     "v0.9.7-evidence-workspace-gate",
+    "v0.9.8-claude-full-live-adapter",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )
@@ -74,6 +75,7 @@ DEFAULT_REQUIRED_DOCS = (
     "docs/runtime-effect-demo.md",
     "docs/architecture.md",
     "docs/evaluation.md",
+    "docs/roadmap.md",
     "docs/open-source-boundary.md",
     "docs/release-history.md",
     "docs/html/index.html",
@@ -87,6 +89,7 @@ DEFAULT_REQUIRED_DOCS = (
     "docs/html/runtime-effect-demo.html",
     "docs/html/architecture.html",
     "docs/html/evaluation.html",
+    "docs/html/roadmap.html",
     "docs/html/open-source-boundary.html",
     "docs/html/release-history.html",
     "docs/html/style.css",

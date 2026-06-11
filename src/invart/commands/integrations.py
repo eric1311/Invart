@@ -69,9 +69,11 @@ def handle_adapter(args: argparse.Namespace) -> int:
             create_preflight=not args.no_preflight,
             enforcement=args.enforcement,
             policy_mode=args.policy_mode,
+            binary=args.binary,
+            require_live=args.require_live,
         )
         print(json.dumps({"claude_code_adapter": result}, ensure_ascii=False, indent=2, sort_keys=True))
-        return int(result.get("returncode", 1))
+        return 1 if result.get("status") == "blocked_missing_binary" else int(result.get("returncode", 1))
     if args.adapter_command == "run":
         command = args.cmd
         if command and command[0] == "--":
@@ -197,6 +199,41 @@ def handle_real_agent(args: argparse.Namespace) -> int:
             return 2
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
+    if args.real_agent_command == "run":
+        command = args.cmd
+        if command and command[0] == "--":
+            command = command[1:]
+        if not command:
+            binary = args.binary or args.agent
+            command = [binary, "--version"]
+        if args.agent == "claude-code":
+            result = run_claude_code_adapter(
+                target=Path(args.target),
+                command=command,
+                hook_events=Path(args.hook_events) if args.hook_events else None,
+                out_dir=Path(args.out_dir),
+                session_id=None,
+                create_preflight=False,
+                policy_mode=args.policy_mode,
+                binary=args.binary or "claude",
+                require_live=args.require_live,
+            )
+        else:
+            from invart.surfaces.live_adapter import run_live_agent_adapter
+
+            result = run_live_agent_adapter(
+                agent=args.agent,
+                target=Path(args.target),
+                out_dir=Path(args.out_dir),
+                command=command,
+                binary=args.binary,
+                require_live=args.require_live,
+                policy_mode=args.policy_mode,
+            )
+        print(json.dumps({"real_agent_run": result}, ensure_ascii=False, indent=2, sort_keys=True))
+        if result.get("status") in {"blocked_missing_binary", "failed"}:
+            return 1
+        return int(result.get("returncode", 0))
     if args.real_agent_command == "report":
         result = export_real_agent_report_html(Path(args.run_dir), Path(args.out))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))

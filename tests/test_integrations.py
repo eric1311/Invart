@@ -838,6 +838,145 @@ def test_v097_evidence_workspace_cli_rc_and_benchmark_are_registered(tmp_path: P
     assert main(["eval", "benchmark", "--suite", "v0.9.7-evidence-workspace-gate"]) == 0
 
 
+def test_v098_claude_live_adapter_requires_binary_and_exports_l5_bundle(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-claude"
+    marker = tmp_path / "live-ran.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    print('Claude Code fixture 0.9.8')\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n"
+        "print('ok')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=[str(fake), "--write-marker", str(marker)],
+        out_dir=tmp_path / "claude-live",
+        session_id="ks_v098_claude_live",
+        policy_mode="advisory",
+        binary=str(fake),
+        require_live=True,
+    )
+
+    assert result["schema_version"] == "invart.claude_adapter.v0.9.8"
+    assert result["status"] == "passed"
+    assert marker.read_text(encoding="utf-8") == "ran"
+    assert result["live_evidence"]["strict_live_required"] is True
+    assert result["live_evidence"]["binary"]["status"] == "found"
+    assert result["live_evidence"]["control_position"] == "full_live_adapter"
+    assert result["adapter_package"]["schema_version"] == "invart.claude_adapter_package.v0.9.8"
+    assert result["layer_runtime"]["status"] == "pass"
+    assert {item["layer"] for item in result["layer_runtime"]["runtime_effect_matrix"]} == {"L1", "L2", "L3", "L4", "L5"}
+    assert result["evidence_workspace"]["status"] == "pass"
+    assert result["evidence_workspace"]["layer_workflow"]["present"] is True
+    assert verify_evidence_bundle(Path(result["adapter_package"]["manifest_path"]))["status"] == "pass"
+
+
+def test_v098_claude_live_adapter_strict_missing_binary_fails(tmp_path: Path) -> None:
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=[sys.executable, "-c", "raise SystemExit(0)"],
+        out_dir=tmp_path / "missing-live",
+        session_id="ks_v098_missing",
+        binary=str(tmp_path / "definitely-missing-claude"),
+        require_live=True,
+    )
+    assert result["status"] == "blocked_missing_binary"
+    assert result["returncode"] == 127
+    assert result["live_evidence"]["binary"]["status"] == "missing"
+    assert result["ledger"] is None
+
+
+def test_v098_claude_live_adapter_blocks_risk_before_fixture_side_effect(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-claude"
+    marker = tmp_path / "should-not-exist.txt"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import pathlib, sys\n"
+        "if '--version' in sys.argv:\n"
+        "    print('Claude Code fixture 0.9.8')\n"
+        "    raise SystemExit(0)\n"
+        "if '--write-marker' in sys.argv:\n"
+        "    pathlib.Path(sys.argv[sys.argv.index('--write-marker') + 1]).write_text('ran')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    result = run_claude_code_adapter(
+        target=tmp_path,
+        command=[str(fake), "--write-marker", str(marker), "rm -rf ."],
+        out_dir=tmp_path / "claude-managed-live",
+        session_id="ks_v098_managed_live",
+        policy_mode="managed",
+        binary=str(fake),
+        require_live=True,
+    )
+    assert result["status"] in {"blocked", "requires_approval"}
+    assert result["returncode"] == 126
+    assert marker.exists() is False
+    assert result["live_evidence"]["binary"]["status"] == "found"
+
+
+def test_v098_claude_live_adapter_cli_real_agent_run_and_benchmark(tmp_path: Path) -> None:
+    fake = tmp_path / "fake-claude"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "if '--version' in sys.argv:\n"
+        "    print('Claude Code fixture 0.9.8')\n"
+        "print('ok')\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    out_dir = tmp_path / "cli-live"
+    assert main([
+        "adapter",
+        "claude-code",
+        "--target",
+        str(tmp_path),
+        "--out-dir",
+        str(out_dir),
+        "--binary",
+        str(fake),
+        "--require-live",
+        "--",
+        str(fake),
+        "--version",
+    ]) == 0
+    assert main(["adapter", "inspect", "--package", str(out_dir / "adapter-package.json")]) == 0
+    assert main([
+        "evidence",
+        "inspect",
+        "--manifest",
+        str(out_dir / "layer-runtime" / "evidence" / "manifest.json"),
+        "--out-dir",
+        str(tmp_path / "cli-workspace"),
+        "--require-layer-workflow",
+    ]) == 0
+    assert main([
+        "real-agent",
+        "run",
+        "--agent",
+        "claude-code",
+        "--binary",
+        str(fake),
+        "--require-live",
+        "--target",
+        str(tmp_path),
+        "--out-dir",
+        str(tmp_path / "real-agent-run"),
+        "--",
+        str(fake),
+        "--version",
+    ]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.8-claude-full-live-adapter"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

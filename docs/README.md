@@ -24,6 +24,7 @@ Public pages:
 | Runtime effect demo | [`runtime-effect-demo.md`](runtime-effect-demo.md) | [`html/runtime-effect-demo.html`](html/runtime-effect-demo.html) |
 | Architecture | [`architecture.md`](architecture.md) | [`html/architecture.html`](html/architecture.html) |
 | Evaluation | [`evaluation.md`](evaluation.md) | [`html/evaluation.html`](html/evaluation.html) |
+| Roadmap | [`roadmap.md`](roadmap.md) | [`html/roadmap.html`](html/roadmap.html) |
 | Open-source boundary | [`open-source-boundary.md`](open-source-boundary.md) | [`html/open-source-boundary.html`](html/open-source-boundary.html) |
 | Release history | [`release-history.md`](release-history.md) | [`html/release-history.html`](html/release-history.html) |
 

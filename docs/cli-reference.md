@@ -76,6 +76,7 @@ invart adapter profile --kind claude-code
 invart adapter profiles
 invart adapter profiles --track managed_wrapper
 invart real-agent check --agent claude-code --out-dir .invart/real-agent
+invart real-agent run --agent claude-code --require-live --out-dir .invart/live-claude -- <claude-or-fixture-command>
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
 ```
 
@@ -88,12 +89,16 @@ The plural `adapter profiles` command lists priority agent tracks: reference ful
 invart adapter claude-code \
   --target . \
   --out-dir .invart/claude-reference \
+  --binary claude \
+  --require-live \
   --hook-events .invart/claude-hooks.jsonl \
   --policy-mode managed \
   -- <claude-or-harness-command>
 ```
 
 This reference adapter records Claude-style hook events, mediates the child command, and exports an adapter package containing ledger, proof, replay, path graph, coverage, audit, and evidence manifest. In managed/ci mode, deterministic risky actions pause or block before the child command is launched; advisory mode preserves autonomy and records evidence. Portable subprocess supervision is explicitly marked as degraded process-tree coverage unless native supervision is enabled.
+
+Use `--require-live` when the Claude Code binary must be resolvable and invokable. Missing binaries fail instead of being treated as successful validation. Local tests may use binary-shaped fixtures to verify the adapter path; those fixtures are recorded as binary-backed validation, not proof that a vendor-installed Claude Code run was exercised.
 
 ### Evaluation
 
@@ -105,5 +110,6 @@ invart eval benchmark --suite v0.9.4-claude-reference-adapter
 invart eval benchmark --suite v0.9.5-priority-agent-tracks
 invart eval benchmark --suite v0.9.6-layer-runtime-workflow
 invart eval benchmark --suite v0.9.7-evidence-workspace-gate
+invart eval benchmark --suite v0.9.8-claude-full-live-adapter
 invart roadmap status --require-full
 ```

@@ -842,6 +842,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Use the workspace gate as the pre-release evidence review surface while continuing live-agent conformance sampling.",
     ),
+    RoadmapCapability(
+        version="v0.9.8",
+        capability_id="claude_code_full_live_adapter",
+        title="Claude Code full live adapter",
+        target="Promote Claude Code from reference fixture adapter to strict-live capable adapter with binary probing, full L5 artifacts, layer runtime workflow, evidence workspace, and truthful degraded process-tree coverage.",
+        status="implemented",
+        implementation=["src/invart/surfaces/claude_adapter.py", "src/invart/commands/parser_integrations.py", "src/invart/commands/integrations.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v098_claude_live_adapter_requires_binary_and_exports_l5_bundle", "test_v098_claude_live_adapter_strict_missing_binary_fails", "test_v098_claude_live_adapter_blocks_risk_before_fixture_side_effect", "test_v098_claude_live_adapter_cli_real_agent_run_and_benchmark", "v0.9.8-claude-full-live-adapter"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Strict live mode fails when the Claude Code binary is missing or not invokable; missing binaries are never reported as live validation.", "Binary-shaped fixtures validate the live adapter path in local CI but do not claim a vendor-installed Claude Code run unless the resolved binary is the installed product.", "Portable subprocess supervision remains degraded process-tree coverage unless native supervision is enabled."],
+        claim_scope="local_claude_live_adapter_contract",
+        evidence_level="binary_backed_fixture_live_path",
+        external_validation="not_run_optional",
+        next_step="Generalize live evidence contracts across OpenCode, Gemini CLI, Aider, Codex, IDE bridges, gateway/server-agent imports, registration, public benchmark slices, and benign-friction studies.",
+    ),
 )
 
 

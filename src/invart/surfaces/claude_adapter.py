@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from invart.assurance.evidence_bundle import export_evidence_bundle
+from invart.assurance.evidence_workspace import inspect_evidence_workspace
+from invart.assurance.layer_runtime import export_layer_runtime_workflow
 from invart.control.daemon import RuntimeAuthority
 from invart.control.mediation import mediate_event
 from invart.assurance.postruntime import export_proof_report
@@ -28,11 +30,31 @@ def run_claude_code_adapter(
     create_preflight: bool = False,
     enforcement: str = "off",
     policy_mode: str = "advisory",
+    binary: str = "claude",
+    require_live: bool = False,
 ) -> dict[str, Any]:
     if not command:
         raise ValueError("claude-code adapter requires a child command")
     target = target.expanduser().resolve()
     resolved_out = out_dir.expanduser().resolve() if out_dir else target / ".invart" / "claude-code-adapter"
+    resolved_out.mkdir(parents=True, exist_ok=True)
+    environment = check_claude_code_environment(binary=binary)
+    live_evidence = _live_evidence(environment, require_live=require_live)
+    if require_live and not environment.get("available"):
+        report = {
+            "schema_version": "invart.claude_adapter.v0.9.8",
+            "status": "blocked_missing_binary",
+            "returncode": 127,
+            "session_id": session_id,
+            "ledger": None,
+            "proof": None,
+            "policy_mode": policy_mode,
+            "enforcement": enforcement,
+            "live_evidence": live_evidence,
+            "claim_boundary": "Strict live mode requires an invokable Claude Code binary; missing binaries are blocked and never reported as live validation.",
+        }
+        write_json_artifact(resolved_out / "claude-live-adapter.json", report)
+        return report
     ledger = resolved_out / "ledger.jsonl"
     authority = RuntimeAuthority.for_target(target)
     session = authority.create_session(
@@ -155,9 +177,26 @@ def run_claude_code_adapter(
         policy_mode=policy_mode,
         permission_inventory=permission_inventory,
         supervision=supervision,
+        live_evidence=live_evidence,
+    )
+    layer_runtime = export_layer_runtime_workflow(
+        ledger,
+        resolved_out / "layer-runtime",
+        profile={
+            "name": "claude-code-live-adapter",
+            "mode": policy_mode,
+            "adapter": "claude-code",
+            "live_evidence": live_evidence,
+        },
+    )
+    evidence_workspace = inspect_evidence_workspace(
+        Path(layer_runtime["artifacts"]["evidence_manifest"]),
+        out_dir=resolved_out / "evidence-workspace",
+        require_questions=True,
+        require_layer_workflow=True,
     )
     return {
-        "schema_version": "invart.claude_adapter.v0.9.4",
+        "schema_version": "invart.claude_adapter.v0.9.8",
         "session_id": session.session_id,
         "returncode": returncode,
         "hook_events_ingested": ingested,
@@ -168,11 +207,20 @@ def run_claude_code_adapter(
         "policy_mode": policy_mode,
         "permission_inventory": permission_inventory,
         "supervision": supervision,
+        "live_evidence": live_evidence,
         "mediation": {
             "blocking": blocking_mediation,
             "process": process_mediation,
         },
         "adapter_package": adapter_package,
+        "layer_runtime": {
+            "status": layer_runtime.get("status"),
+            "artifacts": layer_runtime.get("artifacts", {}),
+            "runtime_effect_matrix": layer_runtime.get("runtime_effect_matrix", []),
+            "layer_timeline": layer_runtime.get("layer_timeline", []),
+        },
+        "evidence_workspace": evidence_workspace,
+        "claim_boundary": "Claude Code live adapter evidence is binary-backed only when strict live mode resolves and probes an invokable binary; portable subprocess supervision remains degraded unless native process-tree supervision is enabled.",
     }
 
 
@@ -280,6 +328,7 @@ def _export_adapter_package(
     policy_mode: str,
     permission_inventory: dict[str, Any],
     supervision: dict[str, Any],
+    live_evidence: dict[str, Any],
 ) -> tuple[Path, dict[str, Any]]:
     proof = ledger.with_name("proof.json")
     export_proof_report(ledger, proof)
@@ -296,14 +345,16 @@ def _export_adapter_package(
                 "strong_consistency": supervision.get("strong_consistency"),
                 "coverage_grade": supervision.get("coverage_grade"),
             },
+            "live_evidence": live_evidence,
         },
     )
     package = {
-        "schema_version": "invart.claude_adapter_package.v0.9.4",
+        "schema_version": "invart.claude_adapter_package.v0.9.8",
         "status": bundle.get("status", "fail"),
         "manifest_path": bundle.get("manifest_path"),
         "artifacts": bundle.get("artifacts", {}),
         "summary": bundle.get("summary", {}),
+        "live_evidence": live_evidence,
         "coverage_truthfulness": {
             "hook_mediation": "mediated",
             "process_tree": "degraded",
@@ -312,6 +363,27 @@ def _export_adapter_package(
     }
     write_json_artifact(out_dir / "adapter-package.json", package)
     return proof, package
+
+
+def _live_evidence(environment: dict[str, Any], *, require_live: bool) -> dict[str, Any]:
+    available = bool(environment.get("available"))
+    conformance = environment.get("conformance", {}) if isinstance(environment.get("conformance"), dict) else {}
+    return {
+        "schema_version": "invart.claude_live_evidence.v0.9.8",
+        "strict_live_required": require_live,
+        "evidence_level": "binary_backed_live_or_fixture" if available else "missing_binary",
+        "control_position": "full_live_adapter" if available else "unavailable",
+        "agent": "claude-code",
+        "binary": {
+            "status": "found" if available else "missing",
+            "requested": environment.get("requested_binary"),
+            "path": environment.get("binary") if available else None,
+            "version_probe": conformance,
+        },
+        "side_effect_timing": "pre_side_effect_mediation",
+        "coverage_grade": "full_managed_adapter" if available else "blocked_missing_binary",
+        "claim_boundary": "Binary-backed fixture tests validate the live adapter path but do not claim a vendor-installed Claude Code run unless the binary is the installed product.",
+    }
 
 
 def check_claude_code_environment(binary: str = "claude") -> dict[str, Any]:

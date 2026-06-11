@@ -320,11 +320,19 @@ def inspect_adapter_package(package_path: Path) -> dict[str, Any]:
     manifest = json.loads(package_path.read_text(encoding="utf-8"))
     failures = []
     for name, item in manifest.get("artifacts", {}).items():
-        path = Path(str(item.get("path", "")))
+        if isinstance(item, str):
+            path = Path(item)
+            expected_hash = None
+        elif isinstance(item, dict):
+            path = Path(str(item.get("path", "")))
+            expected_hash = item.get("sha256")
+        else:
+            failures.append({"artifact": name, "reason": "invalid_artifact_descriptor"})
+            continue
         if not path.exists():
             failures.append({"artifact": name, "reason": "missing"})
             continue
-        if sha256_file(path) != item.get("sha256"):
+        if expected_hash is not None and sha256_file(path) != expected_hash:
             failures.append({"artifact": name, "reason": "hash_mismatch"})
     return {
         "schema_version": "invart.adapter_package_inspect.v0.25",

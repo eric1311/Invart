@@ -4,7 +4,7 @@
 
 Use Invart to discover agent runtime risk before execution, mediate behavior during execution, and produce verifiable evidence after execution.
 
-[Product](product.md) · [Quickstart](quickstart.md) · [Five-layer operator guide](five-layer-operator-guide.md) · [CLI](cli-reference.md) · [API & SDK](api-sdk.md) · [Evaluation](evaluation.md)
+[Product](product.md) · [Quickstart](quickstart.md) · [Five-layer operator guide](five-layer-operator-guide.md) · [CLI](cli-reference.md) · [API & SDK](api-sdk.md) · [Evaluation](evaluation.md) · [Roadmap](roadmap.md)
 
 ![Invart logo](../assets/brand/png-from-original/invart-logo-docs-header-1200x400.png)
 
@@ -47,6 +47,10 @@ Map the five control layers to the Invart source layout and integration boundari
 ### [Evaluation](evaluation.md)
 
 Connect product claims to benchmark suites, evidence artifacts, and external-validation boundaries.
+
+### [Roadmap](roadmap.md)
+
+Track the open-source path from the current 0.9 pre-release toward 1.0 readiness, including development, testing, validation, and experiment work.
 
 ### [Examples](examples.md)
 
