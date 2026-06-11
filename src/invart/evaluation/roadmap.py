@@ -917,6 +917,21 @@ CAPABILITIES: tuple[RoadmapCapability, ...] = (
         external_validation="not_run_optional",
         next_step="Add IDE extension bridge and inventory tracks for Cursor, Cline, and Roo without overclaiming discovery-only evidence.",
     ),
+    RoadmapCapability(
+        version="v0.9.13",
+        capability_id="ide_extension_bridge_inventory",
+        title="IDE extension bridge and inventory track",
+        target="Inventory Cursor, Cline, and Roo IDE agent surfaces and support normalized native bridge events without letting discovery-only evidence satisfy runtime mediation claims.",
+        status="implemented",
+        implementation=["src/invart/surfaces/native.py", "src/invart/surfaces/native_bridge.py", "src/invart/commands/parser_integrations.py", "src/invart/benchmarks/releases_v52_v57.py"],
+        tests=["test_v0913_ide_inventory_is_discovery_not_mediation", "test_v0913_ide_bridge_event_preserves_source_and_cli", "v0.9.13-ide-bridge-inventory"],
+        docs=["docs/cli-reference.md", "docs/html/cli-reference.html", "docs/release-history.md", "docs/html/release-history.html", "docs/roadmap.md", "docs/html/roadmap.html"],
+        product_boundaries=["Local discovery fixtures validate IDE inventory behavior; installed extension validation remains optional.", "Cursor, Cline, and Roo config discovery is coverage-gap evidence and not mediation.", "Only explicit bridge events entering Invart can be treated as mediated native-event evidence."],
+        claim_scope="ide_bridge_inventory",
+        evidence_level="local_discovery_fixture_plus_bridge_event",
+        external_validation="not_run_optional",
+        next_step="Add gateway and server-agent evidence imports for OpenClaw and Hermes while preserving vendor-owned boundaries.",
+    ),
 )
 
 

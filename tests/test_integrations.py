@@ -1250,6 +1250,42 @@ def test_v0912_codex_managed_wrapper_remains_invart_mediated(tmp_path: Path) -> 
     assert main(["eval", "benchmark", "--suite", "v0.9.12-codex-boundary"]) == 0
 
 
+def test_v0913_ide_inventory_is_discovery_not_mediation(tmp_path: Path) -> None:
+    from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inventory
+
+    (tmp_path / ".cursor").mkdir()
+    (tmp_path / ".cursor" / "mcp.json").write_text(json.dumps({"mcpServers": {"fs": {}}}), encoding="utf-8")
+    (tmp_path / ".cline").mkdir()
+    (tmp_path / ".cline" / "settings.json").write_text(json.dumps({"tools": ["shell"]}), encoding="utf-8")
+    (tmp_path / ".roo").mkdir()
+    (tmp_path / ".roo" / "mcp.json").write_text(json.dumps({"mcpServers": {"repo": {}}}), encoding="utf-8")
+    matrix = native_capability_matrix(tmp_path)
+    by_agent = {item["agent"]: item for item in matrix["agents"]}
+    for agent in ("cursor", "cline", "roo-code"):
+        discovered = [surface for surface in by_agent[agent]["surfaces"].values() if surface["source_evidence"]]
+        assert discovered
+        assert all(surface["coverage_state"] == "discovered" for surface in discovered)
+        assert all(surface["enforcement_claim"] == "not_enforced" for surface in discovered)
+    unmanaged = unmanaged_agent_inventory(tmp_path)
+    assert {"cursor", "cline", "roo-code"}.issubset({item["agent"] for item in unmanaged["findings"]})
+
+
+def test_v0913_ide_bridge_event_preserves_source_and_cli(tmp_path: Path) -> None:
+    payload = {"tool": "shell", "arguments": {"command": "echo ok"}, "session_id": "ide-session"}
+    for agent in ("cursor", "cline", "roo-code"):
+        action = normalize_native_event(agent, payload)
+        assert action.adapter == f"native_hook:{agent}"
+        assert action.metadata["vendor_agent"] == agent
+        assert action.metadata["coverage_layer"] == "native_hook"
+        response = render_native_response(agent, {"effect": "allow", "reason": "ok"})
+        assert response["allow"] is True
+    event_path = tmp_path / "cursor-event.json"
+    event_path.write_text(json.dumps(payload), encoding="utf-8")
+    assert main(["bridge", "native", "--agent", "cursor", "--event", event_path.read_text(encoding="utf-8")]) == 0
+    assert main(["bridge", "conformance"]) == 0
+    assert main(["eval", "benchmark", "--suite", "v0.9.13-ide-bridge-inventory"]) == 0
+
+
 def test_v09_swe_bench_lite_runner_skips_cleanly_without_dependencies(tmp_path: Path) -> None:
     out = tmp_path / "swebench-report.json"
     assert main([

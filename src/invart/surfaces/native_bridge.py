@@ -50,7 +50,7 @@ def render_native_response(agent: str, decision: dict[str, Any]) -> dict[str, An
 
 
 def bridge_conformance_matrix() -> dict[str, Any]:
-    agents = ("claude-code", "codex", "opencode", "generic")
+    agents = ("claude-code", "codex", "opencode", "cursor", "cline", "roo-code", "generic")
     cases = []
     for agent in agents:
         shell_payload = _fixture_payload(agent, "rm -rf .")
@@ -87,6 +87,9 @@ def _extract_tool_event(agent: str, payload: dict[str, Any]) -> tuple[str, str, 
     elif agent == "opencode":
         tool = str(payload.get("tool") or payload.get("tool_name") or "unknown")
         parameters = dict(payload.get("input") or payload.get("arguments") or {})
+    elif agent in {"cursor", "cline", "roo-code"}:
+        tool = str(payload.get("tool") or payload.get("tool_name") or payload.get("command_name") or "unknown")
+        parameters = dict(payload.get("arguments") or payload.get("input") or payload.get("tool_input") or {})
     else:
         tool = str(payload.get("tool") or payload.get("tool_name") or "unknown")
         parameters = dict(payload.get("arguments") or payload.get("tool_input") or {})

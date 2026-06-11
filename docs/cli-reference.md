@@ -119,5 +119,6 @@ invart eval benchmark --suite v0.9.9-conformance-contract-v2
 invart eval benchmark --suite v0.9.10-opencode-real-adapter
 invart eval benchmark --suite v0.9.11-terminal-agent-managed-wrappers
 invart eval benchmark --suite v0.9.12-codex-boundary
+invart eval benchmark --suite v0.9.13-ide-bridge-inventory
 invart roadmap status --require-full
 ```

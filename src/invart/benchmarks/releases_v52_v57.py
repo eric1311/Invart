@@ -19,6 +19,8 @@ from invart.surfaces.claude_adapter import run_claude_code_adapter
 from invart.surfaces.live_adapter import run_live_agent_adapter
 from invart.surfaces.adapter_profiles import adapter_track_matrix, list_adapter_profiles, validate_adapter_profile_truthfulness
 from invart.surfaces.vendor_evidence import import_vendor_native_evidence, validate_vendor_claim_boundary
+from invart.surfaces.native import native_capability_matrix, unmanaged_agent_inventory
+from invart.surfaces.native_bridge import bridge_conformance_matrix, normalize_native_event
 
 
 def run_agent_adapter_contract_benchmark() -> dict[str, object]:
@@ -515,6 +517,35 @@ def run_codex_boundary_benchmark() -> dict[str, object]:
         )
 
 
+def run_ide_bridge_inventory_benchmark() -> dict[str, object]:
+    with tempfile.TemporaryDirectory(prefix="invart_v0913_") as tmp:
+        root = Path(tmp)
+        (root / ".cursor").mkdir()
+        (root / ".cursor" / "mcp.json").write_text('{"mcpServers":{"fs":{}}}\n', encoding="utf-8")
+        (root / ".cline").mkdir()
+        (root / ".cline" / "settings.json").write_text('{"tools":["shell"]}\n', encoding="utf-8")
+        (root / ".roo").mkdir()
+        (root / ".roo" / "mcp.json").write_text('{"mcpServers":{"repo":{}}}\n', encoding="utf-8")
+        matrix = native_capability_matrix(root)
+        unmanaged = unmanaged_agent_inventory(root)
+        by_agent = {item["agent"]: item for item in matrix["agents"]}
+        bridge = bridge_conformance_matrix()
+        action = normalize_native_event("cursor", {"tool": "shell", "arguments": {"command": "echo ok"}, "session_id": "bench"})
+        checks = {
+            "cursor_discovery_not_mediation": all(surface["coverage_state"] != "mediated" for surface in by_agent["cursor"]["surfaces"].values() if surface["source_evidence"]),
+            "cline_discovery_not_mediation": all(surface["coverage_state"] != "mediated" for surface in by_agent["cline"]["surfaces"].values() if surface["source_evidence"]),
+            "roo_discovery_not_mediation": all(surface["coverage_state"] != "mediated" for surface in by_agent["roo-code"]["surfaces"].values() if surface["source_evidence"]),
+            "unmanaged_gaps_reported": {"cursor", "cline", "roo-code"}.issubset({item["agent"] for item in unmanaged["findings"]}),
+            "bridge_conformance_includes_ide": bridge.get("status") == "pass" and {"cursor", "cline", "roo-code"}.issubset({item["agent"] for item in bridge["cases"]}),
+            "imported_event_has_native_source": action.adapter == "native_hook:cursor" and action.metadata["coverage_layer"] == "native_hook",
+        }
+        return _suite_result(
+            "v0.9.13-ide-bridge-inventory",
+            checks,
+            artifacts={},
+        )
+
+
 __all__ = [
     "run_agent_adapter_contract_benchmark",
     "run_claude_full_live_adapter_benchmark",
@@ -522,6 +553,7 @@ __all__ = [
     "run_conformance_contract_v2_benchmark",
     "run_codex_boundary_benchmark",
     "run_evidence_workspace_gate_benchmark",
+    "run_ide_bridge_inventory_benchmark",
     "run_opencode_real_adapter_benchmark",
     "run_terminal_agent_managed_wrappers_benchmark",
     "run_priority_agent_tracks_benchmark",

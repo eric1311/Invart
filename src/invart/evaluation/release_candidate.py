@@ -58,6 +58,7 @@ DEFAULT_RC_BENCHMARKS = (
     "v0.9.10-opencode-real-adapter",
     "v0.9.11-terminal-agent-managed-wrappers",
     "v0.9.12-codex-boundary",
+    "v0.9.13-ide-bridge-inventory",
     "progressive-external-validation",
     "pre-v1-control-plane",
 )
