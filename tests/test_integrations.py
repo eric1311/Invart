@@ -409,8 +409,10 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
     assert report["conformance_contract"]["status"] == "pass"
     assert report["summary"]["passed_agents"] == 2
     assert all(agent["binary"]["status"] == "found" for agent in report["agents"])
+    assert all(agent["binary"]["source"] == "override" for agent in report["agents"])
     assert all(agent["managed_run"]["status"] == "pass" for agent in report["agents"])
     assert all(agent["contract"]["claimable_coverage"] == "managed_wrapper" for agent in report["agents"])
+    assert all(agent["contract"]["evidence_level"] == "binary_backed_fixture" for agent in report["agents"])
     assert Path(report["artifacts"]["report_json"]).exists()
     assert Path(report["artifacts"]["report_html"]).exists()
 
@@ -432,6 +434,26 @@ def test_v093_real_agent_conformance_fixture_and_strict_live_modes(tmp_path: Pat
     )
     assert strict_missing["status"] == "fail"
     assert strict_missing["agents"][0]["status"] == "blocked_missing_binary"
+
+
+def test_v093_real_agent_conformance_marks_path_resolved_probe(tmp_path: Path, monkeypatch) -> None:
+    from invart.evaluation.real_agent_conformance import run_real_agent_conformance
+
+    fake = tmp_path / "claude"
+    fake.write_text("#!/bin/sh\necho 'Claude Code path probe'\nexit 0\n", encoding="utf-8")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path))
+
+    report = run_real_agent_conformance(
+        out_dir=tmp_path / "path-probe",
+        agents=["claude-code"],
+        require_live=True,
+    )
+    row = report["agents"][0]
+    assert row["status"] == "pass"
+    assert row["binary"]["source"] == "path_lookup"
+    assert row["contract"]["claimable_coverage"] == "managed_wrapper"
+    assert row["contract"]["evidence_level"] == "path_resolved_managed_probe"
 
 
 def test_v099_conformance_contract_v2_blocks_claim_inflation(tmp_path: Path) -> None:

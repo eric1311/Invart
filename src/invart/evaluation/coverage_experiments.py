@@ -13,23 +13,53 @@ from invart.core.models import utc_now
 def run_coverage_truthfulness_matrix(*, out_dir: Path | None = None) -> dict[str, Any]:
     root = (out_dir or Path(tempfile.mkdtemp(prefix="invart_coverage_matrix_"))).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
-    layer_by_surface = {
-        "imported_log": "audit_import",
-        "post_tool_hook": "agent_log",
-        "pre_tool_hook": "native_hook",
-        "managed_wrapper": "shell_wrapper",
-        "wrapper": "shell_wrapper",
-        "shim_proxy": "rust_shim",
-        "fail_open": "shell_wrapper",
-        "bypass": "unknown_bypass",
+    surface_specs = [
+        {"surface": "imported_log", "layer": "audit_import"},
+        {"surface": "post_tool_hook", "layer": "agent_log"},
+        {"surface": "pre_tool_hook", "layer": "native_hook"},
+        {"surface": "managed_wrapper", "layer": "shell_wrapper"},
+        {"surface": "wrapper", "layer": "shell_wrapper"},
+        {"surface": "shim_proxy", "layer": "rust_shim"},
+        {"surface": "fail_open", "layer": "shell_wrapper"},
+        {"surface": "bypass", "layer": "unknown_bypass", "bypass_type": "generic_unmanaged_path"},
+        {"surface": "unmanaged_subprocess", "layer": "unknown_bypass", "bypass_type": "child_process_outside_wrapper"},
+        {"surface": "alternate_shell", "layer": "unknown_bypass", "bypass_type": "direct_shell_or_binary"},
+        {"surface": "generated_script", "layer": "unknown_bypass", "bypass_type": "script_invoked_outside_wrapper"},
+        {"surface": "package_hook", "layer": "unknown_bypass", "bypass_type": "package_lifecycle_hook"},
+    ]
+    expected_by_surface = {
+        "imported_log": "none",
+        "post_tool_hook": "none",
+        "pre_tool_hook": "mediated",
+        "managed_wrapper": "mediated",
+        "wrapper": "enforced",
+        "shim_proxy": "enforced",
+        "fail_open": "fail_open_alert",
+        "bypass": "none",
+        "unmanaged_subprocess": "none",
+        "alternate_shell": "none",
+        "generated_script": "none",
+        "package_hook": "none",
     }
     positions = []
-    for surface, layer in layer_by_surface.items():
+    for spec in surface_specs:
+        surface = spec["surface"]
+        layer = spec["layer"]
         coverage = default_coverage_for_layer(layer).to_dict()
-        if surface == "bypass":
+        if spec.get("bypass_type"):
             coverage["runtime_observation"] = "none"
             coverage["runtime_enforcement"] = "none"
-            coverage["degraded_reason"] = "action bypassed Invart mediation boundary"
+            coverage["postruntime_audit"] = "none"
+            coverage["preflight_visibility"] = "none"
+            coverage["observed_by"] = []
+            coverage["enforced_by"] = []
+            coverage["coverage_grade"] = {
+                "preflight_visibility": "none",
+                "runtime_observation": "none",
+                "runtime_enforcement": "none",
+                "postruntime_audit": "none",
+            }
+            coverage["degraded_reason"] = f"{spec['bypass_type']} bypassed Invart mediation boundary"
         if surface == "fail_open":
             coverage["runtime_observation"] = "mediated"
             coverage["runtime_enforcement"] = "fail_open_alert"
@@ -38,32 +68,29 @@ def run_coverage_truthfulness_matrix(*, out_dir: Path | None = None) -> dict[str
             coverage["runtime_observation"] = "mediated"
             coverage["runtime_enforcement"] = "mediated"
             coverage["degraded_reason"] = None
-        expected_enforcement = {
-            "imported_log": "none",
-            "post_tool_hook": "none",
-            "pre_tool_hook": "mediated",
-            "managed_wrapper": "mediated",
-            "wrapper": "enforced",
-            "shim_proxy": "enforced",
-            "fail_open": "fail_open_alert",
-            "bypass": "none",
-        }[surface]
+        expected_enforcement = expected_by_surface[surface]
         actual_enforcement = coverage["runtime_enforcement"]
+        negative_control = bool(spec.get("bypass_type")) or surface == "fail_open"
         positions.append(
             {
                 "action_id": "same-network-egress",
                 "surface": surface,
                 "layer": layer,
+                "bypass_type": spec.get("bypass_type"),
+                "negative_control": negative_control,
+                "claim_rule": "no enforcement claim" if spec.get("bypass_type") else ("fail-open alert, not enforced success" if surface == "fail_open" else "claim matches surface control position"),
                 "coverage": coverage,
                 "expected_runtime_enforcement": expected_enforcement,
                 "actual_runtime_enforcement": actual_enforcement,
                 "truthful": actual_enforcement == expected_enforcement,
                 "blocked_before_execution": actual_enforcement == "enforced",
-                "coverage_gap": surface == "bypass",
+                "coverage_gap": bool(spec.get("bypass_type")),
                 "artifacts": {},
             }
         )
     legacy_surfaces = [item for item in positions if item["surface"] not in {"fail_open", "managed_wrapper"}]
+    bypass_positions = [item for item in positions if item.get("bypass_type")]
+    false_enforcement_claims = sum(1 for item in bypass_positions if item["actual_runtime_enforcement"] in {"mediated", "enforced"})
     report = {
         "schema_version": "invart.coverage_experiments.v0.47",
         "suite": "coverage-truthfulness-matrix",
@@ -81,7 +108,9 @@ def run_coverage_truthfulness_matrix(*, out_dir: Path | None = None) -> dict[str
         "metrics": {
             "coverage_label_correctness": sum(1 for item in positions if item["truthful"]) / len(positions),
             "blocked_before_execution_rate": sum(1 for item in positions if item["blocked_before_execution"]) / len(positions),
-            "bypass_detection": 1.0,
+            "bypass_detection": sum(1 for item in bypass_positions if item["coverage_gap"] and item["actual_runtime_enforcement"] == "none") / len(bypass_positions),
+            "false_enforcement_claim_rate": false_enforcement_claims / len(bypass_positions),
+            "named_bypass_controls": len(bypass_positions),
         },
         "artifacts": {},
     }

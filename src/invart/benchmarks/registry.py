@@ -50,10 +50,13 @@ from .releases_v41_v45 import (
 from .releases_v46_v51 import (
     run_audit_reconstruction_study_benchmark,
     run_coverage_mediation_pilot_benchmark,
+    run_layer_path_completeness_benchmark,
     run_paper_evidence_tables_benchmark,
+    run_policy_sensitivity_slice_benchmark,
     run_pre_1_0_research_ready_gate_benchmark,
     run_product_control_matrix_benchmark,
     run_reviewer_ablation_cost_benchmark,
+    run_task_agent_installed_slice_benchmark,
 )
 from .releases_v52_v57 import (
     run_agent_adapter_contract_benchmark,
@@ -122,6 +125,9 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.49-reviewer-ablation-cost": run_reviewer_ablation_cost_benchmark,
         "v0.50-product-control-matrix": run_product_control_matrix_benchmark,
         "v0.51-pre-1.0-research-ready-gate": run_pre_1_0_research_ready_gate_benchmark,
+        "v0.52-policy-sensitivity-slice": run_policy_sensitivity_slice_benchmark,
+        "v0.53-task-agent-installed-slice": run_task_agent_installed_slice_benchmark,
+        "v0.54-layer-path-completeness": run_layer_path_completeness_benchmark,
         "v0.9.3-agent-adapter-contract": run_agent_adapter_contract_benchmark,
         "v0.9.4-claude-reference-adapter": run_claude_reference_adapter_benchmark,
         "v0.9.5-priority-agent-tracks": run_priority_agent_tracks_benchmark,

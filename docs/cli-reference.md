@@ -16,6 +16,7 @@ Run `invart --help` for the complete parser. These are the entry points most peo
 | Inspect mediation state | `invart mediation inspect --ledger ledger.jsonl` |
 | Export reviewable evidence | `invart evidence export --ledger ledger.jsonl --out-dir .invart/evidence` |
 | Validate real-agent integration | `invart real-agent check --agent claude-code --out-dir .invart/real-agent` |
+| Run task-shaped installed-agent slice | `invart experiment task-agent --agent claude-code --agent codex --require-installed --out-dir .invart/task-agent` |
 | Run product benchmarks | `invart eval benchmark --suite full-product-readiness` |
 
 ### Pre-runtime
@@ -84,8 +85,20 @@ invart real-agent run --agent codex --require-live --out-dir .invart/live-codex 
 invart real-agent report --run-dir .invart/real-agent --out .invart/real-agent/report.html
 ```
 
-Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; live runs validate the installed product surface.
-The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation. `real-agent check` emits a conformance contract row for each product so imported, discovered, fixture-backed, and live evidence cannot be mixed into a stronger claim.
+Use `--require-live` when you want missing local agent binaries to fail the run instead of being recorded as blocked evidence. Fixture-backed runs validate the Invart adapter contract; path-resolved probes validate that an installed local binary can enter the wrapper, but they are not provider-task or benchmark validation.
+The plural `adapter profiles` command lists priority agent tracks: reference full adapter, managed wrapper, native bridge, vendor/cloud evidence import, and framework trace import. Vendor import tracks are audit evidence, not Invart mediation. `real-agent check` emits a conformance contract row for each product so imported, discovered, fixture-backed, path-resolved, vendor-owned, and missing-binary evidence cannot be mixed into a stronger claim.
+
+### Task-shaped installed-agent experiment
+
+```bash
+invart experiment task-agent \
+  --agent claude-code \
+  --agent codex \
+  --require-installed \
+  --out-dir .invart/task-agent
+```
+
+`experiment task-agent` runs the v0.53 deterministic local task-shaped slice for installed agent products. It resolves the requested binaries, runs benign, destructive-token, credential-exposure-token, and critical-token commands through Invart-managed wrappers, and writes a JSON/HTML report with direct-baseline and managed-wrapper outcomes. This is managed-wrapper path-governance evidence for local binaries, not proof that the provider model solved the task or an upstream benchmark score.
 
 ### Claude Code reference adapter
 
@@ -120,5 +133,6 @@ invart eval benchmark --suite v0.9.10-opencode-real-adapter
 invart eval benchmark --suite v0.9.11-terminal-agent-managed-wrappers
 invart eval benchmark --suite v0.9.12-codex-boundary
 invart eval benchmark --suite v0.9.13-ide-bridge-inventory
+invart eval benchmark --suite v0.53-task-agent-installed-slice
 invart roadmap status --require-full
 ```

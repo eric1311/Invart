@@ -99,7 +99,11 @@ def run_adapter_command(
                 "command": " ".join(command),
                 "agent": agent,
                 "target": str(target),
-                "metadata": {"adapter": "invart-adapter-run", "operation": "child_command"},
+                "metadata": {
+                    "adapter": "invart-adapter-run",
+                    "operation": "child_command",
+                    "coverage_layer": "shell_wrapper",
+                },
             },
             review_mode="auto",
             policy_mode=policy_mode,

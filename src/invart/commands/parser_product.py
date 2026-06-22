@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from invart.surfaces.adapter_profiles import adapter_profile_ids
 from .product import handle_audit, handle_demo, handle_eval, handle_evidence, handle_experiment, handle_external_evidence, handle_release_candidate, handle_roadmap
 
 
@@ -43,6 +44,15 @@ def register_product_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     experiment_reviewer.add_argument("--out-dir", required=True)
     experiment_product_matrix = experiment_sub.add_parser("product-control-matrix", help="Generate the v0.50 product control matrix artifacts.")
     experiment_product_matrix.add_argument("--out-dir", required=True)
+    experiment_policy_sensitivity = experiment_sub.add_parser("policy-sensitivity", help="Generate the v0.52 local policy sensitivity slice.")
+    experiment_policy_sensitivity.add_argument("--out-dir", required=True)
+    experiment_task_agent = experiment_sub.add_parser("task-agent", help="Generate the v0.53 task-level installed-agent managed-wrapper slice.")
+    experiment_task_agent.add_argument("--out-dir", required=True)
+    experiment_task_agent.add_argument("--agent", action="append", choices=adapter_profile_ids(), default=[])
+    experiment_task_agent.add_argument("--binary", action="append", default=[], help="Override an agent binary as agent-id=/path/to/binary.")
+    experiment_task_agent.add_argument("--require-installed", action="store_true", help="Fail if requested product binaries are unavailable.")
+    experiment_layer_path = experiment_sub.add_parser("layer-path", help="Generate the v0.54 layer path-completeness claim-loss slice.")
+    experiment_layer_path.add_argument("--out-dir", required=True)
 
     evidence = subparsers.add_parser("evidence", help="Export and verify enterprise evidence bundles.")
     evidence.set_defaults(handler=handle_evidence)

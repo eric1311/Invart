@@ -62,7 +62,17 @@ def run_real_agent_conformance(
             "schema_version": CONTRACT_SCHEMA_VERSION,
             "status": claim_gate["status"],
             "claim_gate": claim_gate,
-            "levels": ["live", "binary_backed_fixture", "managed_wrapper", "native_bridge", "vendor_import", "discovery_only", "missing_binary"],
+            "levels": [
+                "path_resolved_managed_probe",
+                "path_resolved_native_bridge_probe",
+                "path_resolved_vendor_probe",
+                "binary_backed_fixture",
+                "managed_wrapper",
+                "native_bridge",
+                "vendor_import",
+                "discovery_only",
+                "missing_binary",
+            ],
             "rule": "Invart-mediated or enforced claims require ledger-backed mediation artifacts; vendor/import/discovery evidence cannot satisfy those claims.",
         },
         "summary": {
@@ -71,7 +81,7 @@ def run_real_agent_conformance(
             "blocked_missing_binary": sum(1 for row in rows if row["status"] == "blocked_missing_binary"),
             "failed_agents": len(failed_rows),
             "claim_gate_status": claim_gate["status"],
-            "claim_boundary": "Fixture-backed checks validate Invart's conformance harness. Strict live mode fails when requested real binaries are unavailable or do not produce managed-run evidence.",
+            "claim_boundary": "Fixture-backed checks validate Invart's conformance harness. Path-resolved probes show locally installed binaries can be invoked through the wrapper, but they are not full provider-task or upstream benchmark validation. Strict live mode fails when requested real binaries are unavailable or do not produce managed-run evidence.",
         },
         "agents": rows,
         "artifacts": {"report_json": str(report_json), "report_html": str(report_html)},
@@ -209,13 +219,13 @@ def _row_contract(*, profile: dict[str, Any], row: dict[str, Any], binary: dict[
         evidence_level = "missing_binary"
         claimable = "missing_binary"
     elif control_position == "vendor_owned_import":
-        evidence_level = "vendor_import"
+        evidence_level = "path_resolved_vendor_probe" if binary.get("source") == "path_lookup" else "vendor_import"
         claimable = "vendor_import"
     elif control_position == "bridge_mediated_when_configured":
-        evidence_level = "native_bridge_fixture"
+        evidence_level = "path_resolved_native_bridge_probe" if binary.get("source") == "path_lookup" else "native_bridge_fixture"
         claimable = "native_bridge" if not missing else "discovery_only"
     elif control_position == "invart_mediated" and artifacts["ledger"] and artifacts["proof"]:
-        evidence_level = "binary_backed_fixture"
+        evidence_level = "path_resolved_managed_probe" if binary.get("source") == "path_lookup" else "binary_backed_fixture"
         claimable = "managed_wrapper"
     else:
         evidence_level = "discovery_only"
@@ -282,11 +292,13 @@ def _resolve_binary(profile: dict[str, Any], override: str | None) -> dict[str, 
         version = _probe_version(Path(resolved))
         return {
             "status": "found",
+            "source": "override" if override else "path_lookup",
+            "requested": candidate,
             "path": resolved,
             "version": version.get("stdout") or version.get("stderr") or "",
             "returncode": version.get("returncode"),
         }
-    return {"status": "missing", "path": None, "version": "", "returncode": None}
+    return {"status": "missing", "source": "override" if override else "path_lookup", "requested": override or candidates, "path": None, "version": "", "returncode": None}
 
 
 def _probe_version(path: Path) -> dict[str, Any]:

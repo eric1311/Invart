@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from invart.core.artifacts import write_json_artifact
@@ -18,9 +19,12 @@ from invart.evaluation.experiment_cases import export_experiment_report, list_ex
 from invart.evaluation.audit_reconstruction import run_audit_reconstruction_study
 from invart.evaluation.coverage_experiments import run_coverage_truthfulness_matrix
 from invart.evaluation.paper_tables import export_paper_tables_from_file
+from invart.evaluation.policy_sensitivity import run_policy_sensitivity_experiment
 from invart.evaluation.product_control_matrix import run_product_control_matrix
 from invart.evaluation.research_readiness import verify_research_readiness
 from invart.evaluation.reviewer_experiments import run_reviewer_selectivity_experiment
+from invart.evaluation.task_agent_benchmark import run_task_agent_benchmark
+from invart.evaluation.layer_path_completeness import run_layer_path_completeness_experiment
 from invart.evaluation.experiment_fixtures import validate_experiment_fixture_root
 from invart.evaluation.real_world_cases import run_real_world_risk_demo
 from invart.evaluation.pre_1_0 import run_pre_1_0_final_demo
@@ -70,7 +74,40 @@ def handle_experiment(args: argparse.Namespace) -> int:
         result = run_product_control_matrix(out_dir=Path(args.out_dir))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "policy-sensitivity":
+        result = run_policy_sensitivity_experiment(out_dir=Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "task-agent":
+        try:
+            result = run_task_agent_benchmark(
+                out_dir=Path(args.out_dir),
+                agents=args.agent or None,
+                binary_overrides=_parse_binary_overrides(args.binary),
+                require_installed=args.require_installed,
+            )
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
+    if args.experiment_command == "layer-path":
+        result = run_layer_path_completeness_experiment(out_dir=Path(args.out_dir))
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result.get("status") == "pass" else 1
     return 2
+
+
+def _parse_binary_overrides(values: list[str]) -> dict[str, str]:
+    overrides: dict[str, str] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError("--binary must use agent-id=/path/to/binary")
+        agent, path = value.split("=", 1)
+        if not agent or not path:
+            raise ValueError("--binary must use agent-id=/path/to/binary")
+        overrides[agent] = path
+    return overrides
 
 def handle_roadmap(args: argparse.Namespace) -> int:
     if args.roadmap_command == "status":
