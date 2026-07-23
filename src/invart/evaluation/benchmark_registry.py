@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 BENCHMARK_SUITES: tuple[dict[str, Any], ...] = (
     {"suite": "v0.25-adapter-runtime-integration", "version": "v0.25", "category": "compatibility", "optional_heavy": False},
     {"suite": "v0.26-policy-as-code", "version": "v0.26", "category": "policy", "optional_heavy": False},
@@ -34,6 +33,7 @@ BENCHMARK_SUITES: tuple[dict[str, Any], ...] = (
     {"suite": "v0.52-policy-sensitivity-slice", "version": "v0.52", "category": "policy", "optional_heavy": False, "claim_scope": "local_policy_sensitivity_slice", "evidence_level": "deterministic_local_policy_sensitivity"},
     {"suite": "v0.53-task-agent-installed-slice", "version": "v0.53", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "task_level_managed_wrapper_slice", "evidence_level": "deterministic_task_shaped_installed_agent_wrapper"},
     {"suite": "v0.54-layer-path-completeness", "version": "v0.54", "category": "paper", "optional_heavy": False, "claim_scope": "local_layer_effect_claim_loss", "evidence_level": "deterministic_layer_path_completeness"},
+    {"suite": "p0-real-agent-official-protocol", "version": "p0", "category": "external-validation", "optional_heavy": False, "claim_scope": "p0_protocol_contract", "evidence_level": "official_runner_protocol_artifacts"},
     {"suite": "v0.9.3-agent-adapter-contract", "version": "v0.9.3", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_agent_adapter_contract", "evidence_level": "fixture_backed_conformance"},
     {"suite": "v0.9.4-claude-reference-adapter", "version": "v0.9.4", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_claude_reference_adapter", "evidence_level": "local_runtime_fixture"},
     {"suite": "v0.9.5-priority-agent-tracks", "version": "v0.9.5", "category": "agent-adapter", "optional_heavy": False, "claim_scope": "local_agent_track_matrix", "evidence_level": "fixture_backed_profile_matrix"},
@@ -75,4 +75,18 @@ def optional_heavy_validation_status() -> dict[str, Any]:
     }
 
 
-__all__ = ["list_benchmark_suites", "optional_heavy_validation_status"]
+def list_external_benchmark_qualifications() -> dict[str, Any]:
+    """Return the versioned, dimension-level external benchmark portfolio."""
+
+    from invart.evaluation.real_agent_benchmark.benchmark_quality import (
+        build_benchmark_quality_registry,
+    )
+
+    return build_benchmark_quality_registry()
+
+
+__all__ = [
+    "list_benchmark_suites",
+    "list_external_benchmark_qualifications",
+    "optional_heavy_validation_status",
+]

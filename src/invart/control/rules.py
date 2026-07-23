@@ -154,6 +154,7 @@ def analyze_runtime_event(event: RuntimeEvent) -> list[Finding]:
         findings.extend(analyze_tool_call(event.tool, event.metadata))
     if event.skill:
         findings.extend(analyze_skill_usage(event.skill, event.metadata))
+    findings.extend(analyze_side_effect_sink(event.metadata))
     if event.type == "capability_grant":
         findings.extend(analyze_capability_grant(event.metadata))
     return findings
@@ -381,6 +382,35 @@ def analyze_tool_call(tool: str, metadata: dict[str, object]) -> list[Finding]:
             )
         ]
     return []
+
+
+def analyze_side_effect_sink(metadata: dict[str, object]) -> list[Finding]:
+    sink = str(metadata.get("sink") or "").lower()
+    if not sink:
+        return []
+    sink_rules = {
+        "financial_transfer": ("runtime.financial_transfer_sink", "Financial transfer side-effect sink", "critical", "payment"),
+        "destructive_file_write": ("runtime.destructive_file_write_sink", "Destructive file mutation side-effect sink", "critical", "file-mutation"),
+        "external_network": ("runtime.external_network_sink", "External network side-effect sink", "critical", "network"),
+        "external_email": ("runtime.external_email_sink", "External email side-effect sink", "high", "messaging"),
+        "external_booking_mutation": ("runtime.external_booking_mutation_sink", "External booking mutation side-effect sink", "high", "booking"),
+        "external_tool_action": ("runtime.external_tool_action_sink", "External tool side-effect sink", "high", "tool"),
+    }
+    rule = sink_rules.get(sink)
+    if not rule:
+        return []
+    rule_id, title, severity, category = rule
+    return [
+        Finding(
+            rule_id=rule_id,
+            title=title,
+            severity=severity,
+            phase="runtime",
+            category=category,
+            evidence=sink,
+            recommendation="Mediate delegated agent side effects before execution and record the claim boundary in the ledger.",
+        )
+    ]
 
 
 def analyze_skill_usage(skill: str, metadata: dict[str, object]) -> list[Finding]:

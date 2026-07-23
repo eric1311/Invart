@@ -68,6 +68,7 @@ from .releases_v52_v57 import (
     run_ide_bridge_inventory_benchmark,
     run_layer_runtime_workflow_benchmark,
     run_opencode_real_adapter_benchmark,
+    run_p0_real_agent_official_protocol_benchmark,
     run_priority_agent_tracks_benchmark,
     run_terminal_agent_managed_wrappers_benchmark,
 )
@@ -128,6 +129,7 @@ def benchmark_runner_registry() -> dict[str, BenchmarkRunner]:
         "v0.52-policy-sensitivity-slice": run_policy_sensitivity_slice_benchmark,
         "v0.53-task-agent-installed-slice": run_task_agent_installed_slice_benchmark,
         "v0.54-layer-path-completeness": run_layer_path_completeness_benchmark,
+        "p0-real-agent-official-protocol": run_p0_real_agent_official_protocol_benchmark,
         "v0.9.3-agent-adapter-contract": run_agent_adapter_contract_benchmark,
         "v0.9.4-claude-reference-adapter": run_claude_reference_adapter_benchmark,
         "v0.9.5-priority-agent-tracks": run_priority_agent_tracks_benchmark,

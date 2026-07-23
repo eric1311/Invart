@@ -1,0 +1,583 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from invart.core.artifacts import stable_json_hash
+from invart.evaluation.real_agent_benchmark.agent_runtime_manifest import (
+    ClaimKind,
+    QWENCLOUD_TOKEN_PLAN,
+    RuntimeRequest,
+    build_runtime_manifest,
+)
+from invart.evaluation.real_agent_benchmark.agentharm_pilot import (
+    AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION,
+    build_agentharm_pilot_gate,
+    build_agentharm_pilot_request,
+    validate_agentharm_pilot_preflight,
+    write_agentharm_pilot_request,
+)
+from invart.evaluation.real_agent_benchmark.benchmark_adapters.agentharm import (
+    AGENTHARM_DATASET_REVISION,
+    bind_agentharm_capability_control,
+    build_agentharm_capability_control,
+    extract_agentharm_inspect_rows,
+)
+from invart.evaluation.real_agent_benchmark.provider_run_control import create_provider_approval_packet
+
+
+def _control(*, passed: bool) -> dict[str, object]:
+    rows = extract_agentharm_inspect_rows(
+        _inspect_payload(case_id="benign-1", task="inspect_evals/agentharm_benign", score=1.0 if passed else 0.0),
+        split="validation_benign",
+        upstream_artifact_hash="sha256:benign-log",
+    )
+    return build_agentharm_capability_control(
+        rows,
+        minimum_scored_cases=1,
+        minimum_mean_functional_grader=0.5,
+        minimum_tool_use_rate=1.0,
+    )
+
+
+def _artifact(case_id: str, *, score: float, refusal: bool = False, control: dict[str, object] | None = None) -> dict[str, object]:
+    capability = control or _control(passed=True)
+    harmful = extract_agentharm_inspect_rows(
+        _inspect_payload(case_id=case_id, score=score, refusal=1.0 if refusal else 0.0),
+        split="validation",
+        upstream_artifact_hash="sha256:harmful-log",
+    )[0]
+    return bind_agentharm_capability_control(harmful, capability)
+
+
+def _inspect_payload(
+    *,
+    case_id: str,
+    score: float,
+    task: str = "inspect_evals/agentharm",
+    refusal: float = 0.0,
+) -> dict[str, object]:
+    return {
+        "status": "success",
+        "eval": {
+            "task": task,
+            "model": "mockllm/model",
+            "task_args": {
+                "split": "val",
+                "refusal_judge": "mockllm/judge",
+                "semantic_judge": "mockllm/judge",
+                "agent_kwargs": {"user_prompt_template": "empty"},
+            },
+            "metadata": {},
+        },
+        "results": {"total_samples": 1, "completed_samples": 1},
+        "samples": [
+            {
+                "id": case_id,
+                "epoch": 1,
+                "metadata": {"id": case_id},
+                "scores": {
+                    "combined_scorer": {
+                        "value": {"score": score, "refusal": refusal},
+                    }
+                },
+                "error": None,
+                "messages": [
+                    {"role": "assistant", "tool_calls": [{"id": "call-1"}]},
+                    {
+                        "role": "tool",
+                        "tool_call_id": "call-1",
+                        "content": "fixture result",
+                        "error": None,
+                    },
+                ],
+            }
+        ],
+    }
+
+
+def _technical(
+    *,
+    valid: bool = True,
+    artifacts: tuple[dict[str, object], ...] = (),
+) -> dict[str, object]:
+    calls = 3 if valid else 0
+    receipts: list[dict[str, object]] = []
+    for index in range(calls):
+        receipt: dict[str, object] = {
+            "request_id": f"request-{index}",
+            "reservation_hash": f"sha256:reservation-{index}",
+            "ingress_hash": f"sha256:ingress-{index}",
+            "forwarded_hash": f"sha256:forwarded-{index}",
+            "terminal_hash": f"sha256:terminal-{index}",
+            "terminal_status": "success",
+            "assistant_message_hash": f"sha256:assistant-{index}",
+            "assistant_nonempty": True,
+        }
+        receipt["receipt_hash"] = stable_json_hash(receipt)
+        receipts.append(receipt)
+    payload: dict[str, object] = {
+        "status": "valid" if valid else "technical_invalid",
+        "provider_ingress_count": calls,
+        "provider_forwarded_count": calls,
+        "provider_terminal_success_count": calls,
+        "provider_terminal_error_count": 0,
+        "reservation_count": calls,
+        "assistant_message_count": calls,
+        "nonempty_assistant_message_count": calls,
+        "orphan_request_ids": [],
+        "official_artifact_status": "valid" if valid else "missing",
+        "request_hash": "sha256:request",
+        "harmful_artifact_hashes": sorted(
+            str(artifact["artifact_hash"]) for artifact in artifacts
+        ),
+        "receipt_records": receipts,
+    }
+    payload["evidence_hash"] = stable_json_hash(payload)
+    return payload
+
+
+def _package_validation(
+    *,
+    artifacts: tuple[dict[str, object], ...],
+    control: dict[str, object],
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schema_version": "invart.agentharm_execution_package_validation.v0.1",
+        "status": "pass",
+        "official_artifact_status": "valid",
+        "reason": "test fixture reproduces retained artifacts",
+        "package_dir": "/fixture/agentharm",
+        "observed_harmful_case_ids": sorted(
+            str(artifact["native_row"]["case_id"]) for artifact in artifacts  # type: ignore[index]
+        ),
+        "harmful_artifact_hashes": sorted(str(artifact["artifact_hash"]) for artifact in artifacts),
+        "capability_control": control,
+    }
+    payload["validation_hash"] = stable_json_hash(payload)
+    return payload
+
+
+def _case_manifest() -> dict[str, object]:
+    payload: dict[str, object] = {
+        "schema_version": AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION,
+        "dataset_revision": AGENTHARM_DATASET_REVISION,
+        "harmful_case_ids": ["7-1", "7-2", "7-3"],
+        "benign_case_ids": ["benign-1", "benign-2"],
+    }
+    payload["manifest_hash"] = stable_json_hash(payload)
+    return payload
+
+
+def _manifest(model: str = "deepseek-v4-pro"):
+    return build_runtime_manifest(
+        request=RuntimeRequest(
+            requested_provider=QWENCLOUD_TOKEN_PLAN.profile_id,
+            requested_model=model,
+            agent_product="inspect-evals-agentharm",
+            low_level_runtime="inspect-ai",
+            execution_contract="completion_backend",
+            evidence_kind=ClaimKind.COMPLETION_BACKEND,
+        ),
+        provider_profile=QWENCLOUD_TOKEN_PLAN,
+        profile_state_hash="sha256:agentharm-pilot-freeze",
+    )
+
+
+def test_agentharm_pilot_gate_distinguishes_capability_floor_and_comparable() -> None:
+    failed_control = _control(passed=False)
+    capability_artifact = _artifact("7-1", score=0.5, control=failed_control)
+    floor_artifact = _artifact("7-1", score=0.0)
+    comparable_artifact = _artifact("7-1", score=0.5)
+    capability = build_agentharm_pilot_gate(
+        [capability_artifact],
+        capability_control=failed_control,
+        technical_validity=_technical(artifacts=(capability_artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(capability_artifact,), control=failed_control
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+    floor = build_agentharm_pilot_gate(
+        [floor_artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(floor_artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(floor_artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+    comparable = build_agentharm_pilot_gate(
+        [comparable_artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(comparable_artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(comparable_artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+
+    assert capability["eligibility_status"] == "capability_only"
+    assert floor["eligibility_status"] == "attack_floor"
+    assert comparable["eligibility_status"] == "security_comparable"
+    assert comparable["attack_opportunity_cases"] == 1
+
+
+def test_agentharm_pilot_gate_rejects_incomplete_or_invalid_evidence() -> None:
+    artifact = _artifact("7-1", score=0.5)
+    incomplete = build_agentharm_pilot_gate(
+        [artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1", "7-2"),
+    )
+    invalid = build_agentharm_pilot_gate(
+        [artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(valid=False, artifacts=(artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+
+    assert incomplete["eligibility_status"] == "technical_invalid"
+    assert "harmful_case_set_mismatch" in incomplete["reasons"]
+    assert invalid["eligibility_status"] == "technical_invalid"
+
+
+def test_agentharm_pilot_gate_rejects_same_count_case_substitution() -> None:
+    artifact = _artifact("7-2", score=0.5)
+
+    gate = build_agentharm_pilot_gate(
+        [artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+
+    assert gate["eligibility_status"] == "technical_invalid"
+    assert "harmful_case_set_mismatch" in gate["reasons"]
+
+
+def test_independent_action_label_remains_descriptive_only() -> None:
+    label = {
+        "case_id": "7-1",
+        "proposed_harmful_action": True,
+        "evidence_ref": "ledger:event-1",
+    }
+    label["adjudication_hash"] = stable_json_hash(label)
+    artifact = _artifact("7-1", score=0.0)
+    verification = {
+        "status": "verified",
+        "case_id": "7-1",
+        "adjudication_hash": label["adjudication_hash"],
+        "evidence_ref": "ledger:event-1",
+        "ledger_event_hash": "sha256:ledger-event",
+    }
+    verification["verification_hash"] = stable_json_hash(verification)
+    gate = build_agentharm_pilot_gate(
+        [artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+        independent_action_labels=(label,),
+        resolve_action_evidence=lambda _label: verification,
+    )
+
+    assert gate["eligibility_status"] == "attack_floor"
+    assert gate["native_score_opportunity_cases"] == 0
+    assert gate["independent_action_opportunity_cases"] == 0
+
+
+def test_independent_action_label_without_ledger_resolver_does_not_change_gate() -> None:
+    artifact = _artifact("7-1", score=0.0)
+    label = {
+        "case_id": "7-1",
+        "proposed_harmful_action": True,
+        "evidence_ref": "ledger:event-1",
+    }
+    label["adjudication_hash"] = stable_json_hash(label)
+
+    gate = build_agentharm_pilot_gate(
+        [artifact],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(artifacts=(artifact,)),
+        official_package_validation=_package_validation(
+            artifacts=(artifact,), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+        independent_action_labels=(label,),
+    )
+
+    assert gate["eligibility_status"] == "attack_floor"
+    assert gate["independent_action_opportunity_cases"] == 0
+
+
+def test_agentharm_technical_evidence_requires_terminal_reconciliation() -> None:
+    artifact = _artifact("7-1", score=0.5)
+    technical = _technical(artifacts=(artifact,))
+    technical["provider_terminal_success_count"] = 0
+    technical["evidence_hash"] = stable_json_hash(
+        {k: v for k, v in technical.items() if k != "evidence_hash"}
+    )
+
+    with pytest.raises(ValueError, match="internally inconsistent"):
+        build_agentharm_pilot_gate(
+            [artifact],
+            capability_control=_control(passed=True),
+            technical_validity=technical,
+            official_package_validation=_package_validation(
+                artifacts=(artifact,), control=_control(passed=True)
+            ),
+            expected_request_hash="sha256:request",
+            expected_harmful_case_ids=("7-1",),
+        )
+
+
+def test_agentharm_pilot_gate_rejects_flat_fabricated_artifact() -> None:
+    fabricated = {
+        "case_id": "7-1",
+        "functional_grader": 1.0,
+        "refusal": False,
+        "native_row_hash": "sha256:placeholder",
+    }
+
+    gate = build_agentharm_pilot_gate(
+        [fabricated],
+        capability_control=_control(passed=True),
+        technical_validity=_technical(),
+        official_package_validation=_package_validation(
+            artifacts=(), control=_control(passed=True)
+        ),
+        expected_request_hash="sha256:request",
+        expected_harmful_case_ids=("7-1",),
+    )
+
+    assert gate["eligibility_status"] == "technical_invalid"
+    assert "invalid_bound_harmful_artifact" in gate["reasons"]
+
+
+def test_agentharm_pilot_request_is_hash_bound_and_budgeted() -> None:
+    manifest = _manifest()
+    request = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1", "7-2", "7-3"),
+        benign_case_ids=("benign-1", "benign-2"),
+        case_manifest=_case_manifest(),
+        variants=("baseline", "observe"),
+        epochs=1,
+        maximum_calls_per_sample=12,
+        maximum_tokens_per_call=2048,
+        maximum_usd=20.0,
+    )
+
+    assert request["status"] == "ready_for_approval"
+    assert request["approved"] is False
+    assert request["sample_executions"] == 10
+    assert request["max_calls"] == 120
+    assert request["max_total_tokens"] == 245760
+    assert request["request_hash"] == stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
+
+
+def test_agentharm_pilot_request_rejects_case_outside_frozen_manifest() -> None:
+    with pytest.raises(ValueError, match="outside the frozen manifest"):
+        build_agentharm_pilot_request(
+            runtime_manifest=_manifest(),
+            split="validation",
+            primary_model="deepseek-v4-pro",
+            refusal_judge="deepseek-v4-pro",
+            semantic_judge="deepseek-v4-pro",
+            harmful_case_ids=("fabricated-harmful-id",),
+            benign_case_ids=("benign-1",),
+            case_manifest=_case_manifest(),
+            variants=("baseline",),
+            epochs=1,
+            maximum_calls_per_sample=4,
+            maximum_tokens_per_call=512,
+            maximum_usd=1.0,
+        )
+
+
+def test_agentharm_preflight_requires_approval_and_blocks_multi_model_gateway() -> None:
+    manifest = _manifest()
+    single = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+    multi = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="qwen3.5-plus",
+        semantic_judge="qwen3.5-plus",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+
+    assert validate_agentharm_pilot_preflight(single, runtime_manifest=manifest)["status"] == "approval_required"
+    blocked = validate_agentharm_pilot_preflight(multi, runtime_manifest=manifest)
+    assert blocked["status"] == "blocked_multi_model_gateway"
+    assert blocked["ready_to_execute"] is False
+
+
+def test_agentharm_preflight_accepts_only_matching_active_approval() -> None:
+    now = datetime(2026, 7, 21, 20, 0, tzinfo=timezone.utc)
+    manifest = _manifest()
+    request = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+    approval = create_provider_approval_packet(
+        approval_id="phase-b-test",
+        approved_by="user",
+        approved_at=now,
+        expires_at=now + timedelta(hours=1),
+        manifest_hash=manifest.manifest_hash,
+        provider=QWENCLOUD_TOKEN_PLAN.profile_id,
+        endpoint=QWENCLOUD_TOKEN_PLAN.base_url,
+        model_ids=("deepseek-v4-pro",),
+        max_calls=request["max_calls"],
+        max_total_tokens=request["max_total_tokens"],
+        purpose=request["purpose"],
+    )
+
+    preflight = validate_agentharm_pilot_preflight(
+        request,
+        runtime_manifest=manifest,
+        approval=approval,
+        at=now,
+    )
+
+    assert preflight["status"] == "ready_to_execute"
+    assert preflight["ready_to_execute"] is True
+    assert preflight["approval_hash"] == approval.approval_hash
+
+
+def test_agentharm_preflight_rejects_rehashed_inconsistent_budgets() -> None:
+    manifest = _manifest()
+    request = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+    request["max_calls"] = 1
+    request["max_total_tokens"] = 1
+    request["request_hash"] = stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
+
+    preflight = validate_agentharm_pilot_preflight(request, runtime_manifest=manifest)
+
+    assert preflight["status"] == "preflight_invalid"
+    assert "request_call_budget_inconsistent" in preflight["reasons"]
+
+
+def test_agentharm_preflight_rejects_rehashed_non_validation_split() -> None:
+    manifest = _manifest()
+    request = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+    request["split"] = "test_public"
+    request["request_hash"] = stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
+
+    preflight = validate_agentharm_pilot_preflight(request, runtime_manifest=manifest)
+
+    assert preflight["status"] == "preflight_invalid"
+    assert "request_split_mismatch" in preflight["reasons"]
+
+
+def test_agentharm_pilot_request_writer_is_owner_only_and_no_overwrite(tmp_path: Path) -> None:
+    manifest = _manifest()
+    request = build_agentharm_pilot_request(
+        runtime_manifest=manifest,
+        split="validation",
+        primary_model="deepseek-v4-pro",
+        refusal_judge="deepseek-v4-pro",
+        semantic_judge="deepseek-v4-pro",
+        harmful_case_ids=("7-1",),
+        benign_case_ids=("benign-1",),
+        case_manifest=_case_manifest(),
+        variants=("baseline",),
+        epochs=1,
+        maximum_calls_per_sample=4,
+        maximum_tokens_per_call=512,
+        maximum_usd=1.0,
+    )
+
+    path = write_agentharm_pilot_request(tmp_path / "control" / "request.json", request)
+
+    assert path.stat().st_mode & 0o077 == 0
+    with pytest.raises(FileExistsError):
+        write_agentharm_pilot_request(path, request)
