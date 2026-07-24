@@ -98,7 +98,7 @@ prepared
 
 | Benchmark | 主要威胁/任务面 | 能证明什么 | 不能证明什么 | 当前论文角色 | 截至 2026-07-22 的判定 |
 |---|---|---|---|---|---|
-| AgentHarm | 明确有害意图、多步骤工具使用 | Agent 是否完成有害任务；Invart 是否在副作用前阻止动作 | 间接提示注入鲁棒性；现实 benign utility | 主要 harmful-action pillar | 同行评审 benchmark；严格 Inspect `.eval`、官方 `combined_scorer` 和 capability control 合同已实现，真实 scored pilot 仍待数据源和批准门槛。 |
+| AgentHarm | 明确有害意图、多步骤工具使用 | Agent 是否完成有害任务；Invart 是否在副作用前阻止动作 | 间接提示注入鲁棒性；现实 benign utility | 主要 harmful-action pillar | 同行评审 benchmark；严格 Inspect `.eval`、官方 `combined_scorer`、capability control、source attestation 和 dataset-derived case manifest 合同已实现，真实 scored pilot 仍待批准门槛。 |
 | AgentDojo | 工具输出中的间接提示注入 | 历史可比的任务效用与攻击任务成功；短轨迹 mediation 回归 | 2026 年长时序、MCP/skill/memory/GUI 风险；baseline ASR 为 0 时的安全增益 | 全量 historical anchor | 保留但不再承担主证据。既有零 ASR 结果应被解释为 attack floor，同时报告 utility collapse。 |
 | MCPTox | MCP 工具描述/元数据投毒 | MCP supply-chain poisoning 对选择和动作的影响 | 通用 runtime 安全；无 clean companion 时的完整效用结论 | 首选 MCP security pillar | 同行评审价值高，但当前冻结源缺少可支持的 end-to-end runner，状态为 `blocked`；不得生成合成分数。 |
 | MCP-AgentBench | 正常 MCP 任务和多工具能力 | MCP benign utility 与工具调用能力 | MCPTox 的 paired clean baseline，除非 server/tool/evaluator 重合被证明 | 条件式 utility companion | 官方可执行源、license、servers 和 evaluator revision 尚未冻结；不能默认与 MCPTox 拼成一组。 |
@@ -215,7 +215,11 @@ Agent runtime 与 model backend 是两个独立变量：
 - 只接受 Inspect `.eval` 中唯一的官方 `combined_scorer`，拒绝无分数、伪 scorer、布尔值和非有限数；
 - capability control 与 harmful artifact 绑定同一模型、judges、execution package 和 case 集合；
 - 官方 package validator 重新 dump、重新抽取、重新构造并核对 hash；
-- approval request 绑定精确 harmful/benign case IDs、case manifest 和 request hash；
+- approval request 通过 `approval_scope_hash` 绑定精确 harmful/benign case IDs、variant、epoch、模型/judge、case/source/runtime manifest、调用/token 上限与金额上限；不同实验范围不能复用同一 approval purpose；
+- validation source package 绑定 Hugging Face revision/etag、完整 JSON 文件 hash、license contract、Inspect runner Git revision、关键 runner 文件 hash 和整个 checkout 的 clean 状态；
+- 完整 validation case manifest 由已验证文件派生，固定 32 个 harmful 与 32 个 benign case，并绑定完整 case-ID 集合 hash；
+- 最终 preflight 会从当前 dataset/runner 路径重新生成并核对 source 与 case manifest；请求生成后若数据或 runner 变化，会 fail closed；
+- `python -m invart.evaluation.real_agent_benchmark.agentharm_pilot_cli` 可生成并验证无执行权限的 V0/V5 请求；CLI 不创建 approval，也不发起 provider 调用；
 - 单条件 gate 只区分 `technical_invalid`、`capability_only`、`attack_floor`、`opportunity_qualified`，不再把单组结果写成 `security_comparable`；
 - canonical V0/V5 treatment binding 绑定 Policy variant hash、request hash、technical evidence hash 和精确 harmful artifact hashes；
 - 只有 V0/V5 的 exact pair 才能进入 `security_comparable`：模型、judges、execution/grader binding、capability control、request、case set、split 和 epoch 必须一致；
@@ -225,8 +229,8 @@ Agent runtime 与 model backend 是两个独立变量：
 
 尚未完成：
 
-- 当前环境中的 AgentHarm 官方数据获取/缓存仍受外部 TLS 或数据源可用性阻断；
-- 真实 source checkout attestation、冻结 case manifest 和新的 approval packet 尚未形成；
+- 官方数据曾因隔离 `HOME` 位于非默认缓存路径；当前 public validation 数据和官方 runner checkout 已重新定位并通过 source attestation，不再是当前阻断；
+- 当前最小 V0 request 已于 2026-07-24 通过非执行 CLI 从真实 manifest 重新生成，选择同一基础行为的 `7-1` harmful/benign 配对；request hash 为 `sha256:2b4bf27a067fbe42fb45e5a99b60a8ae77ab29b0d4b2f78f6d6f4e6af20175b3`，approval scope hash 为 `sha256:ec8bf781eac3496188496dc23b06f1dccf20a44568e4720f458c1a944e0b90d5`，新的 provider approval packet 尚未形成，live-source preflight 正确返回 `approval_required`；
 - 旧 approval request 在当前严格 preflight 下已经过时，不能执行；
 - 尚未进行付费 provider scored pilot，因此没有 AgentHarm security-effect 结果；
 - runtime execution proof 目前完成的是 fail-closed 数据合同；在真实 native runner/ledger 产出并保留 execution record 前，fixture proof 不能作为真实 `native_runtime` 证据；
@@ -243,9 +247,9 @@ Agent runtime 与 model backend 是两个独立变量：
 
 按以下顺序推进，不并发启动尚未满足前置条件的付费实验：
 
-1. 修复或替换 AgentHarm 官方数据获取路径，记录数据 revision、license、文件 hash 和来源证明。
-2. 从真实数据生成冻结 case manifest；先选一条 benign 和一条 harmful case，不手工杜撰 case ID。
-3. 用当前严格 schema 重新生成 approval packet，确认模型、judges、预算、timeout、case hash 和安全 sandbox。
+1. 已完成：重新定位 AgentHarm 官方数据与 runner checkout，记录 revision、license、文件 hash、下载元数据和来源证明。
+2. 已完成：从真实 validation 数据生成冻结 case manifest，并选择同一基础行为的 `7-1` benign/harmful 配对，不手工杜撰 case ID。
+3. 下一步：经 operator 明确批准后，用当前严格 schema 生成新的 approval packet，确认模型、judges、预算、timeout、case hash 和安全 sandbox。
 4. 获得明确批准后运行最小 scored smoke，核对 provider ingress、request IDs、非空 completion、`.eval`、官方 scorer 和 case count。
 5. 若 benign capability 失败，停止并修 provider/model/tool compatibility；若 attack opportunity 为零，保留 floor 结果并换预注册 stack，而不是调整 benchmark labels。
 6. 只有 V0 baseline 出现 `opportunity_qualified` 才进入 stratified V0/V5 paired pilot；只有 exact pair gate 产生 `security_comparable` 才能估计效果，随后再检查 sensitivity、utility 和 precision gate。
