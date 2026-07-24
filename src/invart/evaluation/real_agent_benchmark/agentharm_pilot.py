@@ -27,11 +27,16 @@ from .benchmark_adapters.agentharm import (
     AGENTHARM_RUNNER_REVISION,
     validate_agentharm_bound_artifact,
 )
+from .agentharm_source import (
+    AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION,
+    build_agentharm_validation_case_manifest,
+    validate_agentharm_case_manifest_contract,
+    validate_agentharm_validation_case_manifest,
+)
 from .provider_run_control import ProviderApprovalPacket
 
 
-AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION = "invart.agentharm_pilot_request.v0.1"
-AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION = "invart.agentharm_case_manifest.v0.1"
+AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION = "invart.agentharm_pilot_request.v0.2"
 
 
 def build_agentharm_pilot_gate(
@@ -343,10 +348,23 @@ def build_agentharm_pilot_request(
     max_calls = sample_executions * maximum_calls_per_sample
     max_total_tokens = max_calls * maximum_tokens_per_call
     unique_models = sorted(set(models.values()))
-    purpose = (
-        "AgentHarm validation-only scored clean/harmful Phase B pilot; "
-        f"case_manifest={frozen_case_manifest['manifest_hash']}"
-    )
+    approval_scope = {
+        "runtime_manifest_hash": runtime_manifest.manifest_hash,
+        "provider": profile.profile_id,
+        "endpoint": profile.base_url,
+        "models": models,
+        "harmful_case_ids": list(normalized_harmful_ids),
+        "benign_case_ids": list(normalized_benign_ids),
+        "case_manifest_hash": frozen_case_manifest["manifest_hash"],
+        "source_attestation_hash": frozen_case_manifest["source_attestation_hash"],
+        "variants": list(normalized_variants),
+        "epochs": epochs,
+        "maximum_calls_per_sample": maximum_calls_per_sample,
+        "maximum_tokens_per_call": maximum_tokens_per_call,
+        "maximum_usd": float(maximum_usd),
+    }
+    approval_scope_hash = stable_json_hash(approval_scope)
+    purpose = f"AgentHarm Phase B pilot approval_scope={approval_scope_hash}"
     request = {
         "schema_version": AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION,
         "status": "ready_for_approval",
@@ -367,6 +385,9 @@ def build_agentharm_pilot_request(
         "benign_case_ids": list(normalized_benign_ids),
         "case_manifest": frozen_case_manifest,
         "case_manifest_hash": frozen_case_manifest["manifest_hash"],
+        "source_attestation_hash": frozen_case_manifest["source_attestation_hash"],
+        "approval_scope": approval_scope,
+        "approval_scope_hash": approval_scope_hash,
         "variants": list(normalized_variants),
         "epochs": epochs,
         "sample_executions": sample_executions,
@@ -396,10 +417,53 @@ def build_agentharm_pilot_request(
     return request
 
 
+def build_agentharm_pilot_request_from_source(
+    *,
+    runtime_manifest: RuntimeManifest,
+    dataset_root: Path,
+    runner_root: Path,
+    split: str,
+    primary_model: str,
+    refusal_judge: str,
+    semantic_judge: str,
+    harmful_case_ids: Sequence[str],
+    benign_case_ids: Sequence[str],
+    variants: Sequence[str],
+    epochs: int,
+    maximum_calls_per_sample: int,
+    maximum_tokens_per_call: int,
+    maximum_usd: float,
+) -> dict[str, Any]:
+    """Build a pilot request whose case universe comes from exact attested source bytes."""
+
+    case_manifest = build_agentharm_validation_case_manifest(
+        dataset_root,
+        runner_root=runner_root,
+    )
+    request = build_agentharm_pilot_request(
+        runtime_manifest=runtime_manifest,
+        split=split,
+        primary_model=primary_model,
+        refusal_judge=refusal_judge,
+        semantic_judge=semantic_judge,
+        harmful_case_ids=harmful_case_ids,
+        benign_case_ids=benign_case_ids,
+        case_manifest=case_manifest,
+        variants=variants,
+        epochs=epochs,
+        maximum_calls_per_sample=maximum_calls_per_sample,
+        maximum_tokens_per_call=maximum_tokens_per_call,
+        maximum_usd=maximum_usd,
+    )
+    return request
+
+
 def validate_agentharm_pilot_preflight(
     request: Mapping[str, Any],
     *,
     runtime_manifest: RuntimeManifest,
+    dataset_root: Path,
+    runner_root: Path,
     approval: ProviderApprovalPacket | None = None,
     at: datetime | None = None,
 ) -> dict[str, Any]:
@@ -420,16 +484,36 @@ def validate_agentharm_pilot_preflight(
     if packet.get("runtime_manifest_hash") != runtime_manifest.manifest_hash:
         reasons.append("runtime_manifest_mismatch")
     reasons.extend(_pilot_request_inconsistencies(packet, runtime_manifest=runtime_manifest))
+    try:
+        source_validation = validate_agentharm_validation_case_manifest(
+            packet.get("case_manifest"),
+            dataset_root=dataset_root,
+            runner_root=runner_root,
+        )
+    except (OSError, ValueError):
+        source_validation = None
+        reasons.append("live_source_validation_failed")
     if packet.get("gateway_mode") != "single_model_loopback":
         return _preflight_result(
             packet,
             status="blocked_multi_model_gateway",
             reasons=["current_gateway_accepts_one_manifest-bound_model"],
+            source_validation=source_validation,
         )
     if reasons:
-        return _preflight_result(packet, status="preflight_invalid", reasons=reasons)
+        return _preflight_result(
+            packet,
+            status="preflight_invalid",
+            reasons=reasons,
+            source_validation=source_validation,
+        )
     if approval is None:
-        return _preflight_result(packet, status="approval_required", reasons=["provider_approval_missing"])
+        return _preflight_result(
+            packet,
+            status="approval_required",
+            reasons=["provider_approval_missing"],
+            source_validation=source_validation,
+        )
     now = at or datetime.now(timezone.utc)
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("preflight time must be timezone-aware")
@@ -451,8 +535,20 @@ def validate_agentharm_pilot_preflight(
     if approval.purpose != packet.get("purpose"):
         reasons.append("provider_approval_purpose_mismatch")
     if reasons:
-        return _preflight_result(packet, status="approval_mismatch", reasons=reasons, approval=approval)
-    return _preflight_result(packet, status="ready_to_execute", reasons=[], approval=approval)
+        return _preflight_result(
+            packet,
+            status="approval_mismatch",
+            reasons=reasons,
+            approval=approval,
+            source_validation=source_validation,
+        )
+    return _preflight_result(
+        packet,
+        status="ready_to_execute",
+        reasons=[],
+        approval=approval,
+        source_validation=source_validation,
+    )
 
 
 def write_agentharm_pilot_request(path: Path, request: Mapping[str, Any]) -> Path:
@@ -465,7 +561,6 @@ def write_agentharm_pilot_request(path: Path, request: Mapping[str, Any]) -> Pat
     if target.is_symlink():
         raise ValueError("AgentHarm pilot request output must not be a symlink")
     target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    target.parent.chmod(0o700)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -488,14 +583,20 @@ def _preflight_result(
     status: str,
     reasons: Sequence[str],
     approval: ProviderApprovalPacket | None = None,
+    source_validation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "schema_version": "invart.agentharm_pilot_preflight.v0.1",
+        "schema_version": "invart.agentharm_pilot_preflight.v0.2",
         "status": status,
         "ready_to_execute": status == "ready_to_execute",
         "reasons": list(reasons),
         "request_hash": request.get("request_hash"),
         "approval_hash": approval.approval_hash if approval else None,
+        "source_validation_hash": (
+            stable_json_hash(source_validation)
+            if source_validation is not None
+            else None
+        ),
         "claim_boundary": "Preflight readiness authorizes no provider call by itself.",
     }
 
@@ -641,10 +742,15 @@ def _pilot_request_inconsistencies(
     expected_gateway_mode = "single_model_loopback" if len(derived_model_ids) == 1 else "unsupported_multi_model_loopback"
     if packet.get("gateway_mode") != expected_gateway_mode:
         reasons.append("request_gateway_mode_inconsistent")
+    harmful_ids: tuple[str, ...] = ()
+    benign_ids: tuple[str, ...] = ()
+    normalized_variants: list[str] = []
     try:
         case_manifest = _validated_case_manifest(packet.get("case_manifest"))
         if packet.get("case_manifest_hash") != case_manifest["manifest_hash"]:
             reasons.append("request_case_manifest_hash_mismatch")
+        if packet.get("source_attestation_hash") != case_manifest["source_attestation_hash"]:
+            reasons.append("request_source_attestation_hash_mismatch")
         if not isinstance(packet.get("harmful_case_ids"), list) or not isinstance(packet.get("benign_case_ids"), list):
             raise ValueError("case IDs must be lists")
         harmful_ids = _normalized_ids(packet["harmful_case_ids"], field_name="harmful_case_ids")
@@ -683,6 +789,28 @@ def _pilot_request_inconsistencies(
         "inspect_ai_revision": AGENTHARM_INSPECT_AI_REVISION,
     }:
         reasons.append("request_source_freeze_mismatch")
+    expected_scope = {
+        "runtime_manifest_hash": runtime_manifest.manifest_hash,
+        "provider": profile.profile_id,
+        "endpoint": profile.base_url,
+        "models": normalized_models,
+        "harmful_case_ids": list(harmful_ids),
+        "benign_case_ids": list(benign_ids),
+        "case_manifest_hash": packet.get("case_manifest_hash"),
+        "source_attestation_hash": packet.get("source_attestation_hash"),
+        "variants": normalized_variants,
+        "epochs": packet.get("epochs"),
+        "maximum_calls_per_sample": packet.get("maximum_calls_per_sample"),
+        "maximum_tokens_per_call": packet.get("maximum_tokens_per_call"),
+        "maximum_usd": packet.get("maximum_usd"),
+    }
+    expected_scope_hash = stable_json_hash(expected_scope)
+    if packet.get("approval_scope") != expected_scope:
+        reasons.append("request_approval_scope_mismatch")
+    if packet.get("approval_scope_hash") != expected_scope_hash:
+        reasons.append("request_approval_scope_hash_mismatch")
+    if packet.get("purpose") != f"AgentHarm Phase B pilot approval_scope={expected_scope_hash}":
+        reasons.append("request_approval_purpose_mismatch")
     if (
         type(packet.get("maximum_usd")) not in {int, float}
         or not math.isfinite(float(packet["maximum_usd"]))
@@ -709,23 +837,7 @@ def _normalized_ids(values: Sequence[Any], *, field_name: str) -> tuple[str, ...
 def _validated_case_manifest(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError("AgentHarm case manifest must be an object")
-    manifest = _verified_hash_bound_mapping(
-        payload,
-        hash_field="manifest_hash",
-        field_name="AgentHarm case manifest",
-    )
-    if (
-        manifest.get("schema_version") != AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION
-        or manifest.get("dataset_revision") != AGENTHARM_DATASET_REVISION
-        or not isinstance(manifest.get("harmful_case_ids"), list)
-        or not isinstance(manifest.get("benign_case_ids"), list)
-    ):
-        raise ValueError("AgentHarm case manifest contract mismatch")
-    harmful_ids = _normalized_ids(manifest["harmful_case_ids"], field_name="manifest harmful_case_ids")
-    benign_ids = _normalized_ids(manifest["benign_case_ids"], field_name="manifest benign_case_ids")
-    if manifest["harmful_case_ids"] != list(harmful_ids) or manifest["benign_case_ids"] != list(benign_ids):
-        raise ValueError("AgentHarm case manifest IDs must be sorted")
-    return manifest
+    return validate_agentharm_case_manifest_contract(payload)
 
 
 def _nonempty(value: Any, *, field_name: str) -> str:
@@ -744,6 +856,7 @@ __all__ = [
     "build_agentharm_paired_effect_gate",
     "build_agentharm_pilot_gate",
     "build_agentharm_pilot_request",
+    "build_agentharm_pilot_request_from_source",
     "build_agentharm_treatment_binding",
     "validate_agentharm_treatment_binding",
     "validate_agentharm_pilot_preflight",

@@ -9,6 +9,7 @@ from .agentharm_effect_gate import (
 from .agentharm_pilot import (
     build_agentharm_pilot_gate,
     build_agentharm_pilot_request,
+    build_agentharm_pilot_request_from_source,
     validate_agentharm_pilot_preflight,
     write_agentharm_pilot_request,
 )
@@ -173,6 +174,7 @@ __all__ = [
     "build_agentharm_paired_effect_gate",
     "build_agentharm_pilot_gate",
     "build_agentharm_pilot_request",
+    "build_agentharm_pilot_request_from_source",
     "build_agentharm_treatment_binding",
     "build_p1_claim_evidence_matrix",
     "build_p1_completion_audit",

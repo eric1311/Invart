@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -21,6 +22,8 @@ from invart.evaluation.real_agent_benchmark.agentharm_pilot import (
     validate_agentharm_pilot_preflight,
     write_agentharm_pilot_request,
 )
+from invart.evaluation.real_agent_benchmark import agentharm_pilot
+from invart.evaluation.real_agent_benchmark import agentharm_source
 from invart.evaluation.real_agent_benchmark.benchmark_adapters.agentharm import (
     AGENTHARM_DATASET_REVISION,
     bind_agentharm_capability_control,
@@ -28,6 +31,35 @@ from invart.evaluation.real_agent_benchmark.benchmark_adapters.agentharm import 
     extract_agentharm_inspect_rows,
 )
 from invart.evaluation.real_agent_benchmark.provider_run_control import create_provider_approval_packet
+
+
+def _preflight(
+    request: dict[str, object],
+    *,
+    runtime_manifest,
+    approval=None,
+    at: datetime | None = None,
+) -> dict[str, object]:
+    validation = {
+        "schema_version": "invart.agentharm_case_manifest_validation.v0.1",
+        "status": "valid",
+        "manifest_hash": request["case_manifest_hash"],
+        "source_attestation_hash": request["source_attestation_hash"],
+        "case_counts": request["case_manifest"]["case_counts"],
+    }
+    with patch.object(
+        agentharm_pilot,
+        "validate_agentharm_validation_case_manifest",
+        return_value=validation,
+    ):
+        return validate_agentharm_pilot_preflight(
+            request,
+            runtime_manifest=runtime_manifest,
+            dataset_root=Path("/fixture/AgentHarm"),
+            runner_root=Path("/fixture/inspect_evals"),
+            approval=approval,
+            at=at,
+        )
 
 
 def _control(
@@ -207,11 +239,66 @@ def _treatment_binding(
 
 
 def _case_manifest() -> dict[str, object]:
+    case_ids = [
+        "10-1", "10-2", "10-3", "10-4",
+        "11-1", "11-2", "11-3", "11-4",
+        "2-1", "2-2", "2-3", "2-4",
+        "3-1", "3-2", "3-3", "3-4",
+        "6-1", "6-2", "6-3", "6-4",
+        "7-1", "7-2", "7-3", "7-4",
+        "8-1", "8-2", "8-3", "8-4",
+        "9-1", "9-2", "9-3", "9-4",
+    ]
+    source: dict[str, object] = {
+        "schema_version": agentharm_source.AGENTHARM_SOURCE_ATTESTATION_SCHEMA_VERSION,
+        "status": "valid",
+        "source_url": agentharm_source.AGENTHARM_DATASET_URL,
+        "dataset_revision": AGENTHARM_DATASET_REVISION,
+        "split": "validation",
+        "license": agentharm_source.AGENTHARM_LICENSE,
+        "license_contract_sha256": f"sha256:{agentharm_source.AGENTHARM_LICENSE_CONTRACT_SHA256}",
+        "runner_revision": agentharm_source.AGENTHARM_RUNNER_REVISION,
+        "inspect_ai_revision": agentharm_source.AGENTHARM_INSPECT_AI_REVISION,
+        "runner_source": {
+            "source_url": agentharm_source.AGENTHARM_RUNNER_URL,
+            "revision": agentharm_source.AGENTHARM_RUNNER_REVISION,
+            "checkout_clean": True,
+            "files": [
+                {
+                    "relative_path": relative_path,
+                    "sha256": f"sha256:{digest}",
+                }
+                for relative_path, digest in sorted(agentharm_source.AGENTHARM_RUNNER_FILES.items())
+            ],
+        },
+        "files": [
+            {
+                "role": filename.split("_", 1)[0],
+                "relative_path": f"benchmark/{filename}",
+                "sha256": f"sha256:{expected['sha256']}",
+                "huggingface_revision": AGENTHARM_DATASET_REVISION,
+                "huggingface_etag": expected["etag"],
+                "case_count": expected["count"],
+            }
+            for filename, expected in sorted(agentharm_source.AGENTHARM_VALIDATION_FILES.items())
+        ],
+        "case_counts": {"benign": 32, "harmful": 32},
+        "canary_guid_hash": "sha256:fixture",
+    }
+    source["attestation_hash"] = stable_json_hash(source)
     payload: dict[str, object] = {
         "schema_version": AGENTHARM_CASE_MANIFEST_SCHEMA_VERSION,
         "dataset_revision": AGENTHARM_DATASET_REVISION,
-        "harmful_case_ids": ["7-1", "7-2", "7-3"],
-        "benign_case_ids": ["benign-1", "benign-2"],
+        "split": "validation",
+        "harmful_case_ids": case_ids,
+        "benign_case_ids": case_ids,
+        "case_counts": {"benign": 32, "harmful": 32},
+        "case_id_hashes": {
+            "benign": stable_json_hash(case_ids),
+            "harmful": stable_json_hash(case_ids),
+        },
+        "source_attestation": source,
+        "source_attestation_hash": source["attestation_hash"],
     }
     payload["manifest_hash"] = stable_json_hash(payload)
     return payload
@@ -884,7 +971,7 @@ def test_agentharm_pilot_request_is_hash_bound_and_budgeted() -> None:
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1", "7-2", "7-3"),
-        benign_case_ids=("benign-1", "benign-2"),
+        benign_case_ids=("7-1", "7-2"),
         case_manifest=_case_manifest(),
         variants=("baseline", "observe"),
         epochs=1,
@@ -898,6 +985,8 @@ def test_agentharm_pilot_request_is_hash_bound_and_budgeted() -> None:
     assert request["sample_executions"] == 10
     assert request["max_calls"] == 120
     assert request["max_total_tokens"] == 245760
+    assert request["purpose"].endswith(request["approval_scope_hash"])
+    assert request["approval_scope_hash"] == stable_json_hash(request["approval_scope"])
     assert request["request_hash"] == stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
 
 
@@ -910,7 +999,7 @@ def test_agentharm_pilot_request_rejects_case_outside_frozen_manifest() -> None:
             refusal_judge="deepseek-v4-pro",
             semantic_judge="deepseek-v4-pro",
             harmful_case_ids=("fabricated-harmful-id",),
-            benign_case_ids=("benign-1",),
+            benign_case_ids=("7-1",),
             case_manifest=_case_manifest(),
             variants=("baseline",),
             epochs=1,
@@ -929,7 +1018,7 @@ def test_agentharm_preflight_requires_approval_and_blocks_multi_model_gateway() 
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
@@ -944,7 +1033,7 @@ def test_agentharm_preflight_requires_approval_and_blocks_multi_model_gateway() 
         refusal_judge="qwen3.5-plus",
         semantic_judge="qwen3.5-plus",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
@@ -953,8 +1042,8 @@ def test_agentharm_preflight_requires_approval_and_blocks_multi_model_gateway() 
         maximum_usd=1.0,
     )
 
-    assert validate_agentharm_pilot_preflight(single, runtime_manifest=manifest)["status"] == "approval_required"
-    blocked = validate_agentharm_pilot_preflight(multi, runtime_manifest=manifest)
+    assert _preflight(single, runtime_manifest=manifest)["status"] == "approval_required"
+    blocked = _preflight(multi, runtime_manifest=manifest)
     assert blocked["status"] == "blocked_multi_model_gateway"
     assert blocked["ready_to_execute"] is False
 
@@ -969,7 +1058,7 @@ def test_agentharm_preflight_accepts_only_matching_active_approval() -> None:
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
@@ -991,7 +1080,7 @@ def test_agentharm_preflight_accepts_only_matching_active_approval() -> None:
         purpose=request["purpose"],
     )
 
-    preflight = validate_agentharm_pilot_preflight(
+    preflight = _preflight(
         request,
         runtime_manifest=manifest,
         approval=approval,
@@ -1003,6 +1092,50 @@ def test_agentharm_preflight_accepts_only_matching_active_approval() -> None:
     assert preflight["approval_hash"] == approval.approval_hash
 
 
+def test_agentharm_preflight_rejects_approval_for_different_exact_scope() -> None:
+    now = datetime(2026, 7, 21, 20, 0, tzinfo=timezone.utc)
+    manifest = _manifest()
+    common = {
+        "runtime_manifest": manifest,
+        "split": "validation",
+        "primary_model": "deepseek-v4-pro",
+        "refusal_judge": "deepseek-v4-pro",
+        "semantic_judge": "deepseek-v4-pro",
+        "harmful_case_ids": ("7-1",),
+        "benign_case_ids": ("7-1",),
+        "case_manifest": _case_manifest(),
+        "variants": ("baseline",),
+        "epochs": 1,
+        "maximum_calls_per_sample": 4,
+        "maximum_tokens_per_call": 512,
+    }
+    approved_request = build_agentharm_pilot_request(**common, maximum_usd=1.0)
+    different_request = build_agentharm_pilot_request(**common, maximum_usd=2.0)
+    approval = create_provider_approval_packet(
+        approval_id="phase-b-exact-scope",
+        approved_by="user",
+        approved_at=now,
+        expires_at=now + timedelta(hours=1),
+        manifest_hash=manifest.manifest_hash,
+        provider=QWENCLOUD_TOKEN_PLAN.profile_id,
+        endpoint=QWENCLOUD_TOKEN_PLAN.base_url,
+        model_ids=("deepseek-v4-pro",),
+        max_calls=different_request["max_calls"],
+        max_total_tokens=different_request["max_total_tokens"],
+        purpose=approved_request["purpose"],
+    )
+
+    preflight = _preflight(
+        different_request,
+        runtime_manifest=manifest,
+        approval=approval,
+        at=now,
+    )
+
+    assert preflight["status"] == "approval_mismatch"
+    assert "provider_approval_purpose_mismatch" in preflight["reasons"]
+
+
 def test_agentharm_preflight_rejects_rehashed_inconsistent_budgets() -> None:
     manifest = _manifest()
     request = build_agentharm_pilot_request(
@@ -1012,7 +1145,7 @@ def test_agentharm_preflight_rejects_rehashed_inconsistent_budgets() -> None:
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
@@ -1024,7 +1157,7 @@ def test_agentharm_preflight_rejects_rehashed_inconsistent_budgets() -> None:
     request["max_total_tokens"] = 1
     request["request_hash"] = stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
 
-    preflight = validate_agentharm_pilot_preflight(request, runtime_manifest=manifest)
+    preflight = _preflight(request, runtime_manifest=manifest)
 
     assert preflight["status"] == "preflight_invalid"
     assert "request_call_budget_inconsistent" in preflight["reasons"]
@@ -1039,7 +1172,7 @@ def test_agentharm_preflight_rejects_rehashed_non_validation_split() -> None:
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
@@ -1050,7 +1183,7 @@ def test_agentharm_preflight_rejects_rehashed_non_validation_split() -> None:
     request["split"] = "test_public"
     request["request_hash"] = stable_json_hash({k: v for k, v in request.items() if k != "request_hash"})
 
-    preflight = validate_agentharm_pilot_preflight(request, runtime_manifest=manifest)
+    preflight = _preflight(request, runtime_manifest=manifest)
 
     assert preflight["status"] == "preflight_invalid"
     assert "request_split_mismatch" in preflight["reasons"]
@@ -1065,7 +1198,7 @@ def test_agentharm_pilot_request_writer_is_owner_only_and_no_overwrite(tmp_path:
         refusal_judge="deepseek-v4-pro",
         semantic_judge="deepseek-v4-pro",
         harmful_case_ids=("7-1",),
-        benign_case_ids=("benign-1",),
+        benign_case_ids=("7-1",),
         case_manifest=_case_manifest(),
         variants=("baseline",),
         epochs=1,
