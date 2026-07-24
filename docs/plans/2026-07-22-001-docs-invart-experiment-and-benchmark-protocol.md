@@ -216,7 +216,11 @@ Agent runtime 与 model backend 是两个独立变量：
 - capability control 与 harmful artifact 绑定同一模型、judges、execution package 和 case 集合；
 - 官方 package validator 重新 dump、重新抽取、重新构造并核对 hash；
 - approval request 绑定精确 harmful/benign case IDs、case manifest 和 request hash；
-- receipt reconciliation 和 eligibility gate 区分 `technical_invalid`、`capability_only`、`attack_floor`、`security_comparable`；
+- 单条件 gate 只区分 `technical_invalid`、`capability_only`、`attack_floor`、`opportunity_qualified`，不再把单组结果写成 `security_comparable`；
+- canonical V0/V5 treatment binding 绑定 Policy variant hash、request hash、technical evidence hash 和精确 harmful artifact hashes；
+- 只有 V0/V5 的 exact pair 才能进入 `security_comparable`：模型、judges、execution/grader binding、capability control、request、case set、split 和 epoch 必须一致；
+- paired gate 输出 prevented、persistent harm、regressed、stable safe、净 harmful-case reduction 和 effect direction；出现局部 prevented 但净改善为零时不得写成正向效果；
+- cross-benchmark result 将 `native_benchmark` 与 `native_runtime` 分开；后者必须由绑定 manifest、完整 receipt、精确 native artifact hash 和 execution-record hash 的 proof 才能发出；
 - 独立语义标签在没有具体 ledger resolver 前保持 descriptive，不擅自建立攻击机会。
 
 尚未完成：
@@ -225,6 +229,7 @@ Agent runtime 与 model backend 是两个独立变量：
 - 真实 source checkout attestation、冻结 case manifest 和新的 approval packet 尚未形成；
 - 旧 approval request 在当前严格 preflight 下已经过时，不能执行；
 - 尚未进行付费 provider scored pilot，因此没有 AgentHarm security-effect 结果；
+- runtime execution proof 目前完成的是 fail-closed 数据合同；在真实 native runner/ledger 产出并保留 execution record 前，fixture proof 不能作为真实 `native_runtime` 证据；
 - MCPTox 缺少已资格化的官方 end-to-end runner，MCP-AgentBench 缺少冻结的官方 executable source/license/server/evaluator。
 
 ### Phase C-F：待执行
@@ -243,7 +248,7 @@ Agent runtime 与 model backend 是两个独立变量：
 3. 用当前严格 schema 重新生成 approval packet，确认模型、judges、预算、timeout、case hash 和安全 sandbox。
 4. 获得明确批准后运行最小 scored smoke，核对 provider ingress、request IDs、非空 completion、`.eval`、官方 scorer 和 case count。
 5. 若 benign capability 失败，停止并修 provider/model/tool compatibility；若 attack opportunity 为零，保留 floor 结果并换预注册 stack，而不是调整 benchmark labels。
-6. 只有出现 `security_comparable` 才进入 stratified paired pilot；pilot 通过 sensitivity、utility 和 precision gate 后再扩到全 denominator。
+6. 只有 V0 baseline 出现 `opportunity_qualified` 才进入 stratified V0/V5 paired pilot；只有 exact pair gate 产生 `security_comparable` 才能估计效果，随后再检查 sensitivity、utility 和 precision gate。
 7. AgentHarm 主链稳定后，并发推进 AgentDyn adapter、Skill-Inject adapter 和 audit-study fixtures；MCPTox 继续以 runner qualification 为第一门槛。
 8. 在主 Policy 冻结后执行 transfer 与 connected panel，任何 holdout 后调参都创建新 exploratory version。
 
@@ -251,7 +256,8 @@ Agent runtime 与 model backend 是两个独立变量：
 
 | 当前可写 | 当前不可写 |
 |---|---|
-| “Invart 实现了绑定官方 AgentHarm scorer、case manifest 和执行 receipt 的 fail-closed adapter contract。” | “Invart 已经在 AgentHarm 上降低有害任务成功率。” |
+| “Invart 实现了绑定官方 AgentHarm scorer、case manifest、canonical V0/V5 treatment 和配对执行条件的 fail-closed adapter contract。” | “Invart 已经在 AgentHarm 上降低有害任务成功率。” |
+| “Invart 的 cross-benchmark contract 区分 native benchmark artifact 与 artifact-bound native runtime proof。” | 将手工 fixture proof 或单独的 runtime receipt 表述为真实 native-agent 执行证据。 |
 | “AgentDojo pilot 暴露了零 baseline ASR 与 utility collapse，因而不能支持正向 prevention claim。” | “AgentDojo ASR 为 0 证明 Invart 完全安全。” |
 | “HarmBench 被用作 reviewer/backbone control。” | “HarmBench 验证了 runtime action mediation。” |
 | “MCPTox 是适合的 MCP supply-chain pillar，但当前 runner qualification 被阻断。” | 为 blocked MCPTox lane 报告合成或推测分数。 |
@@ -284,4 +290,3 @@ Agent runtime 与 model backend 是两个独立变量：
 - Breaking Agent Backbones, ICLR 2026: <https://iclr.cc/virtual/2026/poster/10007758>
 - HarmBench: <https://github.com/centerforaisafety/HarmBench>
 - Agent Security Bench, ICLR 2025: <https://iclr.cc/virtual/2025/poster/29432>
-
