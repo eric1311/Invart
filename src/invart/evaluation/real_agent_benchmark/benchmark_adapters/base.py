@@ -8,7 +8,7 @@ from typing import Any, Mapping, Protocol, Sequence
 from invart.core.artifacts import stable_json_hash
 
 
-ADAPTER_SCHEMA_VERSION = "invart.benchmark_adapter.v0.1"
+ADAPTER_SCHEMA_VERSION = "invart.benchmark_adapter.v0.2"
 _RUNTIME_POLICY_FORBIDDEN = (
     "task_id",
     "case_id",
@@ -41,6 +41,7 @@ class EffectState(str, Enum):
 
 
 class EvidenceKind(str, Enum):
+    NATIVE_BENCHMARK = "native_benchmark"
     NATIVE_RUNTIME = "native_runtime"
     ADAPTER_COMPARABLE = "adapter_comparable"
     DETERMINISTIC_ORACLE = "deterministic_oracle"

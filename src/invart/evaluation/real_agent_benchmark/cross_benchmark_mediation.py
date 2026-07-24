@@ -6,6 +6,13 @@ from typing import Any, Mapping, Sequence
 
 from invart.core.artifacts import sha256_file, stable_json_hash
 
+from .agent_runtime_manifest import (
+    RuntimeExecutionProof,
+    RuntimeManifest,
+    RuntimeReceipt,
+    validate_runtime_execution_proof,
+    validate_runtime_receipt,
+)
 from .benchmark_adapters.base import (
     ADAPTER_SCHEMA_VERSION,
     BenchmarkCase,
@@ -13,6 +20,7 @@ from .benchmark_adapters.base import (
     CaseRole,
     CommonActionEvent,
     NativeBenchmarkOutcome,
+    EvidenceKind,
     normalize_effect_state,
     thaw_payload,
 )
@@ -25,6 +33,9 @@ def build_cross_benchmark_result(
     native_artifact: Path,
     native_outcome: NativeBenchmarkOutcome | None,
     events: Sequence[CommonActionEvent],
+    runtime_manifest: RuntimeManifest | None = None,
+    runtime_receipt: RuntimeReceipt | None = None,
+    runtime_execution_proof: RuntimeExecutionProof | None = None,
 ) -> dict[str, Any]:
     artifact = Path(native_artifact).expanduser().resolve()
     if not artifact.is_file() or native_outcome is None:
@@ -41,6 +52,24 @@ def build_cross_benchmark_result(
     typed_events = tuple(events)
     if any(item.benchmark_id != case.benchmark_id or item.case_id != case.case_id for item in typed_events):
         raise ValueError("event identity does not match case")
+    reserved_result_evidence = {
+        EvidenceKind.NATIVE_BENCHMARK,
+        EvidenceKind.NATIVE_RUNTIME,
+    }
+    if any(item.evidence_kind in reserved_result_evidence for item in typed_events):
+        raise ValueError(
+            "native_benchmark and native_runtime are reserved for validated result evidence"
+        )
+    runtime_evidence, runtime_evidence_kind = _validated_runtime_evidence(
+        runtime_manifest=runtime_manifest,
+        runtime_receipt=runtime_receipt,
+        runtime_execution_proof=runtime_execution_proof,
+        native_artifact_sha256=observed_hash,
+    )
+    evidence_kinds = {EvidenceKind.NATIVE_BENCHMARK.value}
+    evidence_kinds.update(item.evidence_kind.value for item in typed_events)
+    if runtime_evidence_kind is not None:
+        evidence_kinds.add(runtime_evidence_kind)
     material = {
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "status": "complete",
@@ -52,10 +81,13 @@ def build_cross_benchmark_result(
         "native_outcome": thaw_payload(native_outcome.native_metrics),
         "runtime_policy_projection_hash": stable_json_hash(case.runtime_policy_projection()),
         "events": [item.to_dict() for item in typed_events],
-        "evidence_kinds": sorted({item.evidence_kind.value for item in typed_events} | {"native_runtime"}),
+        "runtime_evidence": runtime_evidence,
+        "evidence_kinds": sorted(evidence_kinds),
         "claim_boundary": (
-            "Native metrics remain opaque and benchmark-owned. Common events describe Invart-observed action states; "
-            "they do not replace or rescore the native outcome."
+            "Native benchmark metrics remain opaque and benchmark-owned. They do not prove native agent runtime "
+            "execution. Common events describe Invart-observed action states. Runtime evidence is claimable only "
+            "when an execution proof binds the exact artifact, manifest, complete receipt, and retained execution "
+            "record."
         ),
     }
     return {**material, "result_hash": stable_json_hash(material)}
@@ -105,6 +137,75 @@ def common_events_from_agentdojo_join(join_payload: Mapping[str, Any]) -> tuple[
     return tuple(events)
 
 
+def _validated_runtime_evidence(
+    *,
+    runtime_manifest: RuntimeManifest | None,
+    runtime_receipt: RuntimeReceipt | None,
+    runtime_execution_proof: RuntimeExecutionProof | None,
+    native_artifact_sha256: str,
+) -> tuple[dict[str, Any], str | None]:
+    if (
+        runtime_manifest is None
+        and runtime_receipt is None
+        and runtime_execution_proof is None
+    ):
+        return (
+            {
+                "status": "unverified_runtime_execution_proof",
+                "manifest_hash": None,
+                "execution_contract": None,
+                "evidence_kind": None,
+                "reasons": ["runtime_execution_proof_missing"],
+            },
+            None,
+        )
+
+    if runtime_execution_proof is None:
+        if runtime_manifest is None or runtime_receipt is None:
+            raise ValueError(
+                "runtime execution proof inputs require either no runtime inputs or "
+                "runtime_manifest and runtime_receipt together"
+            )
+        receipt_validation = validate_runtime_receipt(runtime_manifest, runtime_receipt)
+        request = runtime_manifest.request
+        return (
+            {
+                "status": "unverified_runtime_execution_proof",
+                "manifest_hash": runtime_manifest.manifest_hash,
+                "execution_contract": request.execution_contract.value,
+                "evidence_kind": request.evidence_kind.value,
+                "receipt": runtime_receipt.to_dict(),
+                "receipt_validation": receipt_validation.to_dict(),
+                "proof": None,
+                "reasons": ["runtime_execution_proof_missing"],
+            },
+            None,
+        )
+
+    if runtime_manifest is None:
+        raise ValueError("runtime execution proof inputs require runtime_manifest")
+    if runtime_receipt is not None and runtime_receipt != runtime_execution_proof.runtime_receipt:
+        raise ValueError(
+            "runtime execution proof inputs contain a receipt that does not match the proof"
+        )
+    validation = validate_runtime_execution_proof(
+        runtime_manifest,
+        runtime_execution_proof,
+        native_artifact_sha256=native_artifact_sha256,
+    )
+    request = runtime_manifest.request
+    evidence = {
+        "status": validation.status,
+        "manifest_hash": runtime_manifest.manifest_hash,
+        "execution_contract": request.execution_contract.value,
+        "evidence_kind": request.evidence_kind.value,
+        "receipt": runtime_execution_proof.runtime_receipt.to_dict(),
+        "proof": runtime_execution_proof.to_dict(),
+        "reasons": list(validation.reasons),
+    }
+    return evidence, request.evidence_kind.value if validation.valid else None
+
+
 def _blocked_result(*, source: BenchmarkSourceFreeze, case: BenchmarkCase, reason: str) -> dict[str, Any]:
     material = {
         "schema_version": ADAPTER_SCHEMA_VERSION,
@@ -116,6 +217,13 @@ def _blocked_result(*, source: BenchmarkSourceFreeze, case: BenchmarkCase, reaso
         "native_artifact": None,
         "native_outcome": None,
         "events": [],
+        "runtime_evidence": {
+            "status": "unverified_runtime_execution_proof",
+            "manifest_hash": None,
+            "execution_contract": None,
+            "evidence_kind": None,
+            "reasons": ["native_artifact_missing"],
+        },
         "evidence_kinds": [],
         "claim_boundary": "No native artifact was validated, so no benchmark score or security effect is claimable.",
     }

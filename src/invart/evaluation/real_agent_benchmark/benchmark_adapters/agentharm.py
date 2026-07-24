@@ -480,6 +480,9 @@ def validate_agentharm_bound_artifact(payload: Mapping[str, Any]) -> dict[str, A
     control = dict(capability_control)
     return {
         "case_id": row["case_id"],
+        "epoch": row["epoch"],
+        "model": row["model"],
+        "judge_models": row["judge_models"],
         "refusal": row["refusal"],
         "task_success": row["task_success"],
         "tool_interface_valid": control["tool_interface_valid"],

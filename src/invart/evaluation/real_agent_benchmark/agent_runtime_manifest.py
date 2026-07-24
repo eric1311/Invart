@@ -9,6 +9,7 @@ from invart.core.artifacts import sha256_file, stable_json_hash
 
 
 RUNTIME_MANIFEST_SCHEMA_VERSION = "invart.agent_runtime_manifest.v0.1"
+RUNTIME_EXECUTION_PROOF_SCHEMA_VERSION = "invart.runtime_execution_proof.v0.1"
 
 
 class ExecutionContract(str, Enum):
@@ -24,6 +25,16 @@ class ClaimKind(str, Enum):
 
 
 EvidenceKind = ClaimKind
+
+
+def _is_prefixed_sha256(value: str) -> bool:
+    prefix, separator, digest = value.partition(":")
+    return (
+        prefix == "sha256"
+        and separator == ":"
+        and len(digest) == 64
+        and all(character in "0123456789abcdef" for character in digest)
+    )
 
 
 def _freeze_nonempty_string(instance: object, field_name: str) -> None:
@@ -385,22 +396,163 @@ def validate_runtime_receipt(
     )
 
 
+@dataclass(frozen=True)
+class RuntimeExecutionProof:
+    runtime_manifest_hash: str
+    runtime_receipt: RuntimeReceipt
+    native_artifact_sha256: str
+    execution_record_hash: str
+    proof_hash: str
+    schema_version: str = RUNTIME_EXECUTION_PROOF_SCHEMA_VERSION
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "runtime_manifest_hash",
+            "native_artifact_sha256",
+            "execution_record_hash",
+            "proof_hash",
+            "schema_version",
+        ):
+            _freeze_nonempty_string(self, field_name)
+        if not isinstance(self.runtime_receipt, RuntimeReceipt):
+            raise TypeError("runtime_receipt must be a RuntimeReceipt")
+        for field_name in (
+            "runtime_manifest_hash",
+            "native_artifact_sha256",
+            "execution_record_hash",
+            "proof_hash",
+        ):
+            if not _is_prefixed_sha256(getattr(self, field_name)):
+                raise ValueError(f"{field_name} must be a prefixed sha256 digest")
+
+    def to_dict(self, *, include_hash: bool = True) -> dict[str, Any]:
+        payload = _runtime_execution_proof_material(
+            schema_version=self.schema_version,
+            runtime_manifest_hash=self.runtime_manifest_hash,
+            runtime_receipt=self.runtime_receipt,
+            native_artifact_sha256=self.native_artifact_sha256,
+            execution_record_hash=self.execution_record_hash,
+        )
+        if include_hash:
+            payload["proof_hash"] = self.proof_hash
+        return payload
+
+
+def _runtime_execution_proof_material(
+    *,
+    schema_version: str,
+    runtime_manifest_hash: str,
+    runtime_receipt: RuntimeReceipt,
+    native_artifact_sha256: str,
+    execution_record_hash: str,
+) -> dict[str, Any]:
+    return {
+        "schema_version": schema_version,
+        "runtime_manifest_hash": runtime_manifest_hash,
+        "runtime_receipt": runtime_receipt.to_dict(),
+        "native_artifact_sha256": native_artifact_sha256,
+        "execution_record_hash": execution_record_hash,
+    }
+
+
+def build_runtime_execution_proof(
+    *,
+    runtime_manifest: RuntimeManifest,
+    runtime_receipt: RuntimeReceipt,
+    native_artifact_sha256: str,
+    execution_record_hash: str,
+) -> RuntimeExecutionProof:
+    observed_manifest_hash = stable_json_hash(runtime_manifest.to_dict(include_hash=False))
+    if runtime_manifest.manifest_hash != observed_manifest_hash:
+        raise ValueError("runtime manifest hash does not match manifest contents")
+    receipt_validation = validate_runtime_receipt(runtime_manifest, runtime_receipt)
+    if not receipt_validation.valid:
+        raise ValueError(
+            "runtime receipt does not match runtime manifest: "
+            + ", ".join(receipt_validation.reasons)
+        )
+    material = _runtime_execution_proof_material(
+        schema_version=RUNTIME_EXECUTION_PROOF_SCHEMA_VERSION,
+        runtime_manifest_hash=observed_manifest_hash,
+        runtime_receipt=runtime_receipt,
+        native_artifact_sha256=str(native_artifact_sha256 or "").strip(),
+        execution_record_hash=str(execution_record_hash or "").strip(),
+    )
+    return RuntimeExecutionProof(
+        runtime_manifest_hash=observed_manifest_hash,
+        runtime_receipt=runtime_receipt,
+        native_artifact_sha256=material["native_artifact_sha256"],
+        execution_record_hash=material["execution_record_hash"],
+        proof_hash=stable_json_hash(material),
+    )
+
+
+@dataclass(frozen=True)
+class RuntimeExecutionProofValidation:
+    valid: bool
+    status: str
+    reasons: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"valid": self.valid, "status": self.status, "reasons": list(self.reasons)}
+
+
+def validate_runtime_execution_proof(
+    runtime_manifest: RuntimeManifest,
+    proof: RuntimeExecutionProof,
+    *,
+    native_artifact_sha256: str,
+) -> RuntimeExecutionProofValidation:
+    reasons: list[str] = []
+    observed_manifest_hash = stable_json_hash(runtime_manifest.to_dict(include_hash=False))
+    if runtime_manifest.manifest_hash != observed_manifest_hash:
+        reasons.append("runtime_manifest_hash_invalid")
+    if proof.schema_version != RUNTIME_EXECUTION_PROOF_SCHEMA_VERSION:
+        reasons.append("schema_version_mismatch")
+    if proof.runtime_manifest_hash != observed_manifest_hash:
+        reasons.append("runtime_manifest_hash_mismatch")
+    receipt_validation = validate_runtime_receipt(runtime_manifest, proof.runtime_receipt)
+    reasons.extend(receipt_validation.reasons)
+    if proof.native_artifact_sha256 != str(native_artifact_sha256 or "").strip():
+        reasons.append("native_artifact_sha256_mismatch")
+    if not str(proof.execution_record_hash or "").strip():
+        reasons.append("execution_record_hash_missing")
+    expected_proof_hash = stable_json_hash(proof.to_dict(include_hash=False))
+    if proof.proof_hash != expected_proof_hash:
+        reasons.append("proof_hash_mismatch")
+    valid = not reasons
+    return RuntimeExecutionProofValidation(
+        valid=valid,
+        status=(
+            "valid_runtime_execution_proof"
+            if valid
+            else "invalid_runtime_execution_proof"
+        ),
+        reasons=tuple(reasons),
+    )
+
+
 __all__ = [
     "ClaimKind",
     "EvidenceKind",
     "ExecutionContract",
     "ProviderProfile",
     "QWENCLOUD_TOKEN_PLAN",
+    "RUNTIME_EXECUTION_PROOF_SCHEMA_VERSION",
     "RUNTIME_MANIFEST_SCHEMA_VERSION",
+    "RuntimeExecutionProof",
+    "RuntimeExecutionProofValidation",
     "RuntimeManifest",
     "RuntimeReceipt",
     "RuntimeReceiptValidation",
     "RuntimeRequest",
+    "build_runtime_execution_proof",
     "build_runtime_manifest",
     "build_runtime_receipt",
     "completion_backend_request",
     "hash_runtime_state_tree",
     "native_runtime_request",
     "provider_profile_for_id",
+    "validate_runtime_execution_proof",
     "validate_runtime_receipt",
 ]

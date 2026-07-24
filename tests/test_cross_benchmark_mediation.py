@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from pathlib import Path
 
 import pytest
 
-from invart.core.artifacts import sha256_file
+from invart.core.artifacts import sha256_file, stable_json_hash
+from invart.evaluation.real_agent_benchmark.agent_runtime_manifest import (
+    QWENCLOUD_TOKEN_PLAN,
+    RuntimeExecutionProof,
+    RuntimeManifest,
+    RuntimeReceipt,
+    build_runtime_execution_proof,
+    build_runtime_manifest,
+    build_runtime_receipt,
+    completion_backend_request,
+    native_runtime_request,
+)
 from invart.evaluation.real_agent_benchmark.benchmark_adapters.base import (
     BenchmarkCase,
     BenchmarkSourceFreeze,
@@ -84,6 +96,9 @@ def test_native_outcome_is_bound_to_the_validated_artifact(tmp_path: Path) -> No
     assert result["native_outcome"] == {"score": 0, "status": "fail"}
     assert result["events"][0]["effect"] == "prevented"
     assert result["events"][0]["evidence_kind"] == "adapter_comparable"
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "unverified_runtime_execution_proof"
 
     artifact.write_text(json.dumps({"score": 1, "status": "pass"}), encoding="utf-8")
     with pytest.raises(ValueError, match="artifact hash"):
@@ -93,6 +108,323 @@ def test_native_outcome_is_bound_to_the_validated_artifact(tmp_path: Path) -> No
             native_artifact=artifact,
             native_outcome=native,
             events=(event,),
+        )
+
+
+def _runtime_manifest_and_receipt(
+    *,
+    completion_backend: bool = False,
+) -> tuple[RuntimeManifest, RuntimeReceipt]:
+    request_builder = completion_backend_request if completion_backend else native_runtime_request
+    agent_product = "inspect-evals-agentharm" if completion_backend else "opencode"
+    low_level_runtime = "inspect-ai" if completion_backend else "opencode-run"
+    manifest = build_runtime_manifest(
+        request=request_builder(
+            requested_provider=QWENCLOUD_TOKEN_PLAN.profile_id,
+            requested_model="deepseek-v4-pro",
+            agent_product=agent_product,
+            low_level_runtime=low_level_runtime,
+        ),
+        provider_profile=QWENCLOUD_TOKEN_PLAN,
+        profile_state_hash="sha256:runtime-state",
+    )
+    receipt = build_runtime_receipt(
+        resolved_provider=QWENCLOUD_TOKEN_PLAN.profile_id,
+        resolved_model="deepseek-v4-pro",
+        resolved_agent_product=agent_product,
+        resolved_low_level_runtime=low_level_runtime,
+        resolved_profile_state_hash="sha256:runtime-state",
+    )
+    return manifest, receipt
+
+
+def _native_outcome(artifact: Path, source: BenchmarkSourceFreeze) -> NativeBenchmarkOutcome:
+    return NativeBenchmarkOutcome(
+        benchmark_id="fixture",
+        case_id="case-attack",
+        artifact_sha256=sha256_file(artifact, prefixed=True),
+        validator_id="fixture-native-v1",
+        native_metrics={"score": 0, "status": "fail"},
+        source_hash=source.source_hash,
+    )
+
+
+def _runtime_proof(
+    *,
+    manifest: RuntimeManifest,
+    receipt: RuntimeReceipt,
+    artifact: Path,
+) -> RuntimeExecutionProof:
+    return build_runtime_execution_proof(
+        runtime_manifest=manifest,
+        runtime_receipt=receipt,
+        native_artifact_sha256=sha256_file(artifact, prefixed=True),
+        execution_record_hash=stable_json_hash(
+            {
+                "runtime": receipt.resolved_low_level_runtime,
+                "native_artifact_sha256": sha256_file(artifact, prefixed=True),
+            }
+        ),
+    )
+
+
+def test_manifest_and_receipt_alone_cannot_claim_native_runtime(tmp_path: Path) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_receipt=receipt,
+    )
+
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "unverified_runtime_execution_proof"
+    assert result["runtime_evidence"]["reasons"] == ["runtime_execution_proof_missing"]
+    assert result["runtime_evidence"]["manifest_hash"] == manifest.manifest_hash
+
+
+def test_common_event_cannot_bypass_native_runtime_proof_gate(tmp_path: Path) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    event = CommonActionEvent(
+        benchmark_id="fixture",
+        case_id="case-attack",
+        action_id="action-native-runtime",
+        tool_name="write_note",
+        effect=EffectState.EXECUTED,
+        provenance_surface=ProvenanceSurface.TOOL_RESULT,
+        evidence_kind=EvidenceKind.NATIVE_RUNTIME,
+    )
+
+    with pytest.raises(ValueError, match="reserved for validated result evidence"):
+        build_cross_benchmark_result(
+            source=source,
+            case=_case(),
+            native_artifact=artifact,
+            native_outcome=_native_outcome(artifact, source),
+            events=(event,),
+        )
+
+
+def test_valid_artifact_bound_native_runtime_proof_can_claim_native_runtime(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_execution_proof=proof,
+    )
+
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "valid_runtime_execution_proof"
+    assert result["runtime_evidence"]["proof"]["proof_hash"] == proof.proof_hash
+    assert result["runtime_evidence"]["proof"]["runtime_receipt"] == receipt.to_dict()
+
+
+def test_runtime_proof_requires_nonempty_execution_record_hash(tmp_path: Path) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    manifest, receipt = _runtime_manifest_and_receipt()
+
+    with pytest.raises(ValueError, match="execution_record_hash"):
+        build_runtime_execution_proof(
+            runtime_manifest=manifest,
+            runtime_receipt=receipt,
+            native_artifact_sha256=sha256_file(artifact, prefixed=True),
+            execution_record_hash="",
+        )
+
+
+def test_runtime_proof_for_different_artifact_cannot_claim_native_runtime(
+    tmp_path: Path,
+) -> None:
+    first_artifact = tmp_path / "first.json"
+    first_artifact.write_text(json.dumps({"score": 0, "artifact": "first"}), encoding="utf-8")
+    second_artifact = tmp_path / "second.json"
+    second_artifact.write_text(json.dumps({"score": 0, "artifact": "second"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=first_artifact)
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=second_artifact,
+        native_outcome=_native_outcome(second_artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_execution_proof=proof,
+    )
+
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "invalid_runtime_execution_proof"
+    assert "native_artifact_sha256_mismatch" in result["runtime_evidence"]["reasons"]
+
+
+def test_runtime_proof_for_different_manifest_cannot_claim_native_runtime(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+    different_manifest = replace(manifest, runtime_version="different-native-runtime")
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=different_manifest,
+        runtime_execution_proof=proof,
+    )
+
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "invalid_runtime_execution_proof"
+    assert "runtime_manifest_hash_mismatch" in result["runtime_evidence"]["reasons"]
+
+
+@pytest.mark.parametrize("altered_field", ["execution_record_hash", "proof_hash"])
+def test_altered_runtime_proof_cannot_claim_native_runtime(
+    tmp_path: Path,
+    altered_field: str,
+) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+    altered = replace(
+        proof,
+        **{
+            altered_field: stable_json_hash(
+                {"altered": altered_field, "original_proof_hash": proof.proof_hash}
+            )
+        },
+    )
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_execution_proof=altered,
+    )
+
+    assert "native_benchmark" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "invalid_runtime_execution_proof"
+    assert "proof_hash_mismatch" in result["runtime_evidence"]["reasons"]
+
+
+def test_altered_receipt_inside_proof_cannot_claim_native_runtime(tmp_path: Path) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+    altered_proof = replace(
+        proof,
+        runtime_receipt=replace(receipt, resolved_model="different-model"),
+    )
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_execution_proof=altered_proof,
+    )
+
+    assert "native_runtime" not in result["evidence_kinds"]
+    assert result["runtime_evidence"]["status"] == "invalid_runtime_execution_proof"
+    assert {"model_mismatch", "proof_hash_mismatch"} <= set(
+        result["runtime_evidence"]["reasons"]
+    )
+
+
+def test_completion_backend_proof_remains_completion_backend_evidence(tmp_path: Path) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt(completion_backend=True)
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+
+    result = build_cross_benchmark_result(
+        source=source,
+        case=_case(),
+        native_artifact=artifact,
+        native_outcome=_native_outcome(artifact, source),
+        events=(),
+        runtime_manifest=manifest,
+        runtime_execution_proof=proof,
+    )
+
+    assert result["runtime_evidence"]["status"] == "valid_runtime_execution_proof"
+    assert result["runtime_evidence"]["execution_contract"] == "completion_backend"
+    assert "completion_backend" in result["evidence_kinds"]
+    assert "native_runtime" not in result["evidence_kinds"]
+
+
+@pytest.mark.parametrize(
+    ("include_manifest", "include_receipt", "include_proof"),
+    (
+        (True, False, False),
+        (False, True, False),
+        (False, False, True),
+        (False, True, True),
+    ),
+)
+def test_partial_runtime_proof_inputs_fail_closed(
+    tmp_path: Path,
+    include_manifest: bool,
+    include_receipt: bool,
+    include_proof: bool,
+) -> None:
+    artifact = tmp_path / "native.json"
+    artifact.write_text(json.dumps({"score": 0, "status": "fail"}), encoding="utf-8")
+    source = _source()
+    manifest, receipt = _runtime_manifest_and_receipt()
+    proof = _runtime_proof(manifest=manifest, receipt=receipt, artifact=artifact)
+
+    with pytest.raises(ValueError, match="runtime execution proof inputs"):
+        build_cross_benchmark_result(
+            source=source,
+            case=_case(),
+            native_artifact=artifact,
+            native_outcome=_native_outcome(artifact, source),
+            events=(),
+            runtime_manifest=manifest if include_manifest else None,
+            runtime_receipt=receipt if include_receipt else None,
+            runtime_execution_proof=proof if include_proof else None,
         )
 
 

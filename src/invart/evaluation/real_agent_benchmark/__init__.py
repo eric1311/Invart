@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from .agentdojo_bridge import split_agentdojo_case_ref, write_agentdojo_adapter_boundary
+from .agentharm_effect_gate import (
+    build_agentharm_paired_effect_gate,
+    build_agentharm_treatment_binding,
+    validate_agentharm_treatment_binding,
+)
 from .agentharm_pilot import (
     build_agentharm_pilot_gate,
     build_agentharm_pilot_request,
@@ -165,8 +170,10 @@ __all__ = [
     "attach_p1_official_grader",
     "audit_agentdojo_full_completeness",
     "analyze_agentdojo_full_results",
+    "build_agentharm_paired_effect_gate",
     "build_agentharm_pilot_gate",
     "build_agentharm_pilot_request",
+    "build_agentharm_treatment_binding",
     "build_p1_claim_evidence_matrix",
     "build_p1_completion_audit",
     "build_p1_comparison_report",
@@ -282,6 +289,7 @@ __all__ = [
     "validate_official_grader_artifact",
     "validate_agentharm_execution_package",
     "validate_agentharm_pilot_preflight",
+    "validate_agentharm_treatment_binding",
     "write_p0_artifact_package",
     "write_p1_artifact_package",
     "write_p1_continuation_env_template",
