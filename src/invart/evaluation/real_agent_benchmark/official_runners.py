@@ -215,6 +215,7 @@ def build_agentharm_command(
     token_limit: int | None = None,
     cost_limit: float | None = None,
     runtime_home: str | None = None,
+    model_base_url: str | None = None,
 ) -> dict[str, Any]:
     task, native_split, _task_kind = agentharm_split_contract(split)
     repository = Path(repository_root).expanduser().resolve()
@@ -236,6 +237,8 @@ def build_agentharm_command(
         "-T",
         f"agent_kwargs={agent_kwargs}",
     ]
+    if model_base_url:
+        command.extend(["--model-base-url", model_base_url])
     if refusal_judge:
         command.extend(["-T", f"refusal_judge={refusal_judge}"])
     if semantic_judge:

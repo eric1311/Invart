@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 from invart.core.artifacts import sha256_file, stable_json_hash
 
@@ -295,6 +295,51 @@ def build_runtime_manifest(
     )
 
 
+def runtime_manifest_from_dict(payload: Mapping[str, Any]) -> RuntimeManifest:
+    """Rebuild a manifest only when every serialized and derived field agrees."""
+
+    materialized = dict(payload)
+    request_payload = materialized.get("request")
+    if not isinstance(request_payload, Mapping):
+        raise ValueError("runtime manifest request is missing")
+    provider_payload = materialized.get("provider_profile")
+    if provider_payload is None:
+        provider_profile = None
+    elif isinstance(provider_payload, Mapping):
+        provider_id = str(provider_payload.get("profile_id") or "").strip()
+        provider_profile = provider_profile_for_id(provider_id)
+        if provider_profile is None or provider_profile.to_dict() != dict(provider_payload):
+            raise ValueError("runtime manifest provider profile is unsupported or inconsistent")
+    else:
+        raise ValueError("runtime manifest provider profile is invalid")
+    try:
+        request = RuntimeRequest(
+            requested_provider=request_payload["requested_provider"],
+            requested_model=request_payload["requested_model"],
+            agent_product=request_payload["agent_product"],
+            low_level_runtime=request_payload["low_level_runtime"],
+            execution_contract=ExecutionContract(request_payload["execution_contract"]),
+            evidence_kind=ClaimKind(request_payload["evidence_kind"]),
+        )
+        manifest = build_runtime_manifest(
+            request=request,
+            provider_profile=provider_profile,
+            profile_name=materialized["profile_name"],
+            agent_version=materialized["agent_version"],
+            runtime_version=materialized["runtime_version"],
+            tool_allowlist=materialized.get("tool_allowlist") or (),
+            memory_hashes=materialized.get("memory_hashes") or (),
+            skill_hashes=materialized.get("skill_hashes") or (),
+            declared_fallbacks=materialized.get("declared_fallbacks") or (),
+            profile_state_hash=materialized.get("profile_state_hash"),
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("runtime manifest fields are invalid") from exc
+    if manifest.to_dict() != materialized:
+        raise ValueError("runtime manifest serialized fields or hash are inconsistent")
+    return manifest
+
+
 @dataclass(frozen=True)
 class RuntimeReceipt:
     resolved_provider: str
@@ -553,6 +598,7 @@ __all__ = [
     "hash_runtime_state_tree",
     "native_runtime_request",
     "provider_profile_for_id",
+    "runtime_manifest_from_dict",
     "validate_runtime_execution_proof",
     "validate_runtime_receipt",
 ]

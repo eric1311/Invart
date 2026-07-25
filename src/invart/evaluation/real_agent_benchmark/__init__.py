@@ -6,10 +6,15 @@ from .agentharm_effect_gate import (
     build_agentharm_treatment_binding,
     validate_agentharm_treatment_binding,
 )
+from .agentharm_launch import (
+    attest_agentharm_inspect_runtime,
+    prepare_agentharm_launch_package,
+)
 from .agentharm_pilot import (
     build_agentharm_pilot_gate,
     build_agentharm_pilot_request,
     build_agentharm_pilot_request_from_source,
+    load_agentharm_pilot_request,
     validate_agentharm_pilot_preflight,
     write_agentharm_pilot_request,
 )
@@ -30,6 +35,7 @@ from .artifact_writer import (
     write_p0_reproduce_report,
     write_p0_artifact_package,
 )
+from .agent_runtime_manifest import runtime_manifest_from_dict
 from .case_manifest import (
     P0_BENCHMARK_FAMILIES,
     P0_MODES,
@@ -169,6 +175,7 @@ __all__ = [
     "attach_official_grader_artifact",
     "attach_p0_official_grader",
     "attach_p1_official_grader",
+    "attest_agentharm_inspect_runtime",
     "audit_agentdojo_full_completeness",
     "analyze_agentdojo_full_results",
     "build_agentharm_paired_effect_gate",
@@ -254,7 +261,9 @@ __all__ = [
     "merge_p0_artifact_packages",
     "mode_binding_for_command",
     "preflight_p1_selected_swe_workspaces",
+    "prepare_agentharm_launch_package",
     "load_swe_instance_json",
+    "load_agentharm_pilot_request",
     "prepare_p0_official_environment",
     "prepare_agentdojo_full_run",
     "prepare_swe_instance_workspace",
@@ -274,6 +283,7 @@ __all__ = [
     "resolve_official_grader_artifact",
     "run_p0_real_agent_plan",
     "run_p1_external_oracled_plan",
+    "runtime_manifest_from_dict",
     "select_p1_remaining_rows",
     "summarize_p1_official_result",
     "summarize_agentdojo_full_job_artifact",

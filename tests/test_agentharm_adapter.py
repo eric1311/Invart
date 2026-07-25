@@ -259,6 +259,19 @@ def test_agentharm_runner_keeps_adversarial_model_text_in_one_argument(tmp_path:
     }
 
 
+def test_agentharm_runner_binds_loopback_model_base_url(tmp_path: Path) -> None:
+    spec = build_agentharm_command(
+        repository_root=str(tmp_path / "inspect-evals"),
+        split="validation",
+        model_name="openai/deepseek-v4-pro",
+        behavior_ids=["7-1"],
+        model_base_url="http://127.0.0.1:43123/v1",
+    )
+
+    index = spec["command"].index("--model-base-url")
+    assert spec["command"][index + 1] == "http://127.0.0.1:43123/v1"
+
+
 def test_validated_native_metrics_are_immutable(tmp_path: Path) -> None:
     adapter = AgentHarmAdapter(split="validation")
     case = adapter.enumerate_cases(_dataset())[0]

@@ -36,7 +36,7 @@ from .agentharm_source import (
 from .provider_run_control import ProviderApprovalPacket
 
 
-AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION = "invart.agentharm_pilot_request.v0.2"
+AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION = "invart.agentharm_pilot_request.v0.3"
 
 
 def build_agentharm_pilot_gate(
@@ -308,6 +308,9 @@ def build_agentharm_pilot_request(
     maximum_calls_per_sample: int,
     maximum_tokens_per_call: int,
     maximum_usd: float,
+    timeout_seconds: int = 120,
+    max_connections: int = 1,
+    max_retries: int = 0,
 ) -> dict[str, Any]:
     """Create a reviewable request; this is deliberately not an approval."""
 
@@ -335,6 +338,10 @@ def build_agentharm_pilot_request(
     epochs = _positive_int(epochs, field_name="epochs")
     maximum_calls_per_sample = _positive_int(maximum_calls_per_sample, field_name="maximum_calls_per_sample")
     maximum_tokens_per_call = _positive_int(maximum_tokens_per_call, field_name="maximum_tokens_per_call")
+    timeout_seconds = _positive_int(timeout_seconds, field_name="timeout_seconds")
+    max_connections = _positive_int(max_connections, field_name="max_connections")
+    if type(max_retries) is not int or max_retries < 0:
+        raise ValueError("max_retries cannot be negative")
     if (
         type(maximum_usd) not in {int, float}
         or not math.isfinite(float(maximum_usd))
@@ -362,6 +369,9 @@ def build_agentharm_pilot_request(
         "maximum_calls_per_sample": maximum_calls_per_sample,
         "maximum_tokens_per_call": maximum_tokens_per_call,
         "maximum_usd": float(maximum_usd),
+        "timeout_seconds": timeout_seconds,
+        "max_connections": max_connections,
+        "max_retries": max_retries,
     }
     approval_scope_hash = stable_json_hash(approval_scope)
     purpose = f"AgentHarm Phase B pilot approval_scope={approval_scope_hash}"
@@ -375,6 +385,7 @@ def build_agentharm_pilot_request(
         "endpoint": profile.base_url,
         "credential_env_name": profile.credential_env_name,
         "runtime_manifest_hash": runtime_manifest.manifest_hash,
+        "runtime_manifest": runtime_manifest.to_dict(),
         "models": models,
         "model_ids": unique_models,
         "judge_independent_from_primary": any(model != models["primary"] for model in unique_models),
@@ -396,6 +407,11 @@ def build_agentharm_pilot_request(
         "max_calls": max_calls,
         "max_total_tokens": max_total_tokens,
         "maximum_usd": float(maximum_usd),
+        "execution_limits": {
+            "timeout_seconds": timeout_seconds,
+            "max_connections": max_connections,
+            "max_retries": max_retries,
+        },
         "usd_budget_enforcement": "operator_bound_not_gateway_enforced",
         "source_freeze": {
             "dataset_revision": AGENTHARM_DATASET_REVISION,
@@ -433,6 +449,9 @@ def build_agentharm_pilot_request_from_source(
     maximum_calls_per_sample: int,
     maximum_tokens_per_call: int,
     maximum_usd: float,
+    timeout_seconds: int = 120,
+    max_connections: int = 1,
+    max_retries: int = 0,
 ) -> dict[str, Any]:
     """Build a pilot request whose case universe comes from exact attested source bytes."""
 
@@ -454,6 +473,9 @@ def build_agentharm_pilot_request_from_source(
         maximum_calls_per_sample=maximum_calls_per_sample,
         maximum_tokens_per_call=maximum_tokens_per_call,
         maximum_usd=maximum_usd,
+        timeout_seconds=timeout_seconds,
+        max_connections=max_connections,
+        max_retries=max_retries,
     )
     return request
 
@@ -483,6 +505,8 @@ def validate_agentharm_pilot_preflight(
         reasons.append("request_state_invalid")
     if packet.get("runtime_manifest_hash") != runtime_manifest.manifest_hash:
         reasons.append("runtime_manifest_mismatch")
+    if packet.get("runtime_manifest") != runtime_manifest.to_dict():
+        reasons.append("runtime_manifest_artifact_mismatch")
     reasons.extend(_pilot_request_inconsistencies(packet, runtime_manifest=runtime_manifest))
     try:
         source_validation = validate_agentharm_validation_case_manifest(
@@ -544,7 +568,7 @@ def validate_agentharm_pilot_preflight(
         )
     return _preflight_result(
         packet,
-        status="ready_to_execute",
+        status="approved_inputs_validated",
         reasons=[],
         approval=approval,
         source_validation=source_validation,
@@ -577,6 +601,36 @@ def write_agentharm_pilot_request(path: Path, request: Mapping[str, Any]) -> Pat
     return target
 
 
+def load_agentharm_pilot_request(path: Path) -> dict[str, Any]:
+    target = Path(path).expanduser().absolute()
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(target, flags)
+        with os.fdopen(descriptor, "r", encoding="utf-8") as stream:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise ValueError(
+                    "AgentHarm pilot request must be a regular non-symlink file"
+                )
+            if metadata.st_mode & 0o077:
+                raise ValueError("AgentHarm pilot request must be owner-only")
+            payload = json.load(stream)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("AgentHarm pilot request is invalid JSON") from exc
+    if not isinstance(payload, Mapping):
+        raise ValueError("AgentHarm pilot request must be an object")
+    packet = _verified_hash_bound_mapping(
+        payload,
+        hash_field="request_hash",
+        field_name="AgentHarm pilot request",
+    )
+    if packet.get("schema_version") != AGENTHARM_PILOT_REQUEST_SCHEMA_VERSION:
+        raise ValueError("AgentHarm pilot request schema is unsupported")
+    return packet
+
+
 def _preflight_result(
     request: Mapping[str, Any],
     *,
@@ -586,9 +640,10 @@ def _preflight_result(
     source_validation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return {
-        "schema_version": "invart.agentharm_pilot_preflight.v0.2",
+        "schema_version": "invart.agentharm_pilot_preflight.v0.3",
         "status": status,
-        "ready_to_execute": status == "ready_to_execute",
+        "ready_to_execute": False,
+        "approved_inputs_validated": status == "approved_inputs_validated",
         "reasons": list(reasons),
         "request_hash": request.get("request_hash"),
         "approval_hash": approval.approval_hash if approval else None,
@@ -597,7 +652,10 @@ def _preflight_result(
             if source_validation is not None
             else None
         ),
-        "claim_boundary": "Preflight readiness authorizes no provider call by itself.",
+        "claim_boundary": (
+            "Preflight validates approval and bound inputs but never authorizes execution; "
+            "an authenticated fail-closed executor is still required."
+        ),
     }
 
 
@@ -745,6 +803,7 @@ def _pilot_request_inconsistencies(
     harmful_ids: tuple[str, ...] = ()
     benign_ids: tuple[str, ...] = ()
     normalized_variants: list[str] = []
+    execution_limits: Mapping[str, Any] = {}
     try:
         case_manifest = _validated_case_manifest(packet.get("case_manifest"))
         if packet.get("case_manifest_hash") != case_manifest["manifest_hash"]:
@@ -766,6 +825,20 @@ def _pilot_request_inconsistencies(
         epochs = _positive_int(packet.get("epochs"), field_name="epochs")
         calls_per_sample = _positive_int(packet.get("maximum_calls_per_sample"), field_name="maximum_calls_per_sample")
         tokens_per_call = _positive_int(packet.get("maximum_tokens_per_call"), field_name="maximum_tokens_per_call")
+        execution_limits = packet.get("execution_limits")
+        if not isinstance(execution_limits, Mapping):
+            raise ValueError("execution_limits must be an object")
+        timeout_seconds = _positive_int(
+            execution_limits.get("timeout_seconds"),
+            field_name="timeout_seconds",
+        )
+        max_connections = _positive_int(
+            execution_limits.get("max_connections"),
+            field_name="max_connections",
+        )
+        max_retries = execution_limits.get("max_retries")
+        if type(max_retries) is not int or max_retries < 0:
+            raise ValueError("max_retries cannot be negative")
         variants = packet.get("variants")
         if not isinstance(variants, list) or not variants or any(not str(value).strip() for value in variants):
             raise ValueError("variants must be nonempty")
@@ -803,6 +876,21 @@ def _pilot_request_inconsistencies(
         "maximum_calls_per_sample": packet.get("maximum_calls_per_sample"),
         "maximum_tokens_per_call": packet.get("maximum_tokens_per_call"),
         "maximum_usd": packet.get("maximum_usd"),
+        "timeout_seconds": (
+            execution_limits.get("timeout_seconds")
+            if isinstance(execution_limits, Mapping)
+            else None
+        ),
+        "max_connections": (
+            execution_limits.get("max_connections")
+            if isinstance(execution_limits, Mapping)
+            else None
+        ),
+        "max_retries": (
+            execution_limits.get("max_retries")
+            if isinstance(execution_limits, Mapping)
+            else None
+        ),
     }
     expected_scope_hash = stable_json_hash(expected_scope)
     if packet.get("approval_scope") != expected_scope:
@@ -858,6 +946,7 @@ __all__ = [
     "build_agentharm_pilot_request",
     "build_agentharm_pilot_request_from_source",
     "build_agentharm_treatment_binding",
+    "load_agentharm_pilot_request",
     "validate_agentharm_treatment_binding",
     "validate_agentharm_pilot_preflight",
     "write_agentharm_pilot_request",

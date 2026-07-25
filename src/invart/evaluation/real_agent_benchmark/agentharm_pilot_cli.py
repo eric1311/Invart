@@ -38,6 +38,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--maximum-calls-per-sample", type=int, required=True)
     parser.add_argument("--maximum-tokens-per-call", type=int, required=True)
     parser.add_argument("--maximum-usd", type=float, required=True)
+    parser.add_argument("--timeout-seconds", type=int, default=120)
+    parser.add_argument("--max-connections", type=int, default=1)
+    parser.add_argument("--max-retries", type=int, default=0)
     parser.add_argument("--profile-state-hash", required=True)
     parser.add_argument("--agent-version", default="unknown")
     parser.add_argument("--runtime-version", default="unknown")
@@ -76,6 +79,9 @@ def main(argv: list[str] | None = None) -> int:
             maximum_calls_per_sample=args.maximum_calls_per_sample,
             maximum_tokens_per_call=args.maximum_tokens_per_call,
             maximum_usd=args.maximum_usd,
+            timeout_seconds=args.timeout_seconds,
+            max_connections=args.max_connections,
+            max_retries=args.max_retries,
         )
         output = write_agentharm_pilot_request(args.output_request, request)
         preflight = validate_agentharm_pilot_preflight(
@@ -103,6 +109,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "status": preflight["status"],
                 "ready_to_execute": preflight["ready_to_execute"],
+                "approved_inputs_validated": preflight["approved_inputs_validated"],
                 "reasons": preflight["reasons"],
                 "request_path": str(output),
                 "request_hash": request["request_hash"],

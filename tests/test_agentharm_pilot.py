@@ -1087,8 +1087,9 @@ def test_agentharm_preflight_accepts_only_matching_active_approval() -> None:
         at=now,
     )
 
-    assert preflight["status"] == "ready_to_execute"
-    assert preflight["ready_to_execute"] is True
+    assert preflight["status"] == "approved_inputs_validated"
+    assert preflight["ready_to_execute"] is False
+    assert preflight["approved_inputs_validated"] is True
     assert preflight["approval_hash"] == approval.approval_hash
 
 

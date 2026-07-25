@@ -53,6 +53,7 @@ def test_agentharm_pilot_cli_builds_request_without_approval_or_execution(
     assert result == 0
     assert summary["status"] == "approval_required"
     assert summary["ready_to_execute"] is False
+    assert summary["approved_inputs_validated"] is False
     assert summary["reasons"] == ["provider_approval_missing"]
     assert request["approved"] is False
     assert request["variants"] == ["V0"]
