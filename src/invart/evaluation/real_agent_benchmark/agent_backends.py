@@ -216,6 +216,7 @@ def build_opencode_provider_config(
     request: RuntimeRequest,
     provider_profile: ProviderProfile,
     local_gateway_base_url: Optional[str] = None,
+    local_gateway_api_key: Optional[str] = None,
 ) -> dict[str, Any]:
     _require_agent_product(request, "opencode")
     if provider_profile.profile_id != request.requested_provider:
@@ -229,7 +230,9 @@ def build_opencode_provider_config(
         if not gateway.startswith(("http://127.0.0.1:", "http://localhost:")):
             raise ValueError("OpenCode local gateway must use a loopback HTTP endpoint")
         base_url = gateway
-        api_key = "invart-local-loopback-non-secret"
+        api_key = local_gateway_api_key or "invart-local-loopback-non-secret"
+    elif local_gateway_api_key is not None:
+        raise ValueError("OpenCode local gateway API key requires a loopback endpoint")
     return {
         "$schema": "https://opencode.ai/config.json",
         "model": f"{provider_id}/{model_id}",
@@ -259,6 +262,7 @@ def write_opencode_isolated_config(
     request: RuntimeRequest,
     provider_profile: ProviderProfile,
     local_gateway_base_url: Optional[str] = None,
+    local_gateway_api_key: Optional[str] = None,
 ) -> Path:
     resolved = path.expanduser().resolve()
     resolved.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -267,6 +271,7 @@ def write_opencode_isolated_config(
         request=request,
         provider_profile=provider_profile,
         local_gateway_base_url=local_gateway_base_url,
+        local_gateway_api_key=local_gateway_api_key,
     )
     resolved.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -315,7 +316,11 @@ def start_budgeted_opencode_runtime(
         maximum_tokens_per_call=maximum_tokens_per_call,
         timeout=timeout,
     )
-    server, thread, port = start_provider_budget_gateway(gateway=gateway)
+    client_bearer_token = secrets.token_urlsafe(32)
+    server, thread, port = start_provider_budget_gateway(
+        gateway=gateway,
+        client_bearer_token=client_bearer_token,
+    )
     try:
         profile = manifest.provider_profile
         if profile is None:  # pragma: no cover - manifest construction invariant
@@ -325,6 +330,7 @@ def start_budgeted_opencode_runtime(
             request=manifest.request,
             provider_profile=profile,
             local_gateway_base_url=f"http://127.0.0.1:{port}/v1",
+            local_gateway_api_key=client_bearer_token,
         )
     except Exception:
         server.shutdown()

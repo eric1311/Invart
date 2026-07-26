@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import threading
@@ -52,7 +53,12 @@ def reconcile_gateway_records(records: Iterable[Mapping[str, Any]]) -> dict[str,
         record
         for record in materialized
         if record.get("status")
-        in {"forwarded", "transport_failed", "rejected_before_reservation"}
+        in {
+            "forwarded",
+            "transport_failed",
+            "rejected_before_reservation",
+            "rejected_client_authentication",
+        }
     ]
     terminal_ids = {
         str(record.get("gateway_request_id"))
@@ -67,7 +73,8 @@ def reconcile_gateway_records(records: Iterable[Mapping[str, Any]]) -> dict[str,
     ingress_without_id = sum(
         1
         for record in materialized
-        if record.get("status") == "rejected_before_reservation"
+        if record.get("status")
+        in {"rejected_before_reservation", "rejected_client_authentication"}
         and not record.get("gateway_request_id")
     )
     pending_without_terminal = pending_ids - terminal_ids
@@ -82,7 +89,12 @@ def reconcile_gateway_records(records: Iterable[Mapping[str, Any]]) -> dict[str,
         "terminal_error_count": sum(
             1
             for record in terminal
-            if record.get("status") in {"transport_failed", "rejected_before_reservation"}
+            if record.get("status")
+            in {
+                "transport_failed",
+                "rejected_before_reservation",
+                "rejected_client_authentication",
+            }
         ),
         "pending_request_ids": sorted(pending_ids),
         "terminal_request_ids": sorted(terminal_ids),
@@ -181,6 +193,7 @@ class ProviderBudgetGateway:
                 }
             )
             raise
+
         maximum_tokens = min(requested_maximum_tokens, self.maximum_tokens_per_call)
         token_limit_clamped = requested_maximum_tokens > maximum_tokens
         if token_limit_clamped:
@@ -293,6 +306,22 @@ class ProviderBudgetGateway:
             self._append_record(record)
             raise
 
+    def record_client_authentication_rejection(self, *, method: str, path: str) -> None:
+        self._append_record(
+            {
+                "schema_version": GATEWAY_RECORD_SCHEMA_VERSION,
+                "recorded_at": utc_now(),
+                "status": "rejected_client_authentication",
+                "provider": self.manifest.request.requested_provider,
+                "model": self.manifest.request.requested_model,
+                "manifest_hash": self.manifest.manifest_hash,
+                "method": str(method),
+                "path": str(path),
+                "budget_reserved": False,
+                "reason": "missing_or_invalid_client_bearer",
+            }
+        )
+
     def _append_record(self, record: Mapping[str, Any]) -> None:
         self.log_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.log_path.parent.chmod(0o700)
@@ -311,15 +340,19 @@ class ProviderBudgetGateway:
 def start_provider_budget_gateway(
     *,
     gateway: ProviderBudgetGateway,
+    client_bearer_token: str,
     host: str = "127.0.0.1",
     port: int = 0,
 ) -> tuple[ThreadingHTTPServer, threading.Thread, int]:
     if host not in {"127.0.0.1", "localhost"}:
         raise ValueError("provider budget gateway must bind to loopback")
+    expected_authorization = _client_authorization(client_bearer_token)
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
             if self.path.rstrip("/") == "/v1/models":
+                if not self._authenticate_client():
+                    return
                 self._write_json(gateway.models_payload())
                 return
             self.send_error(404)
@@ -327,6 +360,8 @@ def start_provider_budget_gateway(
         def do_POST(self) -> None:  # noqa: N802
             if self.path.rstrip("/") != "/v1/chat/completions":
                 self.send_error(404)
+                return
+            if not self._authenticate_client():
                 return
             try:
                 length = int(self.headers.get("Content-Length") or "0")
@@ -367,6 +402,28 @@ def start_provider_budget_gateway(
             self.end_headers()
             self.wfile.write(encoded)
 
+        def _authenticate_client(self) -> bool:
+            supplied = str(self.headers.get("Authorization") or "")
+            if hmac.compare_digest(supplied.encode("utf-8"), expected_authorization):
+                return True
+            gateway.record_client_authentication_rejection(
+                method=self.command,
+                path=self.path,
+            )
+            encoded = json.dumps(
+                {
+                    "error": "Unauthorized",
+                    "message": "missing or invalid gateway client bearer",
+                }
+            ).encode("utf-8")
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.send_header("WWW-Authenticate", "Bearer")
+            self.end_headers()
+            self.wfile.write(encoded)
+            return False
+
     server = ThreadingHTTPServer((host, port), Handler)
     server.daemon_threads = False
     server.block_on_close = True
@@ -378,6 +435,13 @@ def start_provider_budget_gateway(
     )
     thread.start()
     return server, thread, actual_port
+
+
+def _client_authorization(client_bearer_token: str) -> bytes:
+    token = str(client_bearer_token)
+    if len(token) < 24 or token.strip() != token or any(character.isspace() for character in token):
+        raise ValueError("gateway client bearer token must be at least 24 non-whitespace characters")
+    return f"Bearer {token}".encode("utf-8")
 
 
 def _requested_maximum_tokens(payload: Mapping[str, Any], *, default: int) -> int:
