@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
-from invart.core.artifacts import sha256_file, stable_json_dumps, stable_json_hash
+from invart.core.artifacts import sha256_file, stable_json_hash
 
 from .benchmark_adapters.agentharm import (
     AGENTHARM_DATASET_REVISION,
@@ -18,6 +18,7 @@ from .benchmark_adapters.agentharm import (
     AGENTHARM_INSPECT_AI_REVISION,
     AGENTHARM_RUNNER_REVISION,
 )
+from .provider_run_control import write_owner_only_json
 
 
 AGENTHARM_SOURCE_ATTESTATION_SCHEMA_VERSION = "invart.agentharm_source_attestation.v0.2"
@@ -357,13 +358,15 @@ def write_agentharm_source_package(
     )
     temporary.chmod(0o700)
     try:
-        _write_owner_only_json(
+        write_owner_only_json(
             temporary / "agentharm_source_attestation.json",
             attestation,
+            field_name="AgentHarm source artifact",
         )
-        _write_owner_only_json(
+        write_owner_only_json(
             temporary / "agentharm_case_manifest.json",
             manifest,
+            field_name="AgentHarm source artifact",
         )
         temporary.rename(root)
     except Exception:
@@ -477,23 +480,6 @@ def _path_without_symlink_ancestors(path: Path, *, field_name: str) -> Path:
         if stat.S_ISLNK(mode):
             raise ValueError(f"{field_name} must not traverse symlinks")
     return candidate
-
-
-def _write_owner_only_json(path: Path, payload: Mapping[str, Any]) -> Path:
-    target = _path_without_symlink_ancestors(
-        path,
-        field_name="AgentHarm source artifact",
-    )
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(target, flags, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-        os.fchmod(descriptor, 0o600)
-        stream.write(stable_json_dumps(payload))
-        stream.flush()
-        os.fsync(descriptor)
-    return target
 
 
 def main(argv: list[str] | None = None) -> int:

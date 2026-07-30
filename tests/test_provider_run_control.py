@@ -19,6 +19,7 @@ from invart.evaluation.real_agent_benchmark.provider_run_control import (
     load_provider_approval_packet,
     scan_provider_artifact_tree,
     secure_provider_artifact_tree,
+    write_owner_only_json,
     write_provider_approval_packet,
 )
 
@@ -151,6 +152,18 @@ def test_secure_artifact_tree_makes_nested_artifacts_owner_only(tmp_path: Path) 
     assert os.access(script, os.X_OK)
     assert script.stat().st_mode & 0o777 == 0o700
     assert data.stat().st_mode & 0o777 == 0o600
+
+
+def test_owner_only_json_writer_rejects_symlink_ancestor(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    linked = tmp_path / "linked"
+    linked.symlink_to(real, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="traverse symlinks"):
+        write_owner_only_json(linked / "artifact.json", {"status": "blocked"})
+
+    assert not (real / "artifact.json").exists()
 
 
 def test_approval_packet_round_trips_only_when_hash_and_permissions_match(tmp_path: Path) -> None:

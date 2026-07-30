@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import urlparse
 
-from invart.core.artifacts import sha256_file, stable_json_dumps, stable_json_hash
+from invart.core.artifacts import sha256_file, stable_json_hash
 
 from .agent_runtime_manifest import RuntimeManifest
 from .agentharm_pilot import validate_agentharm_pilot_preflight
@@ -25,7 +25,7 @@ from .provider_credentials import (
     loopback_no_proxy_environment,
 )
 from .provider_run_control import ProviderApprovalPacket
-from .provider_run_control import secure_provider_artifact_tree
+from .provider_run_control import secure_provider_artifact_tree, write_owner_only_json
 
 
 AGENTHARM_LAUNCH_PACKAGE_SCHEMA_VERSION = "invart.agentharm_launch_package.v0.1"
@@ -87,8 +87,8 @@ def prepare_agentharm_launch_package(
     temporary = Path(tempfile.mkdtemp(prefix=f".{root.name}.", dir=root.parent))
     temporary.chmod(0o700)
     try:
-        _write_owner_only_json(temporary / "request.json", request)
-        _write_owner_only_json(
+        write_owner_only_json(temporary / "request.json", request)
+        write_owner_only_json(
             temporary / "runtime_manifest.json",
             runtime_manifest.to_dict(),
         )
@@ -145,7 +145,7 @@ def prepare_agentharm_launch_package(
             ),
         }
         package["package_hash"] = stable_json_hash(package)
-        _write_owner_only_json(temporary / "launch_plan.json", package)
+        write_owner_only_json(temporary / "launch_plan.json", package)
         secure_provider_artifact_tree(temporary)
         _publish_directory_without_replacement(temporary, root)
     except Exception:
@@ -456,19 +456,6 @@ def _safe_output_directory(path: Path) -> Path:
     if candidate.exists():
         raise FileExistsError(candidate)
     return candidate
-
-
-def _write_owner_only_json(path: Path, payload: Mapping[str, Any]) -> Path:
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-    if hasattr(os, "O_NOFOLLOW"):
-        flags |= os.O_NOFOLLOW
-    descriptor = os.open(path, flags, 0o600)
-    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-        os.fchmod(descriptor, 0o600)
-        stream.write(stable_json_dumps(payload))
-        stream.flush()
-        os.fsync(descriptor)
-    return path
 
 
 def _copy_verified_owner_only(

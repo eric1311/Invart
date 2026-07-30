@@ -8,9 +8,9 @@ import stat
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
-from invart.core.artifacts import stable_json_hash
+from invart.core.artifacts import stable_json_dumps, stable_json_hash
 
 from .agent_runtime_manifest import RuntimeManifest
 
@@ -182,6 +182,39 @@ def write_provider_approval_packet(
         encoded = json.dumps(approval.to_dict(), ensure_ascii=False, indent=2, sort_keys=True)
         os.write(descriptor, (encoded + "\n").encode("utf-8"))
         os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    return target
+
+
+def write_owner_only_json(
+    path: Path,
+    payload: Mapping[str, Any],
+    *,
+    field_name: str = "provider artifact",
+) -> Path:
+    target = path.expanduser().absolute()
+    current = Path(target.anchor)
+    for part in target.parts[1:]:
+        current /= part
+        try:
+            mode = os.lstat(current).st_mode
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(mode):
+            raise ValueError(f"{field_name} path must not traverse symlinks")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor = os.open(target, flags, 0o600)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise ValueError(f"{field_name} must be a regular file")
+        with os.fdopen(descriptor, "w", encoding="utf-8", closefd=False) as stream:
+            os.fchmod(descriptor, 0o600)
+            stream.write(stable_json_dumps(payload))
+            stream.flush()
+            os.fsync(descriptor)
     finally:
         os.close(descriptor)
     return target
