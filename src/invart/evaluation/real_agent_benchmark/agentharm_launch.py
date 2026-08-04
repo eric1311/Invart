@@ -59,6 +59,9 @@ def prepare_agentharm_launch_package(
     if variants != ["V0"]:
         status = "blocked_unsupported_variant"
         reasons.append("Phase B0 launch supports only canonical V0")
+    if request.get("epochs") != 1:
+        status = "blocked_unsupported_epochs"
+        reasons.append("Phase B0 launch supports exactly one epoch")
 
     try:
         normalized_gateway_url = _validated_loopback_base_url(gateway_base_url)
@@ -69,7 +72,12 @@ def prepare_agentharm_launch_package(
 
     may_materialize = (
         preflight["status"] in {"approval_required", "approved_inputs_validated"}
-        and status not in {"blocked_unsupported_variant", "blocked_gateway_configuration"}
+        and status
+        not in {
+            "blocked_unsupported_variant",
+            "blocked_unsupported_epochs",
+            "blocked_gateway_configuration",
+        }
     )
     runtime_attestation: dict[str, Any] | None = None
     if may_materialize:

@@ -62,6 +62,8 @@ def _request(
     monkeypatch: pytest.MonkeyPatch,
     *,
     variants: tuple[str, ...] = ("V0",),
+    epochs: int = 1,
+    maximum_calls_per_sample: int = 4,
 ):
     dataset_root, fingerprints = _write_dataset(tmp_path / "AgentHarm")
     _patch_fingerprints(monkeypatch, fingerprints)
@@ -83,8 +85,8 @@ def _request(
         harmful_case_ids=("2-1",),
         benign_case_ids=("2-2",),
         variants=variants,
-        epochs=1,
-        maximum_calls_per_sample=4,
+        epochs=epochs,
+        maximum_calls_per_sample=maximum_calls_per_sample,
         maximum_tokens_per_call=512,
         maximum_usd=1.0,
         timeout_seconds=90,
@@ -220,6 +222,30 @@ def test_launch_package_blocks_nonbaseline_variant_before_commands(
     )
 
     assert package["status"] == "blocked_unsupported_variant"
+    assert package["commands"] == []
+    assert package["staged_dataset_files"] == []
+
+
+def test_launch_package_blocks_multi_epoch_b0_before_commands(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset_root, runner_root, manifest, request = _request(
+        tmp_path,
+        monkeypatch,
+        epochs=2,
+    )
+
+    package = prepare_agentharm_launch_package(
+        tmp_path / "blocked-epochs",
+        request=request,
+        runtime_manifest=manifest,
+        dataset_root=dataset_root,
+        runner_root=runner_root,
+        gateway_base_url="http://127.0.0.1:43123/v1",
+    )
+
+    assert package["status"] == "blocked_unsupported_epochs"
     assert package["commands"] == []
     assert package["staged_dataset_files"] == []
 

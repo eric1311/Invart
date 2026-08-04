@@ -18,6 +18,7 @@ from .agentharm_pilot import (
     validate_agentharm_pilot_preflight,
     write_agentharm_pilot_request,
 )
+from .agentharm_scored_package import finalize_agentharm_scored_package
 from .artifact_writer import (
     attach_p0_official_grader,
     collect_p0_child_runs,
@@ -250,6 +251,7 @@ __all__ = [
     "export_swe_bench_verified_instances_from_manifest",
     "export_p0_review_artifact",
     "freeze_p0_environment",
+    "finalize_agentharm_scored_package",
     "generate_p0_first_batch_plan",
     "generate_p0_completion_audit",
     "generate_p0_remaining_artifacts",

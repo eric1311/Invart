@@ -80,6 +80,7 @@ for _index in range(request_count):
     with urllib.request.urlopen(request, timeout=5) as response:
         body = json.loads(response.read())
 (log_dir / "fixture-result.json").write_text(json.dumps(body), encoding="utf-8")
+(log_dir / "fixture.eval").write_bytes(str(log_dir).encode("utf-8"))
 print(json.dumps({{
     "ambient_present": "INVART_EXECUTOR_AMBIENT_SENTINEL" in os.environ,
     "provider_secret_present": "DASHSCOPE_TP_API_KEY" in os.environ,
@@ -95,8 +96,13 @@ def _prepared_package(
     monkeypatch: pytest.MonkeyPatch,
     *,
     inspect_mode: str = "normal",
+    maximum_calls_per_sample: int = 4,
 ):
-    dataset_root, runner_root, manifest, request = _request(tmp_path, monkeypatch)
+    dataset_root, runner_root, manifest, request = _request(
+        tmp_path,
+        monkeypatch,
+        maximum_calls_per_sample=maximum_calls_per_sample,
+    )
     inspect_executable = runner_root / ".venv" / "bin" / "inspect"
     _write_fixture_inspect(inspect_executable, mode=inspect_mode)
     approval = _approval(manifest, request)
@@ -146,6 +152,7 @@ def test_executor_runs_authenticated_replacement_environment_without_provider_ca
         dataset_root=dataset_root,
         runner_root=runner_root,
         provider_environment={"DASHSCOPE_TP_API_KEY": provider_secret},
+        budget_state_root=tmp_path / "budget-state",
         gateway_transport=transport,
         runtime_attestor=lambda **_kwargs: dict(package["runtime_attestation"]),
         client_token_factory=lambda: "fixture-loopback-client-token-32-bytes",
@@ -156,6 +163,15 @@ def test_executor_runs_authenticated_replacement_environment_without_provider_ca
     assert result["command_count"] == 2
     assert result["gateway_reconciliation"]["forwarded_count"] == 2
     assert result["gateway_reconciliation"]["orphan_request_ids"] == []
+    budget_state = (
+        tmp_path
+        / "budget-state"
+        / f"{approval.approval_hash.removeprefix('sha256:')}.json"
+    )
+    assert budget_state.is_file()
+    assert result["budget_ledger_scope"] == "approval_hash_global"
+    assert result["budget_ledger_state_sha256"].startswith("sha256:")
+    assert not (tmp_path / "execution" / "provider_budget.json").exists()
     assert forwarded == 2
     assert all(
         json.loads(command["supervision"]["stdout"]) == {
@@ -169,6 +185,11 @@ def test_executor_runs_authenticated_replacement_environment_without_provider_ca
     assert "fixture-loopback-client-token-32-bytes" not in serialized
     assert result["native_artifact_status"] == "not_validated"
     assert result["runtime_execution_proof"] is None
+    assert all(
+        path.stat().st_mode & 0o077 == 0
+        for path in [package_dir, *package_dir.rglob("*")]
+        if not path.is_symlink()
+    )
 
 
 def test_executor_rejects_aggregate_calls_that_mask_one_bypassed_command(
@@ -192,6 +213,7 @@ def test_executor_rejects_aggregate_calls_that_mask_one_bypassed_command(
         dataset_root=dataset_root,
         runner_root=runner_root,
         provider_environment={"DASHSCOPE_TP_API_KEY": "fixture-provider-secret"},
+        budget_state_root=tmp_path / "budget-state",
         gateway_transport=lambda **_kwargs: GatewayUpstreamResponse(
             200,
             "application/json",
@@ -206,6 +228,66 @@ def test_executor_rejects_aggregate_calls_that_mask_one_bypassed_command(
     assert result["commands"][0]["gateway_reconciliation"]["forwarded_count"] == 2
     assert result["commands"][1]["gateway_reconciliation"]["forwarded_count"] == 0
     assert result["commands"][1]["succeeded"] is False
+
+
+def test_executor_rejects_per_sample_call_budget_overrun(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        dataset_root,
+        runner_root,
+        _manifest,
+        _request_payload,
+        approval,
+        package_dir,
+        package,
+    ) = _prepared_package(
+        tmp_path,
+        monkeypatch,
+        inspect_mode="bypass",
+        maximum_calls_per_sample=1,
+    )
+
+    forwarded = 0
+
+    def transport(**_kwargs):
+        nonlocal forwarded
+        forwarded += 1
+        return GatewayUpstreamResponse(
+            200,
+            "application/json",
+            (b'{"choices":[{"message":{"content":"ok"}}]}',),
+        )
+
+    result = execute_agentharm_launch_package(
+        package_dir=package_dir,
+        output_dir=tmp_path / "execution",
+        approval=approval,
+        dataset_root=dataset_root,
+        runner_root=runner_root,
+        provider_environment={
+            "DASHSCOPE_TP_API_KEY": "fixture-provider-secret"
+        },
+        budget_state_root=tmp_path / "budget-state",
+        gateway_transport=transport,
+        runtime_attestor=lambda **_kwargs: dict(
+            package["runtime_attestation"]
+        ),
+        client_token_factory=lambda: "fixture-loopback-client-token-32-bytes",
+    )
+
+    assert result["status"] == "execution_failed"
+    assert result["command_count"] == 1
+    assert result["commands"][0]["gateway_reconciliation"][
+        "forwarded_count"
+    ] == 1
+    assert result["commands"][0]["gateway_reconciliation"][
+        "terminal_error_count"
+    ] == 1
+    assert result["commands"][0]["gateway_budget_scope"]["calls_reserved"] == 1
+    assert forwarded == 1
+    assert result["commands"][0]["succeeded"] is False
 
 
 def test_executor_records_gateway_setup_failure_after_output_creation(
@@ -229,6 +311,7 @@ def test_executor_records_gateway_setup_failure_after_output_creation(
         dataset_root=dataset_root,
         runner_root=runner_root,
         provider_environment={},
+        budget_state_root=tmp_path / "budget-state",
         runtime_attestor=lambda **_kwargs: dict(package["runtime_attestation"]),
     )
 

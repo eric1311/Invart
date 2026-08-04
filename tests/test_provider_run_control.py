@@ -111,6 +111,66 @@ def test_budget_ledger_fails_closed_on_scope_mismatch_and_expiry(tmp_path: Path)
         ledger.reserve(manifest=manifest, maximum_tokens=10, at=now + timedelta(hours=2))
 
 
+def test_budget_ledger_enforces_narrower_frozen_request_limits(
+    tmp_path: Path,
+) -> None:
+    now = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
+    manifest = _manifest()
+    approval = _approval(now=now, max_calls=4, max_tokens=2000)
+    ledger = ProviderBudgetLedger(
+        approval=approval,
+        state_path=tmp_path / "budget.json",
+        maximum_calls=1,
+        maximum_total_tokens=200,
+    )
+
+    reservation = ledger.reserve(
+        manifest=manifest,
+        maximum_tokens=200,
+        at=now,
+        request_id="request-limit-1",
+    )
+
+    assert reservation["remaining_calls"] == 0
+    assert reservation["remaining_tokens"] == 0
+    with pytest.raises(RuntimeError, match="call budget exhausted"):
+        ledger.reserve(
+            manifest=manifest,
+            maximum_tokens=1,
+            at=now,
+            request_id="request-limit-2",
+        )
+    with pytest.raises(ValueError, match="cannot exceed provider approval"):
+        ProviderBudgetLedger(
+            approval=approval,
+            state_path=tmp_path / "too-large.json",
+            maximum_calls=5,
+        )
+
+
+def test_budget_ledger_rejects_existing_empty_state_after_interruption(
+    tmp_path: Path,
+) -> None:
+    now = datetime(2026, 7, 19, 12, 0, tzinfo=timezone.utc)
+    state_path = tmp_path / "budget.json"
+    state_path.write_bytes(b"")
+    state_path.chmod(0o600)
+    ledger = ProviderBudgetLedger(
+        approval=_approval(now=now),
+        state_path=state_path,
+    )
+
+    with pytest.raises(RuntimeError, match="empty or interrupted"):
+        ledger.reserve(
+            manifest=_manifest(),
+            maximum_tokens=10,
+            at=now,
+            request_id="must-not-reopen",
+        )
+
+    assert state_path.read_bytes() == b""
+
+
 def test_recursive_artifact_scan_detects_nested_secret_patterns_and_permissions(tmp_path: Path) -> None:
     secret = "dashscope-test-secret-123456"
     nested = tmp_path / "nested"

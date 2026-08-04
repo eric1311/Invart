@@ -20,7 +20,7 @@ from .provider_credentials import redact_provider_secrets
 from .provider_run_control import ProviderBudgetLedger
 
 
-GATEWAY_RECORD_SCHEMA_VERSION = "invart.provider_budget_gateway_record.v0.1"
+GATEWAY_RECORD_SCHEMA_VERSION = "invart.provider_budget_gateway_record.v0.2"
 
 
 @dataclass(frozen=True)
@@ -119,6 +119,7 @@ class ProviderBudgetGateway:
         maximum_tokens_per_call: int,
         timeout: float = 120.0,
         transport: GatewayTransport | None = None,
+        require_command_scope: bool = False,
     ) -> None:
         profile = manifest.provider_profile
         if profile is None:
@@ -140,7 +141,47 @@ class ProviderBudgetGateway:
         self.timeout = float(timeout)
         self._transport = transport or _urllib_gateway_transport
         self._record_lock = threading.Lock()
+        self._scope_lock = threading.Lock()
+        self._require_command_scope = bool(require_command_scope)
+        self._active_command_scope: dict[str, Any] | None = None
         budget_ledger.validate_scope(manifest=manifest)
+
+    def begin_command_scope(
+        self,
+        *,
+        command_id: str,
+        maximum_calls: int,
+        maximum_total_tokens: int,
+    ) -> dict[str, Any]:
+        normalized_command_id = str(command_id or "").strip()
+        if not normalized_command_id:
+            raise ValueError("gateway command scope requires a command ID")
+        call_limit = int(maximum_calls)
+        token_limit = int(maximum_total_tokens)
+        if call_limit <= 0 or token_limit <= 0:
+            raise ValueError("gateway command scope limits must be positive")
+        with self._scope_lock:
+            if self._active_command_scope is not None:
+                raise RuntimeError("gateway command scope is already active")
+            self._active_command_scope = {
+                "command_id": normalized_command_id,
+                "maximum_calls": call_limit,
+                "maximum_total_tokens": token_limit,
+                "calls_reserved": 0,
+                "tokens_reserved": 0,
+            }
+            return dict(self._active_command_scope)
+
+    def end_command_scope(self, *, command_id: str) -> dict[str, Any]:
+        normalized_command_id = str(command_id or "").strip()
+        with self._scope_lock:
+            scope = self._active_command_scope
+            if scope is None:
+                raise RuntimeError("gateway command scope is not active")
+            if scope["command_id"] != normalized_command_id:
+                raise RuntimeError("gateway command scope ID mismatch")
+            self._active_command_scope = None
+            return dict(scope)
 
     def models_payload(self) -> dict[str, Any]:
         return {
@@ -165,6 +206,9 @@ class ProviderBudgetGateway:
                 raise ValueError("gateway request model does not match approved manifest")
             if not isinstance(messages, list):
                 raise ValueError("gateway request requires a messages list")
+            completion_count = request_payload.get("n", 1)
+            if type(completion_count) is not int or completion_count != 1:
+                raise ValueError("gateway supports exactly one completion per request")
             requested_maximum_tokens = _requested_maximum_tokens(
                 request_payload,
                 default=self.maximum_tokens_per_call,
@@ -196,8 +240,20 @@ class ProviderBudgetGateway:
 
         maximum_tokens = min(requested_maximum_tokens, self.maximum_tokens_per_call)
         token_limit_clamped = requested_maximum_tokens > maximum_tokens
-        if token_limit_clamped:
-            for field_name in ("max_tokens", "max_completion_tokens", "max_output_tokens"):
+        maximum_token_fields = (
+            "max_tokens",
+            "max_completion_tokens",
+            "max_output_tokens",
+        )
+        supplied_token_fields = [
+            field_name
+            for field_name in maximum_token_fields
+            if field_name in request_payload
+        ]
+        if not supplied_token_fields:
+            request_payload["max_tokens"] = maximum_tokens
+        elif token_limit_clamped:
+            for field_name in maximum_token_fields:
                 if field_name in request_payload:
                     request_payload[field_name] = maximum_tokens
         initiated_at = utc_now()
@@ -208,11 +264,32 @@ class ProviderBudgetGateway:
                 "thread_id": threading.get_ident(),
             }
         )
-        reservation = self.budget_ledger.reserve(
-            manifest=self.manifest,
-            maximum_tokens=maximum_tokens,
-            request_id=gateway_request_id,
-        )
+        try:
+            reservation, command_scope_id = self._reserve_budget(
+                maximum_tokens=maximum_tokens,
+                request_id=gateway_request_id,
+            )
+        except (RuntimeError, ValueError) as exc:
+            self._append_record(
+                {
+                    "schema_version": GATEWAY_RECORD_SCHEMA_VERSION,
+                    "recorded_at": utc_now(),
+                    "status": "rejected_before_reservation",
+                    "provider": self.manifest.request.requested_provider,
+                    "requested_model": requested_model,
+                    "expected_model": expected_model,
+                    "manifest_hash": self.manifest.manifest_hash,
+                    "request_hash": request_hash,
+                    "command_scope_id": self._current_command_scope_id(),
+                    "stream_requested": bool(request_payload.get("stream")),
+                    "message_count": len(messages),
+                    "request_fields": sorted(str(key) for key in request_payload),
+                    "maximum_tokens": maximum_tokens,
+                    "reason": str(exc),
+                    "budget_reserved": False,
+                }
+            )
+            raise
         profile = self.manifest.provider_profile
         if profile is None:  # pragma: no cover - constructor invariant
             raise RuntimeError("gateway provider profile unavailable")
@@ -227,6 +304,7 @@ class ProviderBudgetGateway:
             "model": expected_model,
             "manifest_hash": self.manifest.manifest_hash,
             "request_hash": request_hash,
+            "command_scope_id": command_scope_id,
             "forwarded_request_hash": stable_json_hash(request_payload),
             "stream_requested": bool(request_payload.get("stream")),
             "message_count": len(messages),
@@ -249,7 +327,12 @@ class ProviderBudgetGateway:
             )
             if not isinstance(upstream, GatewayUpstreamResponse):
                 raise RuntimeError("gateway transport returned an invalid response")
-            response_hash = "sha256:" + hashlib.sha256(b"".join(upstream.chunks)).hexdigest()
+            response_body = b"".join(upstream.chunks)
+            response_hash = "sha256:" + hashlib.sha256(response_body).hexdigest()
+            assistant_evidence = _assistant_response_evidence(
+                content_type=upstream.content_type,
+                response_body=response_body,
+            )
             record = {
                 "schema_version": GATEWAY_RECORD_SCHEMA_VERSION,
                 "recorded_at": utc_now(),
@@ -260,8 +343,10 @@ class ProviderBudgetGateway:
                 "model": expected_model,
                 "manifest_hash": self.manifest.manifest_hash,
                 "request_hash": request_hash,
+                "command_scope_id": command_scope_id,
                 "forwarded_request_hash": stable_json_hash(request_payload),
                 "response_hash": response_hash,
+                **assistant_evidence,
                 "stream_requested": bool(request_payload.get("stream")),
                 "message_count": len(messages),
                 "request_fields": sorted(str(key) for key in request_payload),
@@ -294,6 +379,7 @@ class ProviderBudgetGateway:
                 "model": expected_model,
                 "manifest_hash": self.manifest.manifest_hash,
                 "request_hash": request_hash,
+                "command_scope_id": command_scope_id,
                 "stream_requested": bool(request_payload.get("stream")),
                 "message_count": len(messages),
                 "request_fields": sorted(str(key) for key in request_payload),
@@ -305,6 +391,41 @@ class ProviderBudgetGateway:
             }
             self._append_record(record)
             raise
+
+    def _reserve_budget(
+        self,
+        *,
+        maximum_tokens: int,
+        request_id: str,
+    ) -> tuple[dict[str, Any], str | None]:
+        with self._scope_lock:
+            scope = self._active_command_scope
+            if self._require_command_scope and scope is None:
+                raise RuntimeError("gateway command scope is required")
+            if scope is not None:
+                if int(scope["calls_reserved"]) >= int(scope["maximum_calls"]):
+                    raise RuntimeError("gateway command call budget exhausted")
+                if (
+                    int(scope["tokens_reserved"]) + maximum_tokens
+                    > int(scope["maximum_total_tokens"])
+                ):
+                    raise RuntimeError("gateway command token budget exhausted")
+            reservation = self.budget_ledger.reserve(
+                manifest=self.manifest,
+                maximum_tokens=maximum_tokens,
+                request_id=request_id,
+            )
+            if scope is None:
+                return reservation, None
+            scope["calls_reserved"] = int(scope["calls_reserved"]) + 1
+            scope["tokens_reserved"] = int(scope["tokens_reserved"]) + maximum_tokens
+            return reservation, str(scope["command_id"])
+
+    def _current_command_scope_id(self) -> str | None:
+        with self._scope_lock:
+            if self._active_command_scope is None:
+                return None
+            return str(self._active_command_scope["command_id"])
 
     def record_client_authentication_rejection(self, *, method: str, path: str) -> None:
         self._append_record(
@@ -451,13 +572,111 @@ def _requested_maximum_tokens(payload: Mapping[str, Any], *, default: int) -> in
         payload.get("max_output_tokens"),
     ]
     supplied = [value for value in values if value is not None]
-    if len(supplied) > 1 and len({int(value) for value in supplied}) > 1:
-        raise ValueError("gateway request has conflicting maximum token fields")
+    if len(supplied) > 1:
+        raise ValueError("gateway request has multiple maximum token fields")
     value = supplied[0] if supplied else default
     maximum = int(value)
     if maximum <= 0:
         raise ValueError("gateway maximum tokens must be positive")
     return maximum
+
+
+def _assistant_response_evidence(
+    *,
+    content_type: str,
+    response_body: bytes,
+) -> dict[str, Any]:
+    payloads = (
+        _server_sent_event_payloads(response_body)
+        if "text/event-stream" in content_type.lower()
+        else _json_response_payloads(response_body)
+    )
+    fragments: list[dict[str, Any]] = []
+    for payload in payloads:
+        choices = payload.get("choices")
+        if not isinstance(choices, list):
+            continue
+        for choice in choices:
+            if not isinstance(choice, Mapping):
+                continue
+            fragment = choice.get("message")
+            if not isinstance(fragment, Mapping):
+                fragment = choice.get("delta")
+            if isinstance(fragment, Mapping):
+                fragments.append(dict(fragment))
+    return {
+        "assistant_message_observed": bool(fragments),
+        "assistant_nonempty": any(_assistant_fragment_nonempty(item) for item in fragments),
+        "assistant_message_hash": stable_json_hash(
+            {"assistant_fragments": fragments}
+        ),
+    }
+
+
+def _json_response_payloads(response_body: bytes) -> list[Mapping[str, Any]]:
+    try:
+        payload = json.loads(response_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return []
+    return [payload] if isinstance(payload, Mapping) else []
+
+
+def _server_sent_event_payloads(response_body: bytes) -> list[Mapping[str, Any]]:
+    payloads: list[Mapping[str, Any]] = []
+    try:
+        response = response_body.decode("utf-8")
+    except UnicodeDecodeError:
+        return payloads
+    for line in response.splitlines():
+        if not line.startswith("data:"):
+            continue
+        data = line.removeprefix("data:").strip()
+        if not data or data == "[DONE]":
+            continue
+        try:
+            payload = json.loads(data)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, Mapping):
+            payloads.append(payload)
+    return payloads
+
+
+def _assistant_fragment_nonempty(fragment: Mapping[str, Any]) -> bool:
+    content = fragment.get("content")
+    if isinstance(content, str) and bool(content.strip()):
+        return True
+    if isinstance(content, list) and any(
+        (
+            isinstance(item, str)
+            and bool(item.strip())
+        )
+        or (
+            isinstance(item, Mapping)
+            and any(
+                isinstance(item.get(field_name), str)
+                and bool(str(item[field_name]).strip())
+                for field_name in ("text", "content")
+            )
+        )
+        for item in content
+    ):
+        return True
+    return any(
+        bool(fragment.get(field_name))
+        for field_name in ("tool_calls", "function_call")
+    )
+
+
+class _RejectRedirects(urllib_request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib_error.HTTPError(
+            req.full_url,
+            code,
+            "provider gateway redirects are forbidden",
+            headers,
+            fp,
+        )
 
 
 def _urllib_gateway_transport(
@@ -474,7 +693,8 @@ def _urllib_gateway_transport(
         method="POST",
     )
     try:
-        with urllib_request.urlopen(request, timeout=timeout) as response:
+        opener = urllib_request.build_opener(_RejectRedirects())
+        with opener.open(request, timeout=timeout) as response:
             chunks = tuple(iter(lambda: response.read(65536), b""))
             return GatewayUpstreamResponse(
                 status=int(response.status),
@@ -482,7 +702,6 @@ def _urllib_gateway_transport(
                 chunks=chunks,
             )
     except urllib_error.HTTPError as exc:
-        body_bytes = exc.read()
         raise RuntimeError(f"provider gateway upstream failed: HTTP {exc.code}") from exc
     except Exception as exc:
         raise RuntimeError(f"provider gateway upstream failed: {type(exc).__name__}") from exc

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import stat
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
@@ -33,6 +36,8 @@ from .provider_credentials import redact_provider_secrets
 from .provider_run_control import (
     ProviderApprovalPacket,
     ProviderBudgetLedger,
+    read_owner_only_json,
+    require_owner_only_directory,
     secure_provider_artifact_tree,
     write_owner_only_json,
 )
@@ -50,9 +55,10 @@ def validate_agentharm_launch_package_for_execution(
     dataset_root: Path,
     runner_root: Path,
     runtime_attestor: RuntimeAttestor = attest_agentharm_inspect_runtime,
+    approval_validation_at: datetime | None = None,
 ) -> dict[str, Any]:
-    root = _regular_owner_only_directory(package_dir, field_name="launch package")
-    package = _read_owner_only_json(root / "launch_plan.json", field_name="launch plan")
+    root = require_owner_only_directory(package_dir, field_name="launch package")
+    package = read_owner_only_json(root / "launch_plan.json", field_name="launch plan")
     if package.get("schema_version") != AGENTHARM_LAUNCH_PACKAGE_SCHEMA_VERSION:
         raise ValueError("AgentHarm launch package schema mismatch")
     package_hash = str(package.get("package_hash") or "")
@@ -70,7 +76,7 @@ def validate_agentharm_launch_package_for_execution(
         raise ValueError("AgentHarm launch package approval hash mismatch")
 
     request = load_agentharm_pilot_request(root / "request.json")
-    manifest_payload = _read_owner_only_json(
+    manifest_payload = read_owner_only_json(
         root / "runtime_manifest.json",
         field_name="runtime manifest",
     )
@@ -86,6 +92,7 @@ def validate_agentharm_launch_package_for_execution(
         dataset_root=dataset_root,
         runner_root=runner_root,
         approval=approval,
+        at=approval_validation_at,
     )
     if preflight.get("status") != "approved_inputs_validated":
         raise RuntimeError("AgentHarm launch approval or live source preflight is no longer valid")
@@ -155,6 +162,7 @@ def execute_agentharm_launch_package(
     dataset_root: Path,
     runner_root: Path,
     provider_environment: Mapping[str, str],
+    budget_state_root: Path | None = None,
     gateway_transport: GatewayTransport | None = None,
     runtime_attestor: RuntimeAttestor = attest_agentharm_inspect_runtime,
     client_token_factory: ClientTokenFactory | None = None,
@@ -173,6 +181,10 @@ def execute_agentharm_launch_package(
     provider_secret = str(provider_environment.get(credential_name) or "")
     provider_secret_values = (provider_secret,) if provider_secret else ()
     gateway_log_path = output / "provider_gateway_requests.jsonl"
+    budget_state_path = _approval_budget_state_path(
+        approval,
+        root=budget_state_root,
+    )
     client_token: str | None = None
     gateway: ProviderBudgetGateway | None = None
     server = None
@@ -187,7 +199,9 @@ def execute_agentharm_launch_package(
         )
         ledger = ProviderBudgetLedger(
             approval=approval,
-            state_path=output / "provider_budget.json",
+            state_path=budget_state_path,
+            maximum_calls=int(request["max_calls"]),
+            maximum_total_tokens=int(request["max_total_tokens"]),
         )
         gateway = ProviderBudgetGateway(
             manifest=manifest,
@@ -197,6 +211,7 @@ def execute_agentharm_launch_package(
             maximum_tokens_per_call=int(request["maximum_tokens_per_call"]),
             timeout=float(request["execution_limits"]["timeout_seconds"]),
             transport=gateway_transport,
+            require_command_scope=True,
         )
         server, thread, actual_port = start_provider_budget_gateway(
             gateway=gateway,
@@ -207,12 +222,27 @@ def execute_agentharm_launch_package(
             raise RuntimeError("AgentHarm gateway bound an unexpected port")
         for row in context["commands"]:
             before_record_count = len(_read_jsonl(gateway_log_path))
-            record = _execute_command(
-                row,
-                client_token=client_token,
-                provider_credential_name=credential_name,
-                provider_secret_values=provider_secret_values,
+            command_id = str(row["command_id"])
+            maximum_calls_per_sample = int(request["maximum_calls_per_sample"])
+            maximum_tokens_per_call = int(request["maximum_tokens_per_call"])
+            gateway.begin_command_scope(
+                command_id=command_id,
+                maximum_calls=maximum_calls_per_sample,
+                maximum_total_tokens=(
+                    maximum_calls_per_sample * maximum_tokens_per_call
+                ),
             )
+            try:
+                record = _execute_command(
+                    row,
+                    client_token=client_token,
+                    provider_credential_name=credential_name,
+                    provider_secret_values=provider_secret_values,
+                )
+            finally:
+                command_budget_scope = gateway.end_command_scope(
+                    command_id=command_id
+                )
             command_gateway_records = _read_jsonl(gateway_log_path)[
                 before_record_count:
             ]
@@ -223,8 +253,14 @@ def execute_agentharm_launch_package(
                 command_reconciliation["forwarded_count"] >= 1
                 and command_reconciliation["terminal_error_count"] == 0
                 and not command_reconciliation["orphan_request_ids"]
+                and _gateway_records_within_sample_budget(
+                    command_gateway_records,
+                    maximum_calls=maximum_calls_per_sample,
+                    maximum_tokens_per_call=maximum_tokens_per_call,
+                )
             )
             record["gateway_reconciliation"] = command_reconciliation
+            record["gateway_budget_scope"] = command_budget_scope
             record["succeeded"] = (
                 record["succeeded"] and command_gateway_complete
             )
@@ -249,6 +285,12 @@ def execute_agentharm_launch_package(
 
     gateway_records = _read_jsonl(gateway_log_path)
     reconciliation = reconcile_gateway_records(gateway_records)
+    gateway_log_sha256 = (
+        sha256_file(gateway_log_path, prefixed=True)
+        if gateway_log_path.is_file()
+        else None
+    )
+    secure_provider_artifact_tree(context["package_dir"])
     all_commands_succeeded = (
         execution_error is None
         and len(command_records) == len(context["commands"])
@@ -285,6 +327,13 @@ def execute_agentharm_launch_package(
         "execution_error": execution_error,
         "commands": command_records,
         "gateway_reconciliation": reconciliation,
+        "gateway_log_sha256": gateway_log_sha256,
+        "budget_ledger_scope": "approval_hash_global",
+        "budget_ledger_state_sha256": (
+            sha256_file(budget_state_path, prefixed=True)
+            if budget_state_path.is_file()
+            else None
+        ),
         "runtime_receipt": runtime_receipt.to_dict(),
         "native_artifact_status": "not_validated",
         "runtime_execution_proof": None,
@@ -366,19 +415,66 @@ def _gateway_port(base_url: str) -> int:
     return int(parsed.port)
 
 
+def _gateway_records_within_sample_budget(
+    records: list[dict[str, Any]],
+    *,
+    maximum_calls: int,
+    maximum_tokens_per_call: int,
+) -> bool:
+    reservations = [
+        record.get("budget_reservation")
+        for record in records
+        if record.get("status") == "reserved_pending"
+    ]
+    if len(reservations) > maximum_calls:
+        return False
+    reserved_tokens = sum(
+        int(reservation.get("tokens_reserved") or 0)
+        for reservation in reservations
+        if isinstance(reservation, Mapping)
+    )
+    return (
+        len(reservations)
+        == sum(isinstance(reservation, Mapping) for reservation in reservations)
+        and reserved_tokens <= maximum_calls * maximum_tokens_per_call
+    )
+
+
 def _random_client_token() -> str:
     import secrets
 
     return secrets.token_urlsafe(32)
 
 
-def _regular_owner_only_directory(path: Path, *, field_name: str) -> Path:
-    candidate = path.expanduser().absolute()
-    if candidate.is_symlink() or not candidate.is_dir():
-        raise ValueError(f"{field_name} must be a regular non-symlink directory")
-    if candidate.stat().st_mode & 0o077:
-        raise ValueError(f"{field_name} must be owner-only")
-    return candidate
+def _approval_budget_state_path(
+    approval: ProviderApprovalPacket,
+    *,
+    root: Path | None,
+) -> Path:
+    if root is None:
+        state_home = Path(
+            os.environ.get("XDG_STATE_HOME")
+            or (Path.home() / ".local" / "state")
+        )
+        candidate = state_home / "invart" / "provider-budgets"
+    else:
+        candidate = root
+    resolved = candidate.expanduser().absolute()
+    current = Path(resolved.anchor)
+    for part in resolved.parts[1:]:
+        current /= part
+        try:
+            mode = os.lstat(current).st_mode
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(mode):
+            raise ValueError("provider budget state root must not traverse symlinks")
+    resolved.mkdir(parents=True, exist_ok=True, mode=0o700)
+    resolved.chmod(0o700)
+    key = approval.approval_hash.removeprefix("sha256:")
+    if not key or any(character not in "0123456789abcdef" for character in key):
+        raise ValueError("provider approval hash is not a canonical SHA-256")
+    return resolved / f"{key}.json"
 
 
 def _create_owner_only_directory(path: Path) -> Path:
@@ -386,21 +482,6 @@ def _create_owner_only_directory(path: Path) -> Path:
     candidate.mkdir(parents=True, mode=0o700, exist_ok=False)
     candidate.chmod(0o700)
     return candidate
-
-
-def _read_owner_only_json(path: Path, *, field_name: str) -> dict[str, Any]:
-    candidate = path.expanduser().absolute()
-    if candidate.is_symlink() or not candidate.is_file():
-        raise ValueError(f"{field_name} must be a regular non-symlink file")
-    if candidate.stat().st_mode & 0o077:
-        raise ValueError(f"{field_name} must be owner-only")
-    try:
-        payload = json.loads(candidate.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"{field_name} is invalid JSON") from exc
-    if not isinstance(payload, dict):
-        raise ValueError(f"{field_name} must be an object")
-    return payload
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
