@@ -213,13 +213,22 @@ Agent runtime 与 model backend 是两个独立变量：
 当前 AgentHarm 已完成的代码级证据包括：
 
 - 只接受 Inspect `.eval` 中唯一的官方 `combined_scorer`，拒绝无分数、伪 scorer、布尔值和非有限数；
+- 从 sample 级 `score`、`refusal` 和 category 重算官方六项 run aggregate，并拒绝 `.eval` 中 aggregate 与 sample 不一致、缺失或 scorer 漂移；
 - capability control 与 harmful artifact 绑定同一模型、judges、execution package 和 case 集合；
+- capability gate 的 benign scored denominator、minimum mean functional grader 和 minimum tool-use rate 已进入 request hash 与 approval scope，执行后不能静默改阈值；
 - 官方 package validator 重新 dump、重新抽取、重新构造并核对 hash；
 - approval request 通过 `approval_scope_hash` 绑定精确 harmful/benign case IDs、variant、epoch、模型/judge、case/source/runtime manifest、调用/token 上限与金额上限；不同实验范围不能复用同一 approval purpose；
+- Phase-B0 launch 只接受 canonical V0 和 1 epoch；多 epoch 在 runner 的独立命令与 Inspect sample epoch 能被一致绑定前保持 fail closed；
 - validation source package 绑定 Hugging Face revision/etag、完整 JSON 文件 hash、license contract、Inspect runner Git revision、关键 runner 文件 hash 和整个 checkout 的 clean 状态；
 - 完整 validation case manifest 由已验证文件派生，固定 32 个 harmful 与 32 个 benign case，并绑定完整 case-ID 集合 hash；
 - 最终 preflight 会从当前 dataset/runner 路径重新生成并核对 source 与 case manifest；请求生成后若数据或 runner 变化，会 fail closed；
 - `python -m invart.evaluation.real_agent_benchmark.agentharm_pilot_cli` 可生成并验证无执行权限的 V0/V5 请求；CLI 不创建 approval，也不发起 provider 调用；
+- Phase-B0 executor 使用替换式子进程环境和带预算 reservation 的 loopback gateway；ledger 以 approval hash 键控并持久化在 execution 目录之外，使用独立锁、原子替换和父目录 `fsync`，因此同一 approval 的重复/并发 execution 共享预算；ledger 同时受 approval 和冻结 request 上限约束，gateway 在每个 AgentHarm 命令执行前建立独立 scope，并在每次 provider reservation/forward 之前强制逐 sample 调用/生成-token 上限；gateway 只允许单 completion、在缺省时注入冻结 token 上限，并拒绝 provider redirect；供应商凭据不会进入 AgentHarm 子进程，gateway receipt 只保留 assistant 内容/tool-call 的非空判定和 hash，不保留 prompt、completion 或凭据明文；
+- execution record 绑定完整 gateway log 文件 hash 和全局/逐命令 request-ID 集合；scored-package finalizer 要求每个命令恰好一个 `.eval`，重新 dump 官方 scorer、核对 command/case/epoch/model/judges，并再次核对 gateway schema/provider/model/manifest/approval/request IDs、capability control、native artifact manifest 和 runtime execution proof；
+- finalizer 先在 owner-only 临时目录构建和验证全部 native artifacts 与 score record，再以单次目录 rename 原子发布 `scored/`；普通 dump/validation 失败或发布前进程中断不会产生 `native` 已发布但 score record 缺失的半包；
+- runtime execution proof 的 `native_artifact_sha256` 是 `native_artifact_manifest.json` 的文件字节摘要；manifest 内的 `manifest_hash` 继续表示清单内容摘要，两者不能混用；
+- `python -m invart.evaluation.real_agent_benchmark.agentharm_executor_cli` 要求 operator 分别输入与 launch package、approval packet 完全一致的 `--confirm-request-hash` 和 `--confirm-approval-hash`；任一不一致时在任何 provider execution 前 fail closed；
+- 当前 local Phase-B0 的 approval packet/hash 是 operator-controlled invocation 下的一致性与显式确认护栏，不是密码学签名或 operator 身份认证。若威胁模型允许 agent 控制父进程、approval 文件和 CLI 参数，则必须先引入外部 trust root（例如签名/MAC、OS credential 或独立审批服务），不能把现有 hash 表述为不可伪造授权；
 - 单条件 gate 只区分 `technical_invalid`、`capability_only`、`attack_floor`、`opportunity_qualified`，不再把单组结果写成 `security_comparable`；
 - canonical V0/V5 treatment binding 绑定 Policy variant hash、request hash、technical evidence hash 和精确 harmful artifact hashes；
 - 只有 V0/V5 的 exact pair 才能进入 `security_comparable`：模型、judges、execution/grader binding、capability control、request、case set、split 和 epoch 必须一致；
@@ -229,11 +238,14 @@ Agent runtime 与 model backend 是两个独立变量：
 
 尚未完成：
 
-- 官方数据曾因隔离 `HOME` 位于非默认缓存路径；当前 public validation 数据和官方 runner checkout 已重新定位并通过 source attestation，不再是当前阻断；
-- 当前最小 V0 request 已于 2026-07-24 通过非执行 CLI 从真实 manifest 重新生成，选择同一基础行为的 `7-1` harmful/benign 配对；request hash 为 `sha256:2b4bf27a067fbe42fb45e5a99b60a8ae77ab29b0d4b2f78f6d6f4e6af20175b3`，approval scope hash 为 `sha256:ec8bf781eac3496188496dc23b06f1dccf20a44568e4720f458c1a944e0b90d5`，新的 provider approval packet 尚未形成，live-source preflight 正确返回 `approval_required`；
-- 旧 approval request 在当前严格 preflight 下已经过时，不能执行；
+- `.local/phase-b/agentharm/approval-request.json` 的 v0.1 旧 request 没有 capability-gate binding，已经过时且不能执行；文档中先前记录的 2026-07-24 request/scope hash 没有对应保留 artifact，已撤回且不作为实验身份；
+- 当前 pinned public validation snapshot、`inspect_evals` runner 和 `inspect_ai` runtime 已重新定位；source package 固定 32 个 harmful 与 32 个 benign case，case manifest hash 为 `sha256:b766d06f283b538fe8bf58a4c091cf52cbf989fe79dd4dfe2d33383ff291fc1e`，source attestation hash 为 `sha256:9e1f7bf27605309a71a400e51f3945f8a6453b393111e60f1a9ac35ed14c9379`；
+- 当前无执行权限的 v0.4 V0 request 保存在 `.local/phase-b/agentharm/request-v0.4.json`，选择 dataset-derived `7-1` benign/harmful、1 epoch、每 sample 最多 32 calls、每 call 最多 4096 generated output tokens、180 秒 timeout、capability thresholds 均为 1.0；request hash 为 `sha256:67a22c0fb64cfc64810580002b6680b2417b9de20de170c08e184564905e89a6`，approval scope hash 为 `sha256:8c8cc15dbb3d353cf405bb582e3ea821a504d6a029b7c0581ba815d3a9e77356`；
+- 该 request 的当前 preflight 唯一 reason 是 `provider_approval_missing`；它不是 approval，也没有触发 provider execution；
 - 尚未进行付费 provider scored pilot，因此没有 AgentHarm security-effect 结果；
-- runtime execution proof 目前完成的是 fail-closed 数据合同；在真实 native runner/ledger 产出并保留 execution record 前，fixture proof 不能作为真实 `native_runtime` 证据；
+- 尚未实现可抵抗父进程/同 UID agent 的密码学 approval trust root；当前双 hash confirmation 只允许用于本次 operator-controlled local pilot，不能据此声称 enterprise-grade、不可伪造的人类授权；
+- 当前通过的是无供应商 fixture 集成与篡改测试；真实 AgentHarm expected/attempted/scored/capability-qualified/opportunity denominator 均为 0，fixture score record 不能作为论文实验结果；
+- runtime execution proof 目前完成的是 fail-closed 数据合同；在真实 native runner/ledger 产出并保留 execution record、`.eval` 和 gateway receipts 前，fixture proof 不能作为真实 `native_runtime` 证据；
 - MCPTox 缺少已资格化的官方 end-to-end runner，MCP-AgentBench 缺少冻结的官方 executable source/license/server/evaluator。
 
 ### Phase C-F：待执行
@@ -247,14 +259,15 @@ Agent runtime 与 model backend 是两个独立变量：
 
 按以下顺序推进，不并发启动尚未满足前置条件的付费实验：
 
-1. 已完成：重新定位 AgentHarm 官方数据与 runner checkout，记录 revision、license、文件 hash、下载元数据和来源证明。
-2. 已完成：从真实 validation 数据生成冻结 case manifest，并选择同一基础行为的 `7-1` benign/harmful 配对，不手工杜撰 case ID。
-3. 下一步：经 operator 明确批准后，用当前严格 schema 生成新的 approval packet，确认模型、judges、预算、timeout、case hash 和安全 sandbox。
-4. 获得明确批准后运行最小 scored smoke，核对 provider ingress、request IDs、非空 completion、`.eval`、官方 scorer 和 case count。
-5. 若 benign capability 失败，停止并修 provider/model/tool compatibility；若 attack opportunity 为零，保留 floor 结果并换预注册 stack，而不是调整 benchmark labels。
-6. 只有 V0 baseline 出现 `opportunity_qualified` 才进入 stratified V0/V5 paired pilot；只有 exact pair gate 产生 `security_comparable` 才能估计效果，随后再检查 sensitivity、utility 和 precision gate。
-7. AgentHarm 主链稳定后，并发推进 AgentDyn adapter、Skill-Inject adapter 和 audit-study fixtures；MCPTox 继续以 runner qualification 为第一门槛。
-8. 在主 Policy 冻结后执行 transfer 与 connected panel，任何 holdout 后调参都创建新 exploratory version。
+1. 已完成：Phase-B0 executor、request-bounded gateway receipt、官方 aggregate replay、可重试 scored-package finalizer、精确 native-manifest 文件摘要 runtime proof 和双 hash confirmation CLI 的无供应商开发与篡改验证。
+2. 已完成：重新定位 pinned AgentHarm validation 数据、`inspect_evals` runner 与 `inspect_ai` runtime，记录 revision、license、文件 hash、下载元数据和来源证明。
+3. 已完成：从重新验证的 validation 数据生成冻结 case manifest，选择 dataset-derived `7-1` benign/harmful V0 smoke case，并生成当前 v0.4 request；该步骤没有创建 approval、没有发起 provider 调用。
+4. 下一步：将 request hash、approval scope、模型/judges、预算、timeout、case hash、capability thresholds、sandbox 输入和 local operator trust assumption 提交 operator 精确批准，再由 operator-controlled 路径生成新 approval packet。
+5. 获得明确批准后，通过 executor CLI 输入相同 request hash 与 approval hash，运行最小 scored smoke，并核对 provider ingress/request IDs、gateway log digest、非空 assistant、每命令单一 `.eval`、官方 sample/run scorer 一致性和 case count。
+6. 若 benign capability 失败，停止并修 provider/model/tool compatibility；若 attack opportunity 为零，保留 floor 结果并换预注册 stack，而不是调整 benchmark labels。
+7. 只有 V0 baseline 出现 `opportunity_qualified` 才进入 stratified V0/V5 paired pilot；只有 exact pair gate 产生 `security_comparable` 才能估计效果，随后再检查 sensitivity、utility 和 precision gate。
+8. AgentHarm 主链稳定后，并发推进 AgentDyn adapter、Skill-Inject adapter 和 audit-study fixtures；MCPTox 继续以 runner qualification 为第一门槛。
+9. 在主 Policy 冻结后执行 transfer 与 connected panel，任何 holdout 后调参都创建新 exploratory version。
 
 ## 9. 投稿时允许与禁止的表述
 
