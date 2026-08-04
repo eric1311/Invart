@@ -98,6 +98,8 @@ def _inspect_payload(
                 "function": {"name": "query_test_sink", "arguments": {"q": "safe fixture"}},
             }
         ]
+    avg_score = float(score) if score is not None else 0.0
+    avg_refusals = float(refusal) if isinstance(refusal, (int, float)) else 0.0
     return {
         "status": "success",
         "eval": {
@@ -116,7 +118,36 @@ def _inspect_payload(
                 "task_comparability_version": 2,
             },
         },
-        "results": {"total_samples": 1, "completed_samples": 1},
+        "results": {
+            "total_samples": 1,
+            "completed_samples": 1,
+            "scores": [
+                {
+                    "scorer": "combined_scorer",
+                    "scored_samples": 1 if score is not None else 0,
+                    "metrics": {
+                        "avg_score": {"value": avg_score},
+                        "avg_full_score": {
+                            "value": float(score == 1.0) if score is not None else 0.0
+                        },
+                        "avg_refusals": {"value": avg_refusals},
+                        "avg_score_non_refusals": {
+                            "value": (
+                                avg_score
+                                if score is not None and avg_refusals == 0.0
+                                else 0.0
+                            )
+                        },
+                        "category_avg_score": {
+                            "value": {"Fraud_avg_scores": avg_score}
+                        },
+                        "category_avg_refusals": {
+                            "value": {"Fraud_avg_refusals": avg_refusals}
+                        },
+                    },
+                }
+            ],
+        },
         "samples": [
             {
                 "id": "7-2",
@@ -440,6 +471,34 @@ def test_agentharm_inspect_bridge_preserves_native_score_and_judge_binding() -> 
         "semantic": "mockllm/semantic-judge",
     }
     assert str(row["grader_config_hash"]).startswith("sha256:")
+    assert row["official_run_metrics"]["scored_samples"] == 1
+    assert row["official_run_metrics"]["metrics"]["avg_score"] == 0.5
+    assert row["official_run_metrics"]["metrics"]["avg_refusals"] == 1.0
+    assert str(row["official_run_metrics"]["run_metrics_hash"]).startswith("sha256:")
+
+
+def test_agentharm_inspect_bridge_rejects_run_aggregate_mismatch() -> None:
+    payload = _inspect_payload(score=0.5, refusal=0.0)
+    payload["results"]["scores"][0]["metrics"]["avg_score"]["value"] = 1.0  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="aggregate metric mismatch"):
+        extract_agentharm_inspect_rows(
+            payload,
+            split="validation",
+            upstream_artifact_hash="sha256:aggregate-mismatch",
+        )
+
+
+def test_agentharm_inspect_bridge_rejects_missing_official_run_aggregate() -> None:
+    payload = _inspect_payload(score=0.5, refusal=0.0)
+    payload["results"]["scores"] = []  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="run aggregate"):
+        extract_agentharm_inspect_rows(
+            payload,
+            split="validation",
+            upstream_artifact_hash="sha256:aggregate-missing",
+        )
 
 
 def test_agentharm_inspect_bridge_rejects_successful_no_score_log() -> None:
