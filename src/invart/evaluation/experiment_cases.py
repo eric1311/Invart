@@ -229,6 +229,12 @@ def run_experiment_case(case: ExperimentCase, out_dir: Path) -> dict[str, Any]:
                 "risk": decision.risk,
                 "outcome": status,
                 "invocation_id": action.invocation_id,
+                "benchmark_case_id": action.metadata.get("benchmark_case_id"),
+                "benchmark_suite": action.metadata.get("benchmark_suite"),
+                "source_class": action.metadata.get("source_class"),
+                "source_file": action.metadata.get("source_file"),
+                "source_url": action.metadata.get("source_url"),
+                "sink": action.metadata.get("sink"),
             }
         )
     close_session(ledger)
@@ -425,6 +431,21 @@ def _event_from_trace_step(case: ExperimentCase, step: dict[str, Any], session_i
         "data_visibility": case.data_visibility,
         "skill_origin": case.skill_origin,
     }
+    for field_name in (
+        "benchmark_case_id",
+        "benchmark_suite",
+        "source_class",
+        "source_file",
+        "source_url",
+        "source_goal",
+        "source_functions",
+        "capability",
+        "resource",
+        "sink",
+        "operation",
+    ):
+        if step.get(field_name) is not None:
+            metadata[field_name] = step[field_name]
     payload = {"type": step["type"], "session_id": session_id, "metadata": metadata}
     for field_name in ("command", "path", "url", "tool", "skill", "content"):
         if step.get(field_name) is not None:

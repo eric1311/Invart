@@ -75,6 +75,7 @@ def test_kappaski_mentions_are_limited_to_compatibility_boundaries() -> None:
         "docs/api-sdk.md",
         "docs/architecture.md",
         "docs/open-source-boundary.md",
+        "docs/plans/2026-07-21-001-feat-invart-control-plane-evaluation-plan.md",
         "docs/html/api-sdk.html",
         "docs/html/architecture.html",
         "docs/html/open-source-boundary.html",
@@ -85,6 +86,8 @@ def test_kappaski_mentions_are_limited_to_compatibility_boundaries() -> None:
         "src/invart/core/env.py",
         "src/invart/evaluation/container_demo.py",
         "src/invart/evaluation/product_readiness.py",
+        "src/invart/evaluation/real_agent_benchmark/first_batch.py",
+        "src/invart/evaluation/real_agent_benchmark/swe_bridge.py",
         "src/kappaski/__init__.py",
         "src/kappaski/cli.py",
     }
@@ -93,6 +96,7 @@ def test_kappaski_mentions_are_limited_to_compatibility_boundaries() -> None:
         ".internal",
         ".invart",
         ".kappaski",
+        ".local",
         ".pytest_cache",
         ".venv",
         "__pycache__",
@@ -182,3 +186,20 @@ def test_public_docs_use_original_png_brand_assets() -> None:
     assert "assets/brand/png-from-original/invart-logo-horizontal-1600x800.png" in readme
     assert "../../assets/brand/png-from-original/invart-logo-docs-header-1200x400.png" in docs_index
     assert "../../assets/brand/png-from-original/invart-mark-from-original-64x64.png" in docs_index
+
+
+def test_proof_gate_generates_fresh_evidence_before_verification() -> None:
+    workflow = (_repo_root() / ".github" / "workflows" / "invart-proof-gate.yml").read_text(encoding="utf-8")
+    required_commands = (
+        "invart session start",
+        "invart runtime shell",
+        "invart session close",
+        "invart proof export",
+        "test -f .invart/proof.json",
+        "invart proof verify",
+        "invart gate verify",
+    )
+    positions = [workflow.index(command) for command in required_commands]
+    assert positions == sorted(positions)
+    assert "--policy-mode ci" in workflow
+    assert "--mode ci" in workflow

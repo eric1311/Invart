@@ -1,5 +1,6 @@
 .invart/
 .kappaski/
+.local/
 .internal/
 .pytest_cache/
 __pycache__/
