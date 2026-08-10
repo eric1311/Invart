@@ -17,6 +17,14 @@ jobs:
       - name: Install Invart
         run: python -m pip install -e .
 
+      - name: Generate proof and ledger
+        run: |
+          mkdir -p .invart
+          invart session start --target . --agent github-actions --goal "Exercise Invart proof gate" --session-id invart_ci_proof_gate --ledger .invart/ledger.jsonl --no-preflight
+          invart runtime shell --session invart_ci_proof_gate --ledger .invart/ledger.jsonl --agent github-actions --target . --policy-mode ci -- python3 -c 'print("invart proof gate")'
+          invart session close --ledger .invart/ledger.jsonl
+          invart proof export --ledger .invart/ledger.jsonl --out .invart/proof.json
+
       - name: Verify proof and ledger
         run: |
           test -f .invart/proof.json

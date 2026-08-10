@@ -186,3 +186,20 @@ def test_public_docs_use_original_png_brand_assets() -> None:
     assert "assets/brand/png-from-original/invart-logo-horizontal-1600x800.png" in readme
     assert "../../assets/brand/png-from-original/invart-logo-docs-header-1200x400.png" in docs_index
     assert "../../assets/brand/png-from-original/invart-mark-from-original-64x64.png" in docs_index
+
+
+def test_proof_gate_generates_fresh_evidence_before_verification() -> None:
+    workflow = (_repo_root() / ".github" / "workflows" / "invart-proof-gate.yml").read_text(encoding="utf-8")
+    required_commands = (
+        "invart session start",
+        "invart runtime shell",
+        "invart session close",
+        "invart proof export",
+        "test -f .invart/proof.json",
+        "invart proof verify",
+        "invart gate verify",
+    )
+    positions = [workflow.index(command) for command in required_commands]
+    assert positions == sorted(positions)
+    assert "--policy-mode ci" in workflow
+    assert "--mode ci" in workflow
